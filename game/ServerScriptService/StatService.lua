@@ -352,6 +352,7 @@ function StatService.UpdateHeadCard(player)
 		gui.PlayerToHideFrom = player -- your own card is in the corner of your screen
 		gui.Parent = head
 		local card = CardView.new(gui, { Compact = true, Size = UDim2.fromScale(1, 1) })
+		card:ShowPlayer(player.UserId)
 		entry = { Gui = gui, Card = card }
 		headCards[player] = entry
 		local humanoid = character:FindFirstChildOfClass("Humanoid")

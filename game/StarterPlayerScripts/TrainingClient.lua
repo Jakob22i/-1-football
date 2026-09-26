@@ -16,6 +16,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 local FKit = require(ReplicatedStorage:WaitForChild("FKit"))
 local DrillMath = require(ReplicatedStorage:WaitForChild("DrillMath"))
+local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
+local PlayerFigure = require(ReplicatedStorage:WaitForChild("PlayerFigure"))
 
 local TrainingClient = {}
 
@@ -57,6 +59,7 @@ local function localFolder()
 		f = Instance.new("Folder")
 		f.Name = "LocalDrill"
 		f.Parent = workspace
+		StudTexture.Watch(f)
 	end
 	return f
 end
@@ -92,32 +95,19 @@ local function makeBall(parent)
 	return m
 end
 
--- A blocky player figure (attackers, teammates, the keeper).
-local function makeFigure(parent, shirt, shorts)
-	local m = Instance.new("Model")
-	m.Name = "Figure"
-	local function add(name, size, offset, color, shape)
-		local p = lpart(m, { Name = name, Size = size, Color = color, CFrame = CFrame.new(offset) })
-		if shape then p.Shape = shape end
-		return p
-	end
-	local torso = add("Torso", Vector3.new(2, 2, 1), Vector3.new(0, 3, 0), shirt)
-	add("Head", Vector3.new(1.3, 1.3, 1.3), Vector3.new(0, 4.7, 0), Color3.fromRGB(255, 205, 160), Enum.PartType.Ball)
-	add("LeftArm", Vector3.new(0.9, 2, 1), Vector3.new(-1.5, 3, 0), shirt)
-	add("RightArm", Vector3.new(0.9, 2, 1), Vector3.new(1.5, 3, 0), shirt)
-	add("LeftLeg", Vector3.new(0.95, 2, 1), Vector3.new(-0.5, 1, 0), shorts or C.Ink)
-	add("RightLeg", Vector3.new(0.95, 2, 1), Vector3.new(0.5, 1, 0), shorts or C.Ink)
-	add("Number", Vector3.new(0.9, 0.9, 0.05), Vector3.new(0, 3.2, 0.53), C.White)
-	m.PrimaryPart = torso
-	m.Parent = parent
-	return m
+-- A footballer (attackers, teammates, the keeper): see PlayerFigure.
+local figureCount = 0
+local function makeFigure(parent, kit)
+	figureCount += 1
+	return PlayerFigure.Build(parent, kit, { Local = true, Seed = figureCount * 37 + math.random(0, 9) })
 end
 
-local function placeFigure(fig, pos, facing)
+-- Stands the figure on `pos` facing `facing`; with a stride it runs.
+local function placeFigure(fig, pos, facing, stride)
 	local flat = DrillMath.Flat(facing)
 	if flat.Magnitude < 0.01 then flat = Vector3.new(0, 0, -1) end
-	-- the figure's parts were made around (0, 3, 0); its pivot is the torso
-	fig:PivotTo(CFrame.lookAt(pos + Vector3.new(0, 3, 0), pos + Vector3.new(0, 3, 0) + flat))
+	-- the figure's pivot is the torso, 3 studs up
+	PlayerFigure.Pose(fig, CFrame.lookAt(pos + Vector3.new(0, 3, 0), pos + Vector3.new(0, 3, 0) + flat), stride)
 end
 
 local function highlight(model, color)
@@ -208,14 +198,15 @@ local function buildHud()
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -86), Size = UDim2.fromOffset(620, 36), RichText = true,
 	})
 
-	-- leave
-	hud.Leave = FKit.button(root, "\u{2715} LEAVE", FKit.Palette.red, {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(150, 50),
+	-- EXIT: in every drill, top right (or X on a keyboard); the server stops
+	-- the drill and puts you back on its start pad
+	hud.Leave = FKit.button(root, "\u{2715} EXIT", FKit.Palette.red, {
+		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(190, 64),
 	})
-	hud.Leave.Activated:Connect(function()
-		ctx.Sound("Click")
-		task.spawn(function() pcall(function() ctx.Remotes.Train:InvokeServer("Leave") end) end)
-	end)
+	hud.LeaveHint = FKit.text(hud.Leave, "PRESS X", 14, C.White, {
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.fromOffset(120, 18), ZIndex = 5,
+	})
+	hud.Leave.Activated:Connect(function() TrainingClient.Leave() end)
 
 	-- the big action button (a must on phones, handy with a mouse too)
 	local action, actionLabel = FKit.button(root, "SHOOT", FKit.Palette.orange, {
@@ -841,7 +832,7 @@ controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpda
 local function addAttackers(s, list)
 	s.Attackers = s.Attackers or {}
 	for _, att in ipairs(list) do
-		local fig = makeFigure(localFolder(), Color3.fromRGB(230, 40, 50), C.White)
+		local fig = makeFigure(localFolder(), PlayerFigure.Kits.Attacker)
 		local ball = makeBall(localFolder())
 		s.Attackers[att.Id] = { Data = att, Figure = fig, Ball = ball }
 		placeFigure(fig, att.Start, att.End - att.Start)
@@ -874,7 +865,7 @@ local function updateAttackers(s)
 		local d = a.Data
 		local pos = DrillMath.AttackerPos(d, now)
 		local ahead = DrillMath.AttackerPos(d, now + 0.1)
-		placeFigure(a.Figure, pos, ahead - pos)
+		placeFigure(a.Figure, pos, ahead - pos, now >= d.T0 and now * 11 or nil)
 		local dir = DrillMath.Flat(ahead - pos)
 		local lead = dir.Magnitude > 0.01 and dir.Unit * 1.8 or Vector3.zero
 		a.Ball:PivotTo(CFrame.new(pos + lead + Vector3.new(0, 0.8, 0)) * CFrame.Angles(now * 8, 0, 0))
@@ -1133,7 +1124,7 @@ controllers.Match = {
 				shootSetup(s, data.Spot, data.Goal, data.GoalWidth, data.GoalHeight, data.Green)
 				s.CanShoot = true
 				s.Keeper = data.Keeper
-				s.KeeperFigure = makeFigure(localFolder(), Color3.fromRGB(60, 220, 90), C.Ink)
+				s.KeeperFigure = makeFigure(localFolder(), PlayerFigure.Kits.Keeper)
 				table.insert(s.MomentParts, s.KeeperFigure)
 				table.insert(s.MomentParts, s.Reticle)
 			elseif data.Type == "Pass" then
@@ -1141,7 +1132,7 @@ controllers.Match = {
 				passSetup(s, data.Spot, forward, data.MaxDistance)
 				s.Targets = {}
 				for i, pos in ipairs(data.Teammates) do
-					local fig = makeFigure(localFolder(), Color3.fromRGB(40, 120, 255), C.White)
+					local fig = makeFigure(localFolder(), PlayerFigure.Kits.Teammate)
 					placeFigure(fig, pos, data.Spot - pos)
 					table.insert(s.MomentParts, fig)
 					table.insert(s.Targets, { Id = i, Kind = "Dummy", Pos = pos, Model = fig })
@@ -1191,6 +1182,17 @@ controllers.Match = {
 -- Session start / stop and input
 --------------------------------------------------------------------------------
 
+-- Leave the drill you are in (the EXIT button or X).
+function TrainingClient.Leave()
+	if not S or S.Leaving then return end
+	local s = S
+	s.Leaving = true
+	ctx.Sound("Click")
+	task.spawn(function() pcall(function() ctx.Remotes.Train:InvokeServer("Leave") end) end)
+	-- if the server never answered, the button works again
+	task.delay(2, function() s.Leaving = nil end)
+end
+
 local function stopSession()
 	local s = S
 	if not s then return end
@@ -1214,6 +1216,7 @@ local function startSession(data)
 	hud.Info.Text = ""
 	setXPBar(data.Stat)
 	hud.Action.Visible = ctl.Action ~= nil
+	hud.LeaveHint.Visible = not touchOnly()
 	if ctl.Action then hud.ActionLabel.Text = ctl.Action end
 	local title = Config.Drills[data.Kind] and Config.Drills[data.Kind].Title or data.Kind
 	local area = Config.Areas[data.Area]
@@ -1272,6 +1275,10 @@ function TrainingClient.Init(c)
 		if gameProcessed then return end
 		lastTouch = nil
 		local key = input.KeyCode
+		if key == Enum.KeyCode.X then
+			TrainingClient.Leave()
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or key == Enum.KeyCode.Space or key == Enum.KeyCode.F
 			or key == Enum.KeyCode.ButtonR2 or key == Enum.KeyCode.ButtonA then
 			if S.Kind == "Speed" or S.Kind == "Dribbling" then return end

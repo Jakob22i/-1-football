@@ -1020,14 +1020,23 @@ function ExportParts(root, tag)
 			if cls == "MeshPart" and props.Name == "Head" then meshType = "Head" end
 			local mat = props.Material and props.Material.Name or "Plastic"
 			local lights = 0
+			local surf = surfaces(props)
+			local studScale = (rawget(p, "__attrs") or {}).StudScale or 1
+			local faceIndex = { Top = 1, Bottom = 2, Front = 3, Back = 4, Left = 5, Right = 6 }
 			for _, ch in ipairs(rawget(p, "__children")) do
 				if INST.IsA(ch, "Light") then lights = math.max(lights, (ch.__props.Brightness or 1) * (ch.__props.Range or 8)) end
+				-- the Baseplate squares (StudTexture): drawn as a Studs face with the tile
+				if rawget(ch, "__class") == "Texture" and ch.__props.Name == "StudTexture" and not ch.__props.__destroyed then
+					local i = faceIndex[ch.__props.Face and ch.__props.Face.Name or "Front"]
+					if i then surf = surf:sub(1, i - 1) .. "S" .. surf:sub(i + 1) end
+					studScale = (ch.__props.StudsPerTileU or 4) / 4
+				end
 			end
 			print(table.concat({ "P", tag or "", props.Name,
 				num(c[1]), num(c[2]), num(c[3]), num(c[4]), num(c[5]), num(c[6]), num(c[7]), num(c[8]), num(c[9]), num(c[10]), num(c[11]), num(c[12]),
 				num(s.x), num(s.y), num(s.z), color(props.Color or c3(0.6, 0.6, 0.6)), num(props.Transparency or 0), mat, shape, meshType,
-				num(meshScale.x) .. "," .. num(meshScale.y) .. "," .. num(meshScale.z), num(lights), num(props.Reflectance or 0), surfaces(props),
-				num((rawget(p, "__attrs") or {}).StudScale or 1) }, "\t"))
+				num(meshScale.x) .. "," .. num(meshScale.y) .. "," .. num(meshScale.z), num(lights), num(props.Reflectance or 0), surf,
+				num(studScale) }, "\t"))
 		end
 	end
 	-- Billboard signs: adornee position + first title text

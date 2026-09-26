@@ -400,7 +400,7 @@ local function buildStadium(parent, records)
 	-- the pitch with stripes and lines
 	for i = 0, 13 do
 		local x = -length / 2 + (i + 0.5) * length / 14
-		patch(folder, "Grass", length / 14 + 0.02, width + 8, pitchCF * CFrame.new(0, 0, x), (i % 2 == 0) and COL.Grass or COL.GrassLight, Enum.Material.Grass, 0.25)
+		patch(folder, "Grass", width + 8, length / 14 + 0.02, pitchCF * CFrame.new(0, 0, x), (i % 2 == 0) and COL.Grass or COL.GrassLight, Enum.Material.Grass, 0.25)
 	end
 	local function p(x, z) return (pitchCF * CFrame.new(x, 0, z)).Position end
 	-- touchlines and halfway line (pitch space: x across, z along; the far goal is at z = -length/2)
@@ -480,16 +480,85 @@ end
 -- Scenery
 --------------------------------------------------------------------------------
 
-local function tree(parent, at, size)
+-- A leafy tree: a trunk that reaches into a crown of overlapping leaf
+-- balls, a few branches, roots at the foot.
+local function leafyTree(parent, at, size, rnd)
 	local m = Instance.new("Model")
 	m.Name = "Tree"
 	m.Parent = parent
-	cylinder(m, "Trunk", 5 * size, 1.4 * size, at, rgb(110, 76, 44), Enum.Material.Wood)
-	ball(m, "Leaves", 8 * size, at + V(0, 7 * size, 0), rgb(56, 150, 60), Enum.Material.Grass)
-	ball(m, "Leaves", 6 * size, at + V(1.6 * size, 9 * size, 0.8 * size), rgb(70, 170, 70), Enum.Material.Grass)
+	local bark = rgb(104, 70, 42)
+	local trunkH = 9 * size
+	cylinder(m, "Trunk", trunkH, 1.7 * size, at, bark, Enum.Material.Wood)
+	for i = 0, 3 do
+		local a = math.rad(i * 90 + 45)
+		local d = V(math.cos(a), 0, math.sin(a))
+		part(m, "Root", V(0.8 * size, 0.7 * size, 2.2 * size), CFrame.lookAt(at + d * 1.1 * size + V(0, 0.3 * size, 0), at + d * 3 * size) * CFrame.Angles(math.rad(-12), 0, 0), bark, Enum.Material.Wood)
+	end
+	for _, b in ipairs({ { 1, 5.8 }, { -1, 6.8 } }) do
+		local from = at + V(0, b[2] * size, 0)
+		MapKit.rod(m, "Branch", from, from + V(b[1] * 2.6 * size, 2.2 * size, 0.6 * size), 0.7 * size, bark, Enum.Material.Wood)
+	end
+	local greens = { rgb(46, 132, 52), rgb(58, 152, 60), rgb(74, 170, 70), rgb(40, 120, 48) }
+	local top = at + V(0, trunkH, 0)
+	ball(m, "Leaves", 9 * size, top, greens[2], Enum.Material.Grass)
+	for i = 1, 5 do
+		local a = rnd() * math.pi * 2
+		local r = (2.6 + rnd() * 1.2) * size
+		local off = V(math.cos(a) * r, (-1.2 + rnd() * 2.6) * size, math.sin(a) * r)
+		ball(m, "Leaves", (5.5 + rnd() * 2.5) * size, top + off, greens[1 + (i % #greens)], Enum.Material.Grass)
+	end
+	ball(m, "Leaves", 6 * size, top + V(0, 3.2 * size, 0), greens[3], Enum.Material.Grass)
+	return m
+end
+
+-- A pine: a trunk and four square tiers, each smaller and turned a little.
+local function pineTree(parent, at, size)
+	local m = Instance.new("Model")
+	m.Name = "Tree"
+	m.Parent = parent
+	cylinder(m, "Trunk", 5 * size, 1.4 * size, at, rgb(96, 64, 40), Enum.Material.Wood)
+	local greens = { rgb(30, 104, 60), rgb(36, 118, 66), rgb(44, 132, 72), rgb(54, 146, 80) }
+	local y = 3.2 * size
+	for i = 1, 4 do
+		local w = (9.5 - i * 1.9) * size
+		local h = 2.6 * size
+		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)) * CFrame.Angles(0, math.rad(i * 22), 0), greens[i], Enum.Material.Grass)
+		y += h * 0.78
+	end
+	part(m, "Needles", V(1.2 * size, 1.6 * size, 1.2 * size), CFrame.new(at + V(0, y + 0.8 * size, 0)) * CFrame.Angles(0, math.rad(45), 0), greens[4], Enum.Material.Grass)
+	return m
+end
+
+-- Where everything else stands, seen from above (x0, z0, x1, z1), so no tree
+-- grows through a stand, a pitch or a path.
+local function footprints(root)
+	local boxes = {}
+	for _, p in ipairs(root:GetDescendants()) do
+		if p:IsA("BasePart") and p.Name ~= "Baseplate" then
+			local cf, size = p.CFrame, p.Size
+			local r = cf.RightVector * size.X / 2
+			local u = cf.UpVector * size.Y / 2
+			local b = cf.LookVector * size.Z / 2
+			local hx = math.abs(r.X) + math.abs(u.X) + math.abs(b.X)
+			local hz = math.abs(r.Z) + math.abs(u.Z) + math.abs(b.Z)
+			local pos = cf.Position
+			table.insert(boxes, { pos.X - hx, pos.Z - hz, pos.X + hx, pos.Z + hz })
+		end
+	end
+	return boxes
+end
+
+local function clearOf(boxes, pos, margin)
+	for _, b in ipairs(boxes) do
+		if pos.X > b[1] - margin and pos.X < b[3] + margin and pos.Z > b[2] - margin and pos.Z < b[4] + margin then
+			return false
+		end
+	end
+	return true
 end
 
 local function scatterTrees(parent)
+	local boxes = footprints(parent)
 	local folder = Instance.new("Folder")
 	folder.Name = "Trees"
 	folder.Parent = parent
@@ -498,15 +567,20 @@ local function scatterTrees(parent)
 		seed = (seed * 1103515245 + 12345) % 2147483648
 		return seed / 2147483648
 	end
+	-- the big areas, including the parts of them that are only painted lines
+	-- on the grass (the stadium pitch)
 	local keepClear = {
 		{ V(0, 0, 0), 90 }, { V(0, 0, -178), 90 }, { dir(-30) * 150, 45 }, { dir(30) * 150, 55 }, { V(0, 0, 150), 45 },
 		{ dir(150) * 160, 55 }, { dir(210) * 160, 55 }, { V(56, 0, -100), 40 }, { V(-340, 0, 0), 120 }, { V(-230, 0, 0), 40 },
 	}
+	local planted = {}
 	local count = 0
-	for _ = 1, 400 do
-		if count >= 70 then break end
-		local pos = V(-560 + rnd() * 760, 0, -360 + rnd() * 720)
-		local ok = pos.X < 190 and math.abs(pos.Z) > 12
+	for _ = 1, 1500 do
+		if count >= 80 then break end
+		local pos = V(-600 + rnd() * 800, 0, -380 + rnd() * 760)
+		local size = 0.8 + rnd() * 0.6
+		local pine = rnd() < 0.4
+		local ok = pos.X < 190 and clearOf(boxes, pos, 10 * size)
 		for _, zone in ipairs(keepClear) do
 			if (pos - zone[1]).Magnitude < zone[2] then
 				ok = false
@@ -514,7 +588,16 @@ local function scatterTrees(parent)
 			end
 		end
 		if ok then
-			tree(folder, pos, 0.8 + rnd() * 0.7)
+			for _, other in ipairs(planted) do
+				if (other - pos).Magnitude < 16 then
+					ok = false
+					break
+				end
+			end
+		end
+		if ok then
+			if pine then pineTree(folder, pos, size) else leafyTree(folder, pos, size, rnd) end
+			table.insert(planted, pos)
 			count += 1
 		end
 	end

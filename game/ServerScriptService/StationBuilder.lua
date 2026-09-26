@@ -7,6 +7,7 @@
 -- version for the academies), Color.
 
 local MapKit = require(script.Parent:WaitForChild("MapKit"))
+local PlayerFigure = require(game:GetService("ReplicatedStorage"):WaitForChild("PlayerFigure"))
 
 local part, patch, line, cylinder, rod, ball, disc = MapKit.part, MapKit.patch, MapKit.line, MapKit.cylinder, MapKit.rod, MapKit.ball, MapKit.disc
 local COL = MapKit.Colors
@@ -81,17 +82,18 @@ local function goal(parent, goalCF, width, height, depth, color)
 end
 StationBuilder.Goal = goal
 
--- A training dummy (the passing targets and the defending attackers look
--- like this too).
-local function dummy(parent, at, color)
-	local m = Instance.new("Model")
-	m.Name = "Dummy"
-	m.Parent = parent
-	disc(m, "Base", at, 3, COL.NavyDark, 0.4, Enum.Material.SmoothPlastic)
-	cylinder(m, "Pole", 3, 0.5, at + V(0, 0.4, 0), COL.Metal, Enum.Material.Metal)
-	part(m, "Body", V(2.2, 2.6, 1.1), CFrame.new(at + V(0, 4.5, 0)), color or rgb(255, 210, 40), Enum.Material.SmoothPlastic)
-	ball(m, "Head", 1.7, at + V(0, 6.6, 0), color or rgb(255, 210, 40), Enum.Material.SmoothPlastic)
-	m.PrimaryPart = m:FindFirstChild("Body")
+-- A training dummy: a footballer in a yellow bib on a round base, facing
+-- `lookAt` (the passer).
+local function dummy(parent, at, lookAt, seed)
+	local base = Instance.new("Model")
+	base.Name = "DummyStand"
+	base.Parent = parent
+	disc(base, "Base", at, 3.4, COL.NavyDark, 0.4, Enum.Material.SmoothPlastic)
+	local m = PlayerFigure.Build(parent, PlayerFigure.Kits.Dummy, { Name = "Dummy", Seed = seed })
+	local torso = at + V(0, 3.4, 0)
+	local facing = flat((lookAt or (at + V(0, 0, 1))) - at)
+	if facing.Magnitude < 0.01 then facing = V(0, 0, 1) end
+	PlayerFigure.Pose(m, CFrame.lookAt(torso, torso + facing.Unit))
 	return m
 end
 StationBuilder.Dummy = dummy
@@ -156,7 +158,7 @@ function StationBuilder.Passing(parent, cf, opts)
 		pos = V(pos.X, 0, pos.Z)
 		local target = { Id = i, Kind = spec[1], Pos = pos }
 		if spec[1] == "Dummy" then
-			target.Model = dummy(model, pos, rgb(255, 214, 60))
+			target.Model = dummy(model, pos, V(cf.Position.X, 0, cf.Position.Z), i * 17)
 		else
 			-- a hoop on a stand, facing the passer
 			local hoop = Instance.new("Model")

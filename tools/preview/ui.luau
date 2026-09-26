@@ -40,7 +40,7 @@ local Players = game:GetService("Players")
 local plr = newInstance("Player")
 plr.Name = "Jakob"
 plr.DisplayName = "Jakob"
-plr.UserId = 1
+plr.UserId = tonumber(USERID) or 1 -- USERID=0: a Studio test player (no avatar picture)
 plr.Parent = Players
 local rig = MockRig(nil)
 rig.Name = "Jakob"

@@ -837,7 +837,13 @@ function TrainingService.Init(remotes, records)
 	end
 	remotes.Train.OnServerInvoke = function(player, action, ...)
 		if action == "Leave" then
+			-- the EXIT button: stop, then stand back on the drill's start pad
+			local session = sessions[player]
+			local anchor = session and session.Station and session.Station.Prompt and session.Station.Prompt.Parent
 			TrainingService.End(player, "leave")
+			if anchor and anchor:IsA("BasePart") then
+				placeAt(player, CFrame.new(anchor.Position + Vector3.new(0, 1, 0)))
+			end
 			return true
 		end
 		local session = sessions[player]

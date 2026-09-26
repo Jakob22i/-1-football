@@ -19,7 +19,7 @@ empty baseplate.
    python3 tools/build_place.py "Football_Stars.rbxlx" "Football Stars.rbxlx"
    ```
 
-   It puts the 21 scripts in their services, removes the template
+   It puts the 23 scripts in their services, removes the template
    SpawnLocation (the map has its own), and checks every script byte for byte.
 2. Open `Football Stars.rbxlx` in Studio and press **Play**.
 3. **Game Settings → Security → Enable Studio Access to API Services**, so
@@ -99,10 +99,29 @@ LEGEND cards and seasons can never be bought.
   Style, Shop, with badges when something is ready
 - chips top left: your XP multiplier, the 2x boost timer, the streak
 - while training: the XP bar bottom centre, +XP pops, the drill controls and a
-  LEAVE button top right
+  big EXIT button top right (or **X** on a keyboard) that stops the drill and
+  puts you back on its start pad
+
+Every card (the corner card, My Card, the upgrade moment and the small card
+over each player's head) shows that player's own Roblox avatar, head and
+shoulders. A Studio test player with no avatar picture gets a copy of their
+character instead.
 
 Everything scales down on small screens. Rough preview pictures (drawn
 without Studio, so flat colours and emoji as words) are in `images/`.
+
+## The look
+
+- **The texture**: every part the game builds wears Roblox's Baseplate squares
+  (`Config.Texture` in `FootballConfig.lua`: the image id, colour,
+  transparency and studs per tile). Characters never get it: players, the
+  crowd, the drill players and the dummies. Neither do glass, glows, nets and
+  parts under 2 studs.
+- **The drill players** (the attackers you tackle, the keeper, your
+  teammates in the stadium and the passing dummies) are footballers with hair,
+  a face, a kit with a trim and a number on the back, socks and boots; the
+  attackers swing their arms and legs as they run (`PlayerFigure.lua`).
+- **Trees**: leafy trees and pines, kept clear of every stand, pitch and path.
 
 ## Things you will want to change
 
@@ -117,6 +136,8 @@ game/ReplicatedStorage      FootballConfig  all the numbers
                             FKit            the UI kit (buttons, panels, bars)
                             CardView        the player card
                             DrillMath       maths shared by server and client
+                            PlayerFigure    the footballers in the drills
+                            StudTexture     the Baseplate squares on everything
                             FootballSounds  the sound sprite and fallbacks
 game/ServerScriptService    Main            remotes, map, services, players
                             DataService     saving (retries, autosave 60 s)

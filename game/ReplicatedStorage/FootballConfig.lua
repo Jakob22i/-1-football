@@ -136,6 +136,23 @@ end
 -- Walking speed: Pace makes you faster everywhere
 --------------------------------------------------------------------------------
 
+-- The texture on everything except the characters: Roblox's own Baseplate
+-- squares (a grid of rounded squares, one every 8 studs). Id, colour and
+-- transparency are the ones the Baseplate template uses.
+Config.Texture = {
+	Id = "rbxassetid://6372755229",
+	Color = Color3.new(0, 0, 0),
+	Transparency = 0.8,
+	StudsPerTile = 8,
+	-- parts smaller than this (studs, biggest side) stay plain: a bolt or a
+	-- seat is too small to show a square
+	MinSize = 2,
+	-- see-through parts (glass, nets, glows) stay plain
+	MaxTransparency = 0.25,
+	-- people, not things: the crowd, the drill players, the dummies
+	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true },
+}
+
 Config.Speed = {
 	Base = 16,
 	PerPace = 0.22,   -- +0.22 walk speed per Pace level above 60 (99 -> about 24.6)

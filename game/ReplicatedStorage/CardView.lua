@@ -204,7 +204,20 @@ function CardView.new(parent, opts)
 		vp.CurrentCamera = cam
 		self.Viewport, self.Camera = vp, cam
 	end
-	-- a simple silhouette when there is no avatar (or on the head cards)
+	-- the player's own avatar, head and shoulders (ShowPlayer)
+	self.Photo = new("ImageLabel", {
+		Name = "Photo",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 1),
+		Size = UDim2.fromScale(1, 1),
+		ScaleType = Enum.ScaleType.Crop,
+		Image = "",
+		Visible = false,
+		ZIndex = z + 2,
+		Parent = window,
+	})
+	-- a simple silhouette until the avatar is there
 	self.Silhouette = frame(window, { Name = "Silhouette", Size = UDim2.fromScale(1, 1), ZIndex = z + 2, Visible = not opts.Viewport })
 	local head = frame(self.Silhouette, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.16), Size = UDim2.fromScale(0.3, 0.36),
@@ -455,6 +468,19 @@ function CardView:Animate(t)
 	end
 end
 
+-- Puts the player's own Roblox avatar on the card (head and shoulders, like
+-- a real player card). Works on every card, the ones over players' heads
+-- too. A test player in Studio has no avatar picture (UserId 0 or below),
+-- so those cards fall back to ShowCharacter.
+function CardView:ShowPlayer(userId)
+	if not (userId and userId > 0) then return false end
+	self.Photo.Image = ("rbxthumb://type=AvatarBust&id=%d&w=420&h=420"):format(userId)
+	self.Photo.Visible = true
+	self.Silhouette.Visible = false
+	if self.Viewport then self.Viewport.Visible = false end
+	return true
+end
+
 -- Puts a copy of a character in the card's avatar window, head and
 -- shoulders.
 function CardView:ShowCharacter(character)
@@ -483,6 +509,8 @@ function CardView:ShowCharacter(character)
 	end
 	copy:PivotTo(CFrame.new(0, 0, 0))
 	copy.Parent = self.Viewport
+	self.Viewport.Visible = true
+	self.Photo.Visible = false
 	local focus = head.Position + Vector3.new(0, -0.9, 0)
 	cam.CFrame = CFrame.lookAt(focus + Vector3.new(-1.2, 0.6, -7.4), focus)
 	self.Silhouette.Visible = false

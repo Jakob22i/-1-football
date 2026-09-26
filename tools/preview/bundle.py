@@ -15,6 +15,8 @@ LUAU = os.environ.get("LUAU", "luau")
 
 MODULES = [
     "ReplicatedStorage/FootballConfig.lua",
+    "ReplicatedStorage/StudTexture.lua",
+    "ReplicatedStorage/PlayerFigure.lua",
     "ReplicatedStorage/FKit.lua",
     "ReplicatedStorage/CardView.lua",
     "ReplicatedStorage/FootballSounds.lua",

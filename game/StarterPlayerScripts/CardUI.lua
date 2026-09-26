@@ -57,7 +57,10 @@ function CardUI.Holder()
 	return holder
 end
 
+-- Your avatar on a card: your Roblox avatar picture, or (a Studio test
+-- player with no picture) a copy of your character.
 function CardUI.ShowAvatar(view)
+	if view:ShowPlayer(player.UserId) then return end
 	local character = player.Character
 	if character then view:ShowCharacter(character) end
 end
@@ -102,6 +105,7 @@ function CardUI.Init(c)
 		if ctx.OpenMenu then ctx.OpenMenu("Card") end
 	end)
 
+	CardUI.ShowAvatar(card)
 	local function avatar()
 		task.wait(1.2)
 		CardUI.ShowAvatar(card)
