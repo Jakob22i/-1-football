@@ -664,6 +664,15 @@ local PASS_LOOK = {
 	VIP = { "\u{1F451}", { Color3.fromRGB(255, 200, 255), Color3.fromRGB(190, 60, 230) } },
 	AutoTrain = { "\u{1F916}", { Color3.fromRGB(150, 240, 255), Color3.fromRGB(20, 140, 230) } },
 	Cosmetics = { "\u{1F3A8}", { Color3.fromRGB(255, 170, 200), Color3.fromRGB(230, 50, 120) } },
+	SpeedBoots = { "\u{1F45F}", { Color3.fromRGB(170, 255, 170), Color3.fromRGB(30, 170, 80) } },
+}
+
+-- the XP packs: icon and colours
+local PACK_LOOK = {
+	Boost60 = { "stopwatch", { Color3.fromRGB(255, 180, 120), Color3.fromRGB(240, 90, 30) } },
+	StatPoint3 = { "plus", { Color3.fromRGB(140, 230, 255), Color3.fromRGB(30, 130, 240) } },
+	TrainingPack = { "star", { Color3.fromRGB(200, 255, 140), Color3.fromRGB(60, 180, 60) } },
+	MegaPack = { "diamond", { Color3.fromRGB(230, 170, 255), Color3.fromRGB(140, 50, 240) } },
 }
 
 local pickedStat -- the stat the +1 Stat Point goes to
@@ -677,7 +686,7 @@ function WINDOWS.Shop.Build(page)
 		local pass = Config.Gamepasses[key]
 		local look = PASS_LOOK[key]
 		local ownedPass = attr("Pass_" .. key, false)
-		local tile = box(passes, { Size = UDim2.new(0.25, -6, 1, 0), LayoutOrder = i }, look[2], 16)
+		local tile = box(passes, { Size = UDim2.new(1 / #Config.PassOrder, -7, 1, 0), LayoutOrder = i }, look[2], 16)
 		Icons.new(tile, Icons.FromEmoji(look[1]), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(44, 44), ZIndex = tile.ZIndex })
 		FKit.fit(tile, pass.Name, 19, C.White, { Position = UDim2.fromOffset(6, 50), Size = UDim2.new(1, -12, 0, 24) })
 		bodyText(tile, pass.Line, 15, C.White, { Position = UDim2.fromOffset(6, 76), Size = UDim2.new(1, -12, 0, 68), TextYAlignment = Enum.TextYAlignment.Top })
@@ -685,6 +694,7 @@ function WINDOWS.Shop.Build(page)
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
 		withIcon(b, priceLabel, ownedPass and "check" or "coin")
+		if not ownedPass then FKit.shine(b, 2 + i * 0.4) end
 		if ownedPass then
 			b.Active = false
 		else
@@ -708,6 +718,7 @@ function WINDOWS.Shop.Build(page)
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 	})
 	withIcon(boostButton, boostPrice, "coin")
+	FKit.shine(boostButton, 2.6)
 	boostButton.Activated:Connect(function()
 		ctx.Sound("Click")
 		ask("BuyProduct", "Boost15")
@@ -770,8 +781,38 @@ function WINDOWS.Shop.Build(page)
 		ask("BuyProduct", "StatPoint", pickedStat)
 	end)
 
+	-- XP packs: four tiles with a tag on the best ones
+	heading(list, "XP PACKS", 5)
+	local packs = new("Frame", { Size = UDim2.new(1, 0, 0, 176), BackgroundTransparency = 1, LayoutOrder = 6, Parent = list })
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = packs })
+	for i, key in ipairs(Config.PackOrder) do
+		local product = Config.Products[key]
+		local look = PACK_LOOK[key]
+		local tile = box(packs, { Size = UDim2.new(1 / #Config.PackOrder, -6, 1, 0), LayoutOrder = i }, look[2], 16)
+		FKit.fallingBlocks(tile, { Max = 3, Every = 1.1, Transparency = 0.6, Corner = 16, ZIndex = tile.ZIndex })
+		local icon = Icons.new(tile, look[1], { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(40, 40), ZIndex = tile.ZIndex + 1 })
+		FKit.pulse(icon, 0.08, 0.8 + i * 0.1)
+		FKit.fit(tile, product.Name, 18, C.White, { Position = UDim2.fromOffset(6, 48), Size = UDim2.new(1, -12, 0, 22), ZIndex = tile.ZIndex + 1 })
+		bodyText(tile, product.Line, 13, C.White, { Position = UDim2.fromOffset(6, 72), Size = UDim2.new(1, -12, 0, 48), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = tile.ZIndex + 1 })
+		local b, priceLabel = candy(tile, tostring(product.Price), "green", {
+			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 40), ZIndex = tile.ZIndex + 2,
+		})
+		withIcon(b, priceLabel, "coin", 28)
+		FKit.shine(b, 1.8 + i * 0.5)
+		b.Activated:Connect(function()
+			ctx.Sound("Click")
+			ask("BuyProduct", key)
+		end)
+		if product.Tag then
+			local tag = FKit.tag(tile, product.Tag, product.Tag == "HOT" and { Color3.fromRGB(255, 150, 90), Color3.fromRGB(230, 40, 40) } or nil, {
+				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -18, 0, 4), ZIndex = tile.ZIndex + 4,
+			})
+			FKit.wobble(tag, 7, 0.6)
+		end
+	end
+
 	bodyText(list, "\u{1F6E1} Fair play: LEGEND cards and Seasons can never be bought. You earn them by training!", 16, Color3.fromRGB(200, 220, 255), {
-		Size = UDim2.new(1, 0, 0, 44), LayoutOrder = 5,
+		Size = UDim2.new(1, 0, 0, 44), LayoutOrder = 7,
 	})
 
 	return function()
@@ -856,6 +897,7 @@ local function buildWindow()
 	})
 	MenusUI.Fit(holder, 740, 540)
 	panel = FKit.panel(holder, { Size = UDim2.fromScale(1, 1), ZIndex = 2 }, 22)
+	FKit.fallingBlocks(panel, { Corner = 22, ZIndex = 2 })
 	local header = new("Frame", { Name = "Header", Position = UDim2.fromOffset(10, -22), Size = UDim2.new(0, 330, 0, 58), BackgroundColor3 = C.White, ZIndex = 3, Parent = panel })
 	FKit.corner(header, 16)
 	FKit.gradient(header, { C.Gold, C.GoldDark }, 90)
@@ -865,10 +907,10 @@ local function buildWindow()
 		Position = UDim2.fromOffset(58, 6), Size = UDim2.new(1, -66, 1, -12), ZIndex = 4, TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	local close = candy(panel, "\u{2715}", "red", {
-		Name = "Close", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(58, 58), ZIndex = 4,
+		Name = "Close", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(48, 48), ZIndex = 4,
 	})
 	close.Label.Text = ""
-	Icons.new(close, "cross", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(38, 38), ZIndex = close.ZIndex + 2 })
+	Icons.new(close, "cross", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.48), Size = UDim2.fromOffset(30, 30), ZIndex = close.ZIndex + 2 })
 	close.Activated:Connect(MenusUI.Close)
 	page = new("Frame", { Name = "Page", Position = UDim2.fromOffset(20, 50), Size = UDim2.new(1, -40, 1, -64), BackgroundTransparency = 1, ZIndex = 3, Parent = panel })
 end
@@ -889,7 +931,7 @@ local MENU = {
 
 local function buildMenu()
 	local menu = new("Frame", {
-		Name = "Menu", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 30), Size = UDim2.fromOffset(168, 340),
+		Name = "Menu", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 30), Size = UDim2.fromOffset(138, 284),
 		BackgroundTransparency = 1, ZIndex = 5, Parent = gui,
 	})
 	MenusUI.Fit(menu, 900, 600)
@@ -899,19 +941,19 @@ local function buildMenu()
 		local col, row = (i - 1) % 2, (i - 1) // 2
 		local b, label = candy(menu, text, palette, {
 			Name = key,
-			Position = UDim2.fromOffset(wide and 0 or col * 88, row * 86),
-			Size = UDim2.fromOffset(wide and 168 or 80, 80),
+			Position = UDim2.fromOffset(wide and 0 or col * 72, row * 72),
+			Size = UDim2.fromOffset(wide and 138 or 66, wide and 56 or 66),
 		})
 		if not wide then
-			label.Position = UDim2.new(0, 4, 1, -30)
-			label.Size = UDim2.new(1, -8, 0, 22)
-			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 17
-			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 5), Size = UDim2.fromOffset(42, 42), ZIndex = b.ZIndex + 1 })
+			label.Position = UDim2.new(0, 3, 1, -23)
+			label.Size = UDim2.new(1, -6, 0, 17)
+			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 14
+			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(36, 36), ZIndex = b.ZIndex + 1 })
 		else
-			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -2), Size = UDim2.fromOffset(50, 50), ZIndex = b.ZIndex + 1 })
-			label.Position = UDim2.fromOffset(62, 1)
-			label.Size = UDim2.new(1, -70, 1, -4)
-			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 30
+			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, -1), Size = UDim2.fromOffset(40, 40), ZIndex = b.ZIndex + 1 })
+			label.Position = UDim2.fromOffset(52, 1)
+			label.Size = UDim2.new(1, -58, 1, -4)
+			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 24
 		end
 		local badge = new("Frame", {
 			Name = "Badge", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -6, 0, 6), Size = UDim2.fromOffset(30, 30),

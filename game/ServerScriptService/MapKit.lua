@@ -38,6 +38,7 @@ function MapKit.part(parent, name, size, cf, color, material, props)
 	p.Material = material or Enum.Material.SmoothPlastic
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.CanTouch = false -- nothing listens for touches on the map
 	for k, v in pairs(props or {}) do p[k] = v end
 	p.Parent = parent
 	return p
@@ -194,9 +195,9 @@ end
 
 -- A glowing START pad: a disc, a ring and a floating label.
 function MapKit.startPad(parent, at, color, text)
-	local pad = MapKit.disc(parent, "StartPad", at, 6, color or COL.Gold, 0.3, Enum.Material.Neon, { CanCollide = false })
-	pad.Transparency = 0.25
-	MapKit.ring(parent, "PadRing", at, 3.6, 0.5, COL.White, 24, 0.32, 0.06, Enum.Material.Neon)
+	-- a white rim under a coloured disc (two parts, not a ring of 24)
+	MapKit.disc(parent, "PadRing", at, 8, COL.White, 0.3, Enum.Material.Neon, { CanCollide = false, CanQuery = false, CanTouch = false })
+	local pad = MapKit.disc(parent, "StartPad", at, 6.6, color or COL.Gold, 0.36, Enum.Material.Neon, { CanCollide = false, CanTouch = false })
 	local anchor = part(parent, "PadLabel", Vector3.new(1, 1, 1), CFrame.new(at + Vector3.new(0, 5.5, 0)), COL.White,
 		Enum.Material.SmoothPlastic, { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
 	local gui = Instance.new("BillboardGui")

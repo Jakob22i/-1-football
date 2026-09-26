@@ -24,6 +24,7 @@ local MapBuilder = {}
 
 local PLAZA_RADIUS = 56
 local STAND_DEPTH = 13
+local ACADEMY_SCALE = 0.8
 
 local STAT_COLOR = {}
 for stat, def in pairs(Config.Stats) do STAT_COLOR[stat] = def.Color end
@@ -103,6 +104,7 @@ local function floodlight(parent, at)
 				light.Range = 60
 				light.Brightness = 2
 				light.Face = Enum.NormalId.Front
+				light.Shadows = false -- shadow-casting lights are expensive
 				light.Parent = lamp
 			end
 		end
@@ -142,12 +144,14 @@ local function buildPlaza(parent)
 	plaza.Parent = parent
 	disc(plaza, "Floor", V(0, 0, 0), PLAZA_RADIUS * 2 + 6, COL.Concrete, 0.3, Enum.Material.Concrete)
 	-- the centre circle of a pitch in the middle
-	disc(plaza, "CentreGrass", V(0, 0.02, 0), 46, COL.Grass, 0.32, Enum.Material.Grass)
-	ring(plaza, "CentreLine", V(0, 0, 0), 15, 0.7, COL.Line, 48, 0.36)
-	ring(plaza, "Edge", V(0, 0, 0), 23, 0.9, COL.Line, 60, 0.36)
-	disc(plaza, "CentreSpot", V(0, 0.05, 0), 2.2, COL.Line, 0.34, Enum.Material.SmoothPlastic)
+	-- white rims under green discs (a few parts instead of rings of 50)
+	disc(plaza, "Edge", V(0, 0, 0), 47.8, COL.Line, 0.34, Enum.Material.SmoothPlastic)
+	disc(plaza, "CentreGrass", V(0, 0, 0), 46, COL.Grass, 0.38, Enum.Material.Grass)
+	disc(plaza, "CentreLine", V(0, 0, 0), 31.4, COL.Line, 0.42, Enum.Material.SmoothPlastic)
+	disc(plaza, "CentreGrass", V(0, 0, 0), 30, COL.Grass, 0.46, Enum.Material.Grass)
+	disc(plaza, "CentreSpot", V(0, 0, 0), 2.2, COL.Line, 0.52, Enum.Material.SmoothPlastic)
 	-- a halfway line across the grass
-	line(plaza, V(-23, 0, 0), V(23, 0, 0), 0.7, 0.37)
+	line(plaza, V(-23, 0, 0), V(23, 0, 0), 0.7, 0.5)
 
 	-- the stands between the exits
 	local angles = {}
@@ -251,6 +255,45 @@ local function register(records, rec, id, area)
 	return rec
 end
 
+-- A blocky building open at the front (-Z of `cf`): walls on a darker
+-- base, corner pillars in the accent colour, a row of windows, a roof with
+-- an overhang and a coloured rim, and two front pillars under a canopy.
+local function building(parent, cf, w, d, h, wall, accent, trim)
+	local m = Instance.new("Model")
+	m.Name = "Building"
+	m.Parent = parent
+	local base = wall:Lerp(COL.NavyDark, 0.45)
+	local function at(x, y, z) return cf * CFrame.new(x, y, z) end
+	-- back and side walls with a base band
+	part(m, "Wall", V(w, h, 1.5), at(0, h / 2, d / 2), wall)
+	part(m, "Base", V(w + 0.6, 2.4, 2), at(0, 1.2, d / 2), base)
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "Wall", V(1.5, h, d), at(sx * w / 2, h / 2, 0), wall)
+		part(m, "Base", V(2, 2.4, d + 0.6), at(sx * w / 2, 1.2, 0), base)
+		-- windows along the side
+		for z = -d / 2 + 6, d / 2 - 6, 8 do
+			part(m, "Window", V(2, h * 0.34, 4.6), at(sx * w / 2, h * 0.58, z), rgb(130, 210, 255), Enum.Material.Glass, { Transparency = 0.15 })
+			part(m, "Sill", V(2.4, 0.6, 5.4), at(sx * w / 2, h * 0.39, z), trim)
+		end
+	end
+	-- corner pillars
+	for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+		part(m, "Pillar", V(3.4, h + 1, 3.4), at(c[1] * w / 2, (h + 1) / 2, c[2] * d / 2), accent)
+		part(m, "PillarCap", V(4.2, 1.2, 4.2), at(c[1] * w / 2, h + 1.6, c[2] * d / 2), trim)
+	end
+	-- roof with an overhang, a rim and a raised middle
+	part(m, "Roof", V(w + 6, 1.4, d + 6), at(0, h + 0.7, 0), COL.NavyDark)
+	part(m, "RoofRim", V(w + 6.4, 0.8, d + 6.4), at(0, h + 0.2, 0), accent)
+	part(m, "RoofTop", V(w * 0.6, 2.4, d * 0.5), at(0, h + 2.6, 0), wall)
+	part(m, "RoofTopRim", V(w * 0.6 + 0.6, 0.7, d * 0.5 + 0.6), at(0, h + 3.8, 0), trim)
+	-- entrance: two pillars and a canopy over the open front
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "FrontPillar", V(2.4, h, 2.4), at(sx * w * 0.22, h / 2, -d / 2 - 3), trim)
+	end
+	part(m, "Canopy", V(w * 0.55, 1.2, 7), at(0, h - 1.5, -d / 2 - 2.5), accent)
+	return m
+end
+
 -- The lobby's six stations round the plaza.
 local function buildLobbyStations(parent, records)
 	local folder = Instance.new("Folder")
@@ -294,16 +337,12 @@ local function buildLobbyStations(parent, records)
 	gym.Name = "GymBuilding"
 	gym.Parent = folder
 	patch(gym, "Floor", 64, 34, CFrame.new(gymCenter), COL.Rubber, Enum.Material.SmoothPlastic, 0.3)
-	for _, x in ipairs({ -32, 32 }) do part(gym, "Wall", V(1.5, 14, 34), CFrame.new(gymCenter + V(x, 7, 0)), COL.White) end
-	part(gym, "BackWall", V(65, 14, 1.5), CFrame.new(gymCenter + V(0, 7, 17)), COL.White)
-	part(gym, "Stripe", V(65.2, 2, 1.6), CFrame.new(gymCenter + V(0, 10, 17)), STAT_COLOR.PHY, Enum.Material.SmoothPlastic)
-	part(gym, "Roof", V(68, 1.2, 38), CFrame.new(gymCenter + V(0, 14.6, 0)), COL.NavyDark)
-	for _, x in ipairs({ -32, 32 }) do part(gym, "FrontPost", V(1.5, 14, 1.5), CFrame.new(gymCenter + V(x, 7, -17)), COL.White) end
+	building(gym, CFrame.new(gymCenter), 64, 34, 15, rgb(245, 245, 250), STAT_COLOR.PHY, rgb(255, 214, 90))
 	local gymCF = CFrame.lookAt(gymCenter + V(0, 0, 4), gymCenter + V(0, 0, 20))
 	for _, rec in ipairs(StationBuilder.Gym(folder, gymCF, { Id = "Lobby_Gym", Color = STAT_COLOR.PHY })) do
 		register(records, rec, "Lobby_Gym_" .. rec.Machine, "Lobby")
 	end
-	MapKit.sign(gym, "GymSign", 26, 6, CFrame.lookAt(gymCenter + V(0, 9, -17.8), gymCenter + V(0, 9, -40)), {
+	MapKit.sign(gym, "GymSign", 26, 6, CFrame.lookAt(gymCenter + V(0, 11, -23), gymCenter + V(0, 11, -40)), {
 		{ "\u{1F4AA} GYM", COL.White, 2, 5 }, { "+PHY  \u{2022}  PRESS IN THE GREEN", STAT_COLOR.PHY, 1, 4 },
 	}, { COL.NavyDark, STAT_COLOR.PHY }, 0)
 	path(folder, dir(90) * PLAZA_RADIUS, gymCenter + V(0, 0, -17), 12)
@@ -317,12 +356,12 @@ local function buildVIP(parent, records)
 	local center = V(56, 0, -100)
 	local gold = rgb(255, 200, 40)
 	patch(folder, "Carpet", 64, 40, CFrame.new(center), rgb(120, 20, 40), Enum.Material.Fabric, 0.3)
-	for _, x in ipairs({ -32, 32 }) do part(folder, "Wall", V(1.5, 12, 40), CFrame.new(center + V(x, 6, 0)), rgb(30, 20, 40)) end
-	part(folder, "BackWall", V(65, 12, 1.5), CFrame.new(center + V(0, 6, -20)), rgb(30, 20, 40))
-	part(folder, "Roof", V(68, 1, 44), CFrame.new(center + V(0, 12.5, 0)), rgb(30, 20, 40))
-	part(folder, "GoldTrim", V(68.4, 0.6, 44.4), CFrame.new(center + V(0, 12, 0)), gold, Enum.Material.Neon)
-	-- front wall with the VIP gate
-	for _, x in ipairs({ -22, 22 }) do part(folder, "Front", V(20, 12, 1.5), CFrame.new(center + V(x, 6, 20)), rgb(30, 20, 40)) end
+	-- the lounge opens to the south (+Z), where the VIP gate is
+	building(folder, CFrame.lookAt(center, center + V(0, 0, 1)), 64, 40, 13, rgb(60, 36, 90), gold, rgb(255, 120, 200))
+	-- front wall either side of the VIP gate
+	for _, x in ipairs({ -22, 22 }) do part(folder, "Front", V(20, 13, 1.5), CFrame.new(center + V(x, 6.5, 20)), rgb(60, 36, 90)) end
+	-- a red carpet out of the gate
+	patch(folder, "RedCarpet", 8, 16, CFrame.new(center + V(0, 0, 29)), rgb(200, 30, 50), Enum.Material.Fabric, 0.34)
 	gate(workspace:FindFirstChild("Gates") or parent, "VIPGate", CFrame.lookAt(center + V(0, 0, 20), center + V(0, 0, 40)), 22, 0, "VIP LOUNGE", gold, true)
 	-- sofas
 	for _, x in ipairs({ -24, 24 }) do
@@ -347,14 +386,26 @@ local function buildAcademy(parent, records, area, center)
 	folder.Name = area .. "Academy"
 	folder.Parent = parent
 	local color = def.Color
-	local function at(x, z) return center + V(x, 0, z) end
+	-- the whole academy at 80 % so the map stays small
+	local k = ACADEMY_SCALE
+	local function at(x, z) return center + V(x * k, 0, z * k) end
 	-- ground and a low fence
-	patch(folder, "Ground", 260, 230, CFrame.new(center), rgb(76, 166, 70), Enum.Material.Grass, 0.1)
-	for _, z in ipairs({ -115, 115 }) do part(folder, "Fence", V(260, 3, 1), CFrame.new(at(0, z) + V(0, 1.5, 0)), color, Enum.Material.SmoothPlastic) end
+	patch(folder, "Ground", 260 * k, 230 * k, CFrame.new(center), rgb(76, 166, 70), Enum.Material.Grass, 0.1)
+	for _, z in ipairs({ -115, 115 }) do part(folder, "Fence", V(260 * k, 3, 1), CFrame.new(at(0, z) + V(0, 1.5, 0)), color, Enum.Material.SmoothPlastic) end
 	for _, x in ipairs({ -130, 130 }) do
-		for _, zs in ipairs({ { -115, -9 }, { 9, 115 } }) do
-			local len = zs[2] - zs[1]
+		for _, zs in ipairs({ { -115, -12 }, { 12, 115 } }) do
+			local len = (zs[2] - zs[1]) * k
 			part(folder, "Fence", V(1, 3, len), CFrame.new(at(x, (zs[1] + zs[2]) / 2) + V(0, 1.5, 0)), color, Enum.Material.SmoothPlastic)
+		end
+	end
+	-- an entrance building round the gate: two towers with windows and a banner
+	for _, sz in ipairs({ -1, 1 }) do
+		local base = at(-130, sz * 22)
+		part(folder, "Tower", V(12, 22, 12), CFrame.new(base + V(0, 11, 0)), COL.NavyDark)
+		part(folder, "TowerBand", V(12.6, 2, 12.6), CFrame.new(base + V(0, 16, 0)), color)
+		part(folder, "TowerTop", V(14, 2, 14), CFrame.new(base + V(0, 23, 0)), color)
+		for _, y in ipairs({ 6, 11 }) do
+			part(folder, "Window", V(12.4, 2.6, 5), CFrame.new(base + V(0, y, 0)), rgb(120, 200, 255), Enum.Material.Glass, { Transparency = 0.2 })
 		end
 	end
 	path(folder, at(-130, 0), at(130, 0), 14)
@@ -394,7 +445,7 @@ local function buildStadium(parent, records)
 	local folder = Instance.new("Model")
 	folder.Name = "Stadium"
 	folder.Parent = parent
-	local center = V(-340, 0, 0)
+	local center = V(-300, 0, 0)
 	local length, width = 112, 72
 	local pitchCF = CFrame.lookAt(center, center + V(-1, 0, 0)) -- attack toward the west goal
 	-- the pitch with stripes and lines
@@ -409,7 +460,8 @@ local function buildStadium(parent, records)
 	line(folder, p(-width / 2, -length / 2), p(width / 2, -length / 2), 0.6, 0.3)
 	line(folder, p(-width / 2, length / 2), p(width / 2, length / 2), 0.6, 0.3)
 	line(folder, p(-width / 2, 0), p(width / 2, 0), 0.6, 0.3)
-	ring(folder, "Circle", center, 10, 0.6, COL.Line, 40, 0.3)
+	disc(folder, "Circle", center, 21.2, COL.Line, 0.34, Enum.Material.SmoothPlastic)
+	disc(folder, "CircleGrass", center, 20, COL.GrassLight, 0.38, Enum.Material.Grass)
 	for _, s in ipairs({ -1, 1 }) do
 		local gl = s * length / 2
 		line(folder, p(-18, gl), p(-18, gl - s * 16), 0.6, 0.3)
@@ -440,10 +492,11 @@ local function buildStadium(parent, records)
 				cfTier = pitchCF * CFrame.new(0, 1.2 + tier * 2.4, sign * (offset + tier * 3.5)) * CFrame.Angles(0, (sign > 0) and math.pi or 0, 0)
 			end
 			part(folder, "Stand", V(along, 2.4 + tier * 2.4, 3.5), cfTier * CFrame.new(0, -(tier * 1.2), 0), COL.ConcreteDark, Enum.Material.Concrete)
-			for k = 0, math.floor(along / 3) - 1 do
-				if rnd() < 0.75 then
-					part(folder, "Fan", V(1.4, 1.8, 1), cfTier * CFrame.new(-along / 2 + 1.5 + k * 3, 2.1, 0), crowd[math.floor(rnd() * #crowd) + 1],
-						Enum.Material.SmoothPlastic, { CanCollide = false, CanQuery = false })
+			-- the crowd: long sides only, spaced out (it used to be 560 parts)
+			for k = 0, (side <= 2) and math.floor(along / 4.5) - 1 or -1 do
+				if rnd() < 0.62 then
+					part(folder, "Fan", V(1.6, 1.9, 1.1), cfTier * CFrame.new(-along / 2 + 2 + k * 4.5, 2.15, 0), crowd[math.floor(rnd() * #crowd) + 1],
+						Enum.Material.SmoothPlastic, { CanCollide = false, CanQuery = false, CastShadow = false })
 				end
 			end
 		end
@@ -455,12 +508,12 @@ local function buildStadium(parent, records)
 	local _, _, gui = MapKit.sign(folder, "Scoreboard", 30, 10, CFrame.lookAt(p(0, -length / 2 - 30), p(0, 0)), {}, { COL.NavyDark, rgb(255, 90, 90) }, 16)
 	local score = MapKit.uiText(gui, "HOME 0 - 0 AWAY", 5, COL.White, { Name = "Score", Size = UDim2.fromScale(0.9, 0.6), Position = UDim2.fromScale(0.05, 0.2) })
 	-- the way in: a gate at 75 OVR, then the kick-off spot
-	gate(workspace:FindFirstChild("Gates") or parent, "StadiumGate", CFrame.lookAt(V(-196, 0, 0), V(-186, 0, 0)), 16, Config.Areas.Stadium.NeedOVR, "STADIUM", rgb(255, 90, 90))
-	path(folder, V(-PLAZA_RADIUS, 0, 0), V(-260, 0, 0), 14)
-	local kickoff = V(-262, 0, 0)
+	gate(workspace:FindFirstChild("Gates") or parent, "StadiumGate", CFrame.lookAt(V(-156, 0, 0), V(-146, 0, 0)), 16, Config.Areas.Stadium.NeedOVR, "STADIUM", rgb(255, 90, 90))
+	path(folder, V(-PLAZA_RADIUS, 0, 0), V(-204, 0, 0), 14)
+	local kickoff = V(-206, 0, 0) -- just outside the east stand
 	MapKit.startPad(folder, kickoff, rgb(255, 90, 90), "\u{26BD} PLAY MATCH")
 	local prompt = MapKit.prompt(folder, "Prompt", kickoff + V(0, 2.5, 0), "Play", "Stadium Match", 10)
-	MapKit.sign(folder, "MatchSign", 20, 6, CFrame.lookAt(V(-252, 0, -18), V(-200, 0, -18)), {
+	MapKit.sign(folder, "MatchSign", 20, 6, CFrame.lookAt(V(-196, 0, -18), V(-150, 0, -18)), {
 		{ "\u{1F3DF} STADIUM MATCH", COL.White, 2, 5 }, { "WIN = HUGE XP FOR EVERY STAT", rgb(255, 200, 60), 1, 4 },
 	}, { COL.NavyDark, rgb(255, 90, 90) }, 5)
 
@@ -480,53 +533,83 @@ end
 -- Scenery
 --------------------------------------------------------------------------------
 
--- A leafy tree: a trunk that reaches into a crown of overlapping leaf
--- balls, a few branches, roots at the foot.
-local function leafyTree(parent, at, size, rnd)
+-- Blocky trees (all blocks, so they wear the studs like everything else).
+local function blockyTree(parent, at, size, rnd)
 	local m = Instance.new("Model")
 	m.Name = "Tree"
 	m.Parent = parent
-	local bark = rgb(104, 70, 42)
-	local trunkH = 9 * size
-	cylinder(m, "Trunk", trunkH, 1.7 * size, at, bark, Enum.Material.Wood)
-	for i = 0, 3 do
-		local a = math.rad(i * 90 + 45)
-		local d = V(math.cos(a), 0, math.sin(a))
-		part(m, "Root", V(0.8 * size, 0.7 * size, 2.2 * size), CFrame.lookAt(at + d * 1.1 * size + V(0, 0.3 * size, 0), at + d * 3 * size) * CFrame.Angles(math.rad(-12), 0, 0), bark, Enum.Material.Wood)
-	end
-	for _, b in ipairs({ { 1, 5.8 }, { -1, 6.8 } }) do
-		local from = at + V(0, b[2] * size, 0)
-		MapKit.rod(m, "Branch", from, from + V(b[1] * 2.6 * size, 2.2 * size, 0.6 * size), 0.7 * size, bark, Enum.Material.Wood)
-	end
-	local greens = { rgb(46, 132, 52), rgb(58, 152, 60), rgb(74, 170, 70), rgb(40, 120, 48) }
+	local bark = rgb(120, 80, 48)
+	local greens = { rgb(60, 170, 70), rgb(80, 190, 80), rgb(50, 150, 64), rgb(100, 205, 90) }
+	local g = greens[math.floor(rnd() * #greens) + 1]
+	local trunkH = 7 * size
+	part(m, "Trunk", V(2.4 * size, trunkH, 2.4 * size), CFrame.new(at + V(0, trunkH / 2, 0)), bark, Enum.Material.Wood)
+	local yaw = CFrame.Angles(0, math.rad(math.floor(rnd() * 4) * 22.5), 0)
 	local top = at + V(0, trunkH, 0)
-	ball(m, "Leaves", 9 * size, top, greens[2], Enum.Material.Grass)
-	for i = 1, 5 do
-		local a = rnd() * math.pi * 2
-		local r = (2.6 + rnd() * 1.2) * size
-		local off = V(math.cos(a) * r, (-1.2 + rnd() * 2.6) * size, math.sin(a) * r)
-		ball(m, "Leaves", (5.5 + rnd() * 2.5) * size, top + off, greens[1 + (i % #greens)], Enum.Material.Grass)
-	end
-	ball(m, "Leaves", 6 * size, top + V(0, 3.2 * size, 0), greens[3], Enum.Material.Grass)
+	part(m, "Leaves", V(10, 6, 10) * size, CFrame.new(top + V(0, 2 * size, 0)) * yaw, g, Enum.Material.Grass)
+	part(m, "Leaves", V(7, 4, 7) * size, CFrame.new(top + V(0, 6.5 * size, 0)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
 	return m
 end
 
--- A pine: a trunk and four square tiers, each smaller and turned a little.
-local function pineTree(parent, at, size)
+local function blockyPine(parent, at, size)
 	local m = Instance.new("Model")
 	m.Name = "Tree"
 	m.Parent = parent
-	cylinder(m, "Trunk", 5 * size, 1.4 * size, at, rgb(96, 64, 40), Enum.Material.Wood)
-	local greens = { rgb(30, 104, 60), rgb(36, 118, 66), rgb(44, 132, 72), rgb(54, 146, 80) }
-	local y = 3.2 * size
-	for i = 1, 4 do
-		local w = (9.5 - i * 1.9) * size
-		local h = 2.6 * size
-		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)) * CFrame.Angles(0, math.rad(i * 22), 0), greens[i], Enum.Material.Grass)
-		y += h * 0.78
+	part(m, "Trunk", V(2 * size, 4 * size, 2 * size), CFrame.new(at + V(0, 2 * size, 0)), rgb(110, 72, 44), Enum.Material.Wood)
+	local greens = { rgb(34, 120, 66), rgb(42, 138, 74), rgb(54, 156, 84) }
+	local y = 3.5 * size
+	for i = 1, 3 do
+		local w = (11 - i * 3) * size
+		local h = 3.4 * size
+		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)), greens[i], Enum.Material.Grass)
+		y += h * 0.8
 	end
-	part(m, "Needles", V(1.2 * size, 1.6 * size, 1.2 * size), CFrame.new(at + V(0, y + 0.8 * size, 0)) * CFrame.Angles(0, math.rad(45), 0), greens[4], Enum.Material.Grass)
 	return m
+end
+
+-- Blocky mountains round the edge of the map: stacked blocks, grass at the
+-- foot, rock above, snow on the high ones.
+local function mountain(parent, at, width, height, rnd)
+	local m = Instance.new("Model")
+	m.Name = "Mountain"
+	m.Parent = parent
+	local tiers = math.max(3, math.floor(height / 16))
+	local yaw = CFrame.Angles(0, math.rad(rnd() * 90), 0)
+	local y = 0
+	for i = 1, tiers do
+		local t = (i - 1) / tiers
+		local w = width * (1 - t * 0.78)
+		local h = height / tiers
+		local color = t < 0.25 and rgb(86, 170, 74) or (t < 0.7 and rgb(130, 132, 140):Lerp(rgb(160, 162, 170), rnd()) or rgb(236, 242, 250))
+		if t >= 0.7 and height < 60 then color = rgb(150, 152, 160) end
+		local off = V((rnd() - 0.5) * w * 0.12, 0, (rnd() - 0.5) * w * 0.12)
+		part(m, "Rock", V(w, h + 0.5, w * (0.8 + rnd() * 0.3)), CFrame.new(at + off + V(0, y + h / 2, 0)) * yaw, color, Enum.Material.Rock,
+			{ CastShadow = i <= 2 })
+		y += h
+	end
+	return m
+end
+
+local MAP_MIN, MAP_MAX = V(-440, 0, -330), V(470, 0, 330) -- inside the mountains
+
+local function buildMountains(parent, rnd)
+	local folder = Instance.new("Folder")
+	folder.Name = "Mountains"
+	folder.Parent = parent
+	local function edge(a, b, step)
+		local length = (b - a).Magnitude
+		for d = 0, length, step do
+			local pos = a + (b - a).Unit * d
+			local out = (pos * V(1, 0, 1)).Unit
+			-- one row on the edge, a bigger one behind it
+			mountain(folder, pos + out * (rnd() * 12), 60 + rnd() * 40, 40 + rnd() * 50, rnd)
+			if rnd() < 0.7 then mountain(folder, pos + out * (70 + rnd() * 30), 90 + rnd() * 50, 80 + rnd() * 70, rnd) end
+		end
+	end
+	local x0, x1, z0, z1 = MAP_MIN.X - 30, MAP_MAX.X + 30, MAP_MIN.Z - 30, MAP_MAX.Z + 30
+	edge(V(x0, 0, z0), V(x1, 0, z0), 62)
+	edge(V(x1, 0, z0), V(x1, 0, z1), 62)
+	edge(V(x1, 0, z1), V(x0, 0, z1), 62)
+	edge(V(x0, 0, z1), V(x0, 0, z0), 62)
 end
 
 -- Where everything else stands, seen from above (x0, z0, x1, z1), so no tree
@@ -571,16 +654,16 @@ local function scatterTrees(parent)
 	-- on the grass (the stadium pitch)
 	local keepClear = {
 		{ V(0, 0, 0), 90 }, { V(0, 0, -178), 90 }, { dir(-30) * 150, 45 }, { dir(30) * 150, 55 }, { V(0, 0, 150), 45 },
-		{ dir(150) * 160, 55 }, { dir(210) * 160, 55 }, { V(56, 0, -100), 40 }, { V(-340, 0, 0), 120 }, { V(-230, 0, 0), 40 },
+		{ dir(150) * 160, 55 }, { dir(210) * 160, 55 }, { V(56, 0, -100), 40 }, { V(-300, 0, 0), 120 }, { V(-190, 0, 0), 40 },
 	}
 	local planted = {}
 	local count = 0
 	for _ = 1, 1500 do
-		if count >= 80 then break end
-		local pos = V(-600 + rnd() * 800, 0, -380 + rnd() * 760)
-		local size = 0.8 + rnd() * 0.6
+		if count >= 55 then break end
+		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
+		local size = 0.8 + rnd() * 0.5
 		local pine = rnd() < 0.4
-		local ok = pos.X < 190 and clearOf(boxes, pos, 10 * size)
+		local ok = clearOf(boxes, pos, 9 * size)
 		for _, zone in ipairs(keepClear) do
 			if (pos - zone[1]).Magnitude < zone[2] then
 				ok = false
@@ -596,11 +679,53 @@ local function scatterTrees(parent)
 			end
 		end
 		if ok then
-			if pine then pineTree(folder, pos, size) else leafyTree(folder, pos, size, rnd) end
+			if pine then blockyPine(folder, pos, size) else blockyTree(folder, pos, size, rnd) end
 			table.insert(planted, pos)
 			count += 1
 		end
 	end
+end
+
+-- Flat pieces lying on each other at the same height flicker (the two
+-- faces fight over which one shows). Lift each later piece a hair until no
+-- two overlapping flat pieces share a top.
+local function fixOverlaps(root)
+	local flats = {}
+	for _, p in ipairs(root:GetDescendants()) do
+		if p:IsA("BasePart") then
+			local cf, size = p.CFrame, p.Size
+			local r, u, b = cf.RightVector * size.X / 2, cf.UpVector * size.Y / 2, cf.LookVector * size.Z / 2
+			local hy = math.abs(r.Y) + math.abs(u.Y) + math.abs(b.Y)
+			if hy <= 0.4 then
+				local hx = math.abs(r.X) + math.abs(u.X) + math.abs(b.X)
+				local hz = math.abs(r.Z) + math.abs(u.Z) + math.abs(b.Z)
+				local pos = cf.Position
+				table.insert(flats, { Part = p, X0 = pos.X - hx, X1 = pos.X + hx, Z0 = pos.Z - hz, Z1 = pos.Z + hz, Top = pos.Y + hy })
+			end
+		end
+	end
+	local moved = 0
+	for i, f in ipairs(flats) do
+		local lift = 0
+		for _ = 1, 8 do
+			local clash = false
+			for j = 1, i - 1 do
+				local g = flats[j]
+				if math.abs(g.Top - (f.Top + lift)) < 0.008 and f.X0 < g.X1 and f.X1 > g.X0 and f.Z0 < g.Z1 and f.Z1 > g.Z0 then
+					clash = true
+					break
+				end
+			end
+			if not clash then break end
+			lift += 0.02
+		end
+		if lift > 0 then
+			f.Part.CFrame += V(0, lift, 0)
+			f.Top += lift
+			moved += 1
+		end
+	end
+	return moved
 end
 
 --------------------------------------------------------------------------------
@@ -652,13 +777,24 @@ function MapBuilder.Build()
 	buildLobbyStations(map, records)
 	map.Parent = workspace -- gates look for workspace.Gates (made above)
 	buildVIP(map, records)
-	for _, spec in ipairs({ { "Pro", V(330, 0, 0) }, { "Elite", V(590, 0, 0) }, { "Legend", V(850, 0, 0) } }) do
+	-- the three academies side by side east of the plaza (not in a long row)
+	local ax = 330
+	for _, spec in ipairs({ { "Pro", V(ax, 0, -196) }, { "Elite", V(ax, 0, 0) }, { "Legend", V(ax, 0, 196) } }) do
 		buildAcademy(map, records, spec[1], spec[2])
 	end
-	-- the avenue from the plaza to the academies
-	path(map, V(PLAZA_RADIUS, 0, 0), V(200, 0, 0), 14)
+	-- the avenue from the plaza, then a road past the three gates
+	local roadX = ax - 130 * ACADEMY_SCALE - 12
+	path(map, V(PLAZA_RADIUS, 0, 0), V(roadX, 0, 0), 14)
+	path(map, V(roadX, 0, -196), V(roadX, 0, 196), 14)
+	for _, z in ipairs({ -196, 196 }) do path(map, V(roadX, 0, z), V(ax - 130 * ACADEMY_SCALE, 0, z), 14) end
 	buildStadium(map, records)
+	local seed = 5
+	buildMountains(map, function()
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return seed / 2147483648
+	end)
 	scatterTrees(map)
+	fixOverlaps(map)
 
 	return records, boards, { PositionPrompt = positionPrompt }
 end

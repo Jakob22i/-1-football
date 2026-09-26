@@ -23,6 +23,7 @@ local function setPass(player, key, owned)
 	player:SetAttribute("Pass_" .. key, owned == true)
 	if owned and key == "Cosmetics" then RewardService.UnlockPack(player) end
 	if owned then StatService.Sync(player) end
+	if owned and key == "SpeedBoots" and not StatService.IsBusy(player) then StatService.ApplyWalkSpeed(player) end
 end
 
 -- Checks every gamepass for a player who just joined.
@@ -41,7 +42,7 @@ local function grant(player, key)
 	local data = DataService.Get(player)
 	local product = Config.Products[key]
 	if not (data and product) then return false end
-	if key == "Boost15" then
+	if key == "Boost15" or key == "Boost60" then
 		data.Boost = math.max(data.Boost, os.time()) + product.Minutes * 60
 		Notify:FireClient(player, ("2x XP for %d more minutes!"):format(product.Minutes), "gold")
 		StatService.Sync(player)
@@ -64,6 +65,33 @@ local function grant(player, key)
 			StatService.AddXP(player, low, Config.XPToNext(data.Stats[low]), 1, true)
 			Notify:FireClient(player, ("Your stats are too high for a point: +XP to %s instead!"):format(low), "gold")
 		end
+	elseif key == "StatPoint3" then
+		-- +1 to the lowest stats that can still take it
+		local given = {}
+		for _ = 1, product.Points do
+			local low
+			for _, s in ipairs(Config.StatOrder) do
+				if not given[s] and data.Stats[s] < product.MaxLevel and (not low or data.Stats[s] < data.Stats[low]) then low = s end
+			end
+			if not low then break end
+			given[low] = true
+			StatService.AddLevel(player, low, 1, product.MaxLevel)
+		end
+		local names = {}
+		for s in pairs(given) do table.insert(names, s) end
+		table.sort(names)
+		Notify:FireClient(player, #names > 0 and ("+1 " .. table.concat(names, ", ") .. "!") or "Your stats are already at 84!", "gold")
+	elseif key == "TrainingPack" or key == "MegaPack" then
+		-- XP worth `Levels` levels for every stat still under MaxLevel
+		for _, s in ipairs(Config.StatOrder) do
+			local level = data.Stats[s]
+			local amount = 0
+			for l = level, math.min(level + product.Levels - 1, product.MaxLevel - 1) do
+				amount += Config.XPToNext(l)
+			end
+			if amount > 0 then StatService.AddXP(player, s, amount, 1, true) end
+		end
+		Notify:FireClient(player, product.Name .. ": XP for every stat!", "gold")
 	end
 	DataService.MarkDirty(player)
 	return true

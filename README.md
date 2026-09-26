@@ -89,6 +89,11 @@ challenge. All of it is decided on the server; the client only draws it.
 | Card Style Pack (borders, backgrounds, celebrations) | gamepass | 99 |
 | 2x XP Boost, 15 min | product | 29 |
 | +1 Stat Point (up to 84) | product | 15 |
+| Speed Boots (+20% walk speed outside drills) | gamepass | 79 |
+| 2x XP Hour | product | 79 |
+| +3 Stat Points (three lowest stats, up to 84) | product | 39 |
+| Training Pack (a level of XP for every stat, up to 90) | product | 49 |
+| Mega Pack (three levels of XP for every stat, up to 90) | product | 149 |
 
 LEGEND cards and seasons can never be bought.
 
@@ -140,7 +145,17 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   once and put its id in `Icons.Sprite.Image`; then the close and EXIT
   buttons, prices, Season, Shop, Position, Daily, Style, VIP and Auto-Train
   use those pictures.
-- **Trees**: leafy trees and pines, kept clear of every stand, pitch and path.
+- **Map**: small and walled in by blocky mountains (grass, rock, snow). The
+  three academies sit side by side east of the plaza, the stadium west.
+  Buildings have bases, corner pillars, windows, roof rims and canopies.
+- **Trees**: blocky trees and pines, kept clear of every stand, pitch and path.
+- **Smooth**: about a third fewer parts than before (start pads, plaza
+  circles and passing hoops are a few big parts, a smaller crowd), no shadows
+  from the floodlights, and flat pieces on top of each other are lifted a
+  hair so they never flicker.
+- **Moving UI**: little studded blocks tumble down behind every window and the
+  XP packs, price buttons get a sweeping shine, pack icons breathe and the
+  HOT / BEST VALUE tags wobble. All tweens, no per-frame code.
 
 ## Things you will want to change
 

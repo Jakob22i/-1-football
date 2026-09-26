@@ -203,12 +203,12 @@ local function buildHud()
 	-- EXIT: in every drill, top right (or X on a keyboard); the server stops
 	-- the drill and puts you back on its start pad
 	hud.Leave = FKit.button(root, "\u{2715} EXIT", FKit.Palette.red, {
-		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(190, 64),
+		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10), Size = UDim2.fromOffset(140, 50),
 	})
 	hud.Leave.Label.Text = "EXIT"
-	hud.Leave.Label.Position = UDim2.fromOffset(56, 1)
-	hud.Leave.Label.Size = UDim2.new(1, -64, 1, -4)
-	Icons.new(hud.Leave, "cross", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -1), Size = UDim2.fromOffset(40, 40), ZIndex = hud.Leave.ZIndex + 2 })
+	hud.Leave.Label.Position = UDim2.fromOffset(44, 1)
+	hud.Leave.Label.Size = UDim2.new(1, -50, 1, -4)
+	Icons.new(hud.Leave, "cross", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, -1), Size = UDim2.fromOffset(30, 30), ZIndex = hud.Leave.ZIndex + 2 })
 	hud.LeaveHint = FKit.text(hud.Leave, "PRESS X", 14, C.White, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.fromOffset(120, 18), ZIndex = 5,
 	})
@@ -216,7 +216,7 @@ local function buildHud()
 
 	-- the big action button (a must on phones, handy with a mouse too)
 	local action, actionLabel = FKit.button(root, "SHOOT", FKit.Palette.orange, {
-		Name = "Action", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -176, 1, -26), Size = UDim2.fromOffset(124, 124),
+		Name = "Action", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -170, 1, -26), Size = UDim2.fromOffset(104, 104),
 	})
 	for _, d in ipairs(action:GetDescendants()) do
 		if d:IsA("UICorner") then d.CornerRadius = UDim.new(0.5, 0) end

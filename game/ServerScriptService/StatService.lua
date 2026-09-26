@@ -86,6 +86,10 @@ end
 --------------------------------------------------------------------------------
 
 -- A drill takes over walking speed while it runs (busy = true).
+function StatService.IsBusy(player)
+	return busy[player] == true
+end
+
 function StatService.SetBusy(player, on)
 	busy[player] = on or nil
 	if not on then StatService.ApplyWalkSpeed(player) end
@@ -95,7 +99,8 @@ function StatService.ApplyWalkSpeed(player)
 	local data = DataService.Get(player)
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if not (data and humanoid) then return end
-	humanoid.WalkSpeed = Config.WalkSpeed(data.Stats.PAC)
+	local boots = player:GetAttribute("Pass_SpeedBoots") and (1 + Config.Gamepasses.SpeedBoots.WalkBonus) or 1
+	humanoid.WalkSpeed = Config.WalkSpeed(data.Stats.PAC) * boots
 	humanoid.UseJumpPower = true
 	humanoid.JumpPower = Config.Speed.JumpPower
 end

@@ -795,29 +795,24 @@ function FKit.studs(parent, cell, strength, zindex)
 		ZIndex = zindex or parent.ZIndex,
 		Parent = parent,
 	})
+	-- one plain square per stud (no corners, no shadow frame): cheap to draw
 	local made = 0
 	local function fill()
 		local size = holder.AbsoluteSize
-		local cols = math.clamp(math.ceil(size.X / cell), 0, 24)
-		local rows = math.clamp(math.ceil(size.Y / cell), 0, 16)
+		local cols = math.clamp(math.ceil(size.X / cell), 0, 20)
+		local rows = math.clamp(math.ceil(size.Y / cell), 0, 12)
 		if cols * rows == made then return end
 		holder:ClearAllChildren()
 		made = cols * rows
-		local stud = math.floor(cell * 0.62)
+		local stud = math.floor(cell * 0.56)
 		local off = math.floor((cell - stud) / 2)
 		for r = 0, rows - 1 do
 			for c = 0, cols - 1 do
-				local x, y = c * cell + off, r * cell + off
-				local shadow = new("Frame", {
-					BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1 - 0.16 * strength, BorderSizePixel = 0,
-					Position = UDim2.fromOffset(x + 2, y + 2), Size = UDim2.fromOffset(stud, stud), ZIndex = holder.ZIndex, Parent = holder,
-				})
-				FKit.corner(shadow, 3)
-				local top = new("Frame", {
+				new("Frame", {
 					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1 - 0.2 * strength, BorderSizePixel = 0,
-					Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(stud, stud), ZIndex = holder.ZIndex, Parent = holder,
+					Position = UDim2.fromOffset(c * cell + off, r * cell + off), Size = UDim2.fromOffset(stud, stud),
+					ZIndex = holder.ZIndex, Parent = holder,
 				})
-				FKit.corner(top, 3)
 			end
 		end
 	end
@@ -849,7 +844,7 @@ function FKit.button(parent, text, palette, props)
 		Parent = b,
 	})
 	FKit.corner(face, UDim.new(0.22, 0))
-	FKit.studs(face, 14, 1, b.ZIndex)
+	FKit.studs(face, 16, 1, b.ZIndex)
 	-- the light inner edge
 	local rim = new("Frame", {
 		Name = "Rim",
@@ -881,6 +876,102 @@ function FKit.recolor(button, palette)
 	if inner then inner.Color = palette[1]:Lerp(C.White, 0.35) end
 end
 
+--------------------------------------------------------------------------------
+-- Motion that costs next to nothing (TweenService runs it, no per-frame code)
+--------------------------------------------------------------------------------
+
+local BLOCK_COLORS = {
+	Color3.fromRGB(255, 90, 110), Color3.fromRGB(255, 200, 50), Color3.fromRGB(80, 220, 120),
+	Color3.fromRGB(70, 170, 255), Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 150, 60),
+}
+
+-- Is a gui object really on screen (every parent visible)?
+local function shown(obj)
+	local node = obj
+	while node do
+		if node:IsA("GuiObject") and not node.Visible then return false end
+		if node:IsA("LayerCollector") then return node.Enabled end
+		node = node.Parent
+	end
+	return false
+end
+FKit.shown = shown
+
+-- Little studded blocks that tumble down behind a frame's content while it
+-- is on screen. A handful at a time, each one tween.
+function FKit.fallingBlocks(frame, opts)
+	opts = opts or {}
+	local layer = new("Frame", {
+		Name = "FallingBlocks", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
+		ClipsDescendants = true, ZIndex = opts.ZIndex or frame.ZIndex, Parent = frame,
+	})
+	if opts.Corner then FKit.corner(layer, opts.Corner) end
+	local every = opts.Every or 0.55
+	task.spawn(function()
+		while layer.Parent do
+			if shown(layer) and #layer:GetChildren() &lt; (opts.Max or 9) then
+				local size = math.random(12, 24)
+				local color = BLOCK_COLORS[math.random(1, #BLOCK_COLORS)]
+				local block = new("Frame", {
+					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(math.random(), 0, 0, -size),
+					Size = UDim2.fromOffset(size, size), Rotation = math.random(-30, 30),
+					BackgroundColor3 = color, BackgroundTransparency = opts.Transparency or 0.45, BorderSizePixel = 0,
+					ZIndex = layer.ZIndex, Parent = layer,
+				})
+				FKit.corner(block, UDim.new(0.2, 0))
+				new("Frame", { -- the stud on top
+					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.45, 0.45),
+					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0,
+					ZIndex = layer.ZIndex, Parent = block,
+				})
+				local time = 2.6 + math.random() * 2.2
+				local t = TweenService:Create(block, TweenInfo.new(time, Enum.EasingStyle.Linear), {
+					Position = UDim2.new(block.Position.X.Scale + (math.random() - 0.5) * 0.15, 0, 1, size),
+					Rotation = block.Rotation + math.random(-160, 160),
+				})
+				t.Completed:Connect(function() block:Destroy() end)
+				t:Play()
+			end
+			task.wait(every)
+		end
+	end)
+	return layer
+end
+
+-- A light that sweeps across a button now and then.
+function FKit.shine(button, period)
+	local sweep = new("Frame", {
+		Name = "Shine", BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.35, BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1), ZIndex = button.ZIndex + 1, Parent = button,
+	})
+	FKit.corner(sweep, UDim.new(0.22, 0))
+	local g = new("UIGradient", {
+		Rotation = 20, Offset = Vector2.new(-1.2, 0), Parent = sweep,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.2),
+			NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1),
+		}),
+	})
+	TweenService:Create(g, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, period or 2.2),
+		{ Offset = Vector2.new(1.2, 0) }):Play()
+	return sweep
+end
+
+-- A slow breathing scale, for things that want to be clicked.
+function FKit.pulse(obj, amount, period)
+	local s = new("UIScale", { Name = "Pulse", Parent = obj })
+	TweenService:Create(s, TweenInfo.new(period or 0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Scale = 1 + (amount or 0.05) }):Play()
+	return s
+end
+
+-- A gentle wobble (tags like HOT and BEST).
+function FKit.wobble(obj, degrees, period)
+	obj.Rotation = -(degrees or 6)
+	TweenService:Create(obj, TweenInfo.new(period or 0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Rotation = degrees or 6 }):Play()
+end
+
 -- A navy panel with a lighter rim.
 function FKit.panel(parent, props, radius)
 	local f = new("Frame", { Name = "Panel", BackgroundColor3 = C.White, Parent = parent })
@@ -898,7 +989,7 @@ function FKit.panel(parent, props, radius)
 	})
 	FKit.corner(rim, math.max(2, (radius or 18) - 3))
 	FKit.stroke(rim, 2, C.White, true, 0.8)
-	FKit.studs(f, 22, 0.45, f.ZIndex)
+	FKit.studs(f, 28, 0.4, f.ZIndex)
 	return f
 end
 
@@ -1045,7 +1136,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v14"
+Config.Version = "v15"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -1190,7 +1281,8 @@ Config.Lighting = {
 		GeographicLatitude = 17.165,
 	},
 	-- newer settings (skipped where Roblox does not have them)
-	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = true },
+	-- PrioritizeLightingQuality off: the same look, smoother on weak devices
+	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
 	Atmosphere = { Density = 0.269, Offset = 0, Color = rgb(201, 162, 255), Decay = rgb(119, 97, 141), Glare = 0.1, Haze = 0.2 },
 	ColorCorrection = { Brightness = 0.1, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(221, 210, 255) },
 	SunRays = { Intensity = 0.25, Spread = 0.2 },
@@ -1465,14 +1557,21 @@ Config.Gamepasses = {
 	VIP = { Id = 0, Price = 249, Name = "VIP Training", Line = "The VIP lounge: better XP and a gold name." },
 	AutoTrain = { Id = 0, Price = 149, Name = "Auto-Train", Line = "Earn XP while you stand in the lobby." },
 	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations." },
+	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", WalkBonus = 0.2 },
 }
-Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "Cosmetics" }
+Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "SpeedBoots", "Cosmetics" }
 
 Config.Products = {
 	Boost15 = { ProductId = 0, Price = 29, Name = "2x XP Boost", Line = "15 minutes. They add up.", Minutes = 15 },
 	StatPoint = { ProductId = 0, Price = 15, Name = "+1 Stat Point", Line = "+1 to a stat of your choice (up to 84).", MaxLevel = 84 },
+	Boost60 = { ProductId = 0, Price = 79, Name = "2x XP Hour", Line = "A full hour of 2x XP.", Minutes = 60, Tag = "HOT" },
+	StatPoint3 = { ProductId = 0, Price = 39, Name = "+3 Stat Points", Line = "+1 to your three lowest stats (up to 84).", Points = 3, MaxLevel = 84 },
+	TrainingPack = { ProductId = 0, Price = 49, Name = "Training Pack", Line = "A level's worth of XP for every stat (up to 90).", Levels = 1, MaxLevel = 90 },
+	MegaPack = { ProductId = 0, Price = 149, Name = "Mega Pack", Line = "Three levels' worth of XP for every stat (up to 90).", Levels = 3, MaxLevel = 90, Tag = "BEST VALUE" },
 }
-Config.ProductOrder = { "Boost15", "StatPoint" }
+Config.ProductOrder = { "Boost15", "StatPoint", "Boost60", "StatPoint3", "TrainingPack", "MegaPack" }
+-- the XP packs row in the shop
+Config.PackOrder = { "Boost60", "StatPoint3", "TrainingPack", "MegaPack" }
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -1778,6 +1877,13 @@ local ICONS = {
 		{ 34, 60, 16, 40, K.green, rot = -45, r = 0.5 },
 		{ 60, 48, 16, 66, K.green, rot = 38, r = 0.5 },
 	},
+	boot = {
+		{ 40, 42, 34, 46, K.green, r = 0.2 },
+		{ 54, 66, 70, 26, K.green, r = 0.3 },
+		{ 54, 82, 74, 10, K.white, r = 0.4 },
+		D({ 40, 40, 24, 6, K.white, r = 0.5, line = false }),
+		D({ 40, 52, 24, 6, K.white, r = 0.5, line = false }),
+	},
 	cross = {
 		{ 50, 50, 20, 80, K.red, rot = 45, r = 0.5 },
 		{ 50, 50, 20, 80, K.red, rot = -45, r = 0.5 },
@@ -2038,7 +2144,7 @@ local FROM_EMOJI = {
 	["\u{1F3C6}"] = "trophy", ["\u{1F3A8}"] = "palette", ["\u{1F6D2}"] = "cart", ["\u{26A1}"] = "bolt",
 	["\u{26BD}"] = "ball", ["\u{1F3AF}"] = "target", ["\u{1F300}"] = "swirl", ["\u{1F6E1}"] = "shield",
 	["\u{1F4AA}"] = "dumbbell", ["\u{2B50}"] = "star", ["\u{1F451}"] = "crown", ["\u{1F916}"] = "robot",
-	["\u{23F1}"] = "stopwatch", ["\u{1F512}"] = "lock", ["\u{2705}"] = "check", ["\u{1F525}"] = "fire", ["\u{1F504}"] = "refresh",
+	["\u{23F1}"] = "stopwatch", ["\u{1F512}"] = "lock", ["\u{2705}"] = "check", ["\u{1F525}"] = "fire", ["\u{1F504}"] = "refresh", ["\u{1F45F}"] = "boot",
 }
 function Icons.FromEmoji(emoji)
 	return FROM_EMOJI[emoji] or "star"
@@ -3036,6 +3142,7 @@ local MapBuilder = {}
 
 local PLAZA_RADIUS = 56
 local STAND_DEPTH = 13
+local ACADEMY_SCALE = 0.8
 
 local STAT_COLOR = {}
 for stat, def in pairs(Config.Stats) do STAT_COLOR[stat] = def.Color end
@@ -3115,6 +3222,7 @@ local function floodlight(parent, at)
 				light.Range = 60
 				light.Brightness = 2
 				light.Face = Enum.NormalId.Front
+				light.Shadows = false -- shadow-casting lights are expensive
 				light.Parent = lamp
 			end
 		end
@@ -3154,12 +3262,14 @@ local function buildPlaza(parent)
 	plaza.Parent = parent
 	disc(plaza, "Floor", V(0, 0, 0), PLAZA_RADIUS * 2 + 6, COL.Concrete, 0.3, Enum.Material.Concrete)
 	-- the centre circle of a pitch in the middle
-	disc(plaza, "CentreGrass", V(0, 0.02, 0), 46, COL.Grass, 0.32, Enum.Material.Grass)
-	ring(plaza, "CentreLine", V(0, 0, 0), 15, 0.7, COL.Line, 48, 0.36)
-	ring(plaza, "Edge", V(0, 0, 0), 23, 0.9, COL.Line, 60, 0.36)
-	disc(plaza, "CentreSpot", V(0, 0.05, 0), 2.2, COL.Line, 0.34, Enum.Material.SmoothPlastic)
+	-- white rims under green discs (a few parts instead of rings of 50)
+	disc(plaza, "Edge", V(0, 0, 0), 47.8, COL.Line, 0.34, Enum.Material.SmoothPlastic)
+	disc(plaza, "CentreGrass", V(0, 0, 0), 46, COL.Grass, 0.38, Enum.Material.Grass)
+	disc(plaza, "CentreLine", V(0, 0, 0), 31.4, COL.Line, 0.42, Enum.Material.SmoothPlastic)
+	disc(plaza, "CentreGrass", V(0, 0, 0), 30, COL.Grass, 0.46, Enum.Material.Grass)
+	disc(plaza, "CentreSpot", V(0, 0, 0), 2.2, COL.Line, 0.52, Enum.Material.SmoothPlastic)
 	-- a halfway line across the grass
-	line(plaza, V(-23, 0, 0), V(23, 0, 0), 0.7, 0.37)
+	line(plaza, V(-23, 0, 0), V(23, 0, 0), 0.7, 0.5)
 
 	-- the stands between the exits
 	local angles = {}
@@ -3263,6 +3373,45 @@ local function register(records, rec, id, area)
 	return rec
 end
 
+-- A blocky building open at the front (-Z of `cf`): walls on a darker
+-- base, corner pillars in the accent colour, a row of windows, a roof with
+-- an overhang and a coloured rim, and two front pillars under a canopy.
+local function building(parent, cf, w, d, h, wall, accent, trim)
+	local m = Instance.new("Model")
+	m.Name = "Building"
+	m.Parent = parent
+	local base = wall:Lerp(COL.NavyDark, 0.45)
+	local function at(x, y, z) return cf * CFrame.new(x, y, z) end
+	-- back and side walls with a base band
+	part(m, "Wall", V(w, h, 1.5), at(0, h / 2, d / 2), wall)
+	part(m, "Base", V(w + 0.6, 2.4, 2), at(0, 1.2, d / 2), base)
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "Wall", V(1.5, h, d), at(sx * w / 2, h / 2, 0), wall)
+		part(m, "Base", V(2, 2.4, d + 0.6), at(sx * w / 2, 1.2, 0), base)
+		-- windows along the side
+		for z = -d / 2 + 6, d / 2 - 6, 8 do
+			part(m, "Window", V(2, h * 0.34, 4.6), at(sx * w / 2, h * 0.58, z), rgb(130, 210, 255), Enum.Material.Glass, { Transparency = 0.15 })
+			part(m, "Sill", V(2.4, 0.6, 5.4), at(sx * w / 2, h * 0.39, z), trim)
+		end
+	end
+	-- corner pillars
+	for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+		part(m, "Pillar", V(3.4, h + 1, 3.4), at(c[1] * w / 2, (h + 1) / 2, c[2] * d / 2), accent)
+		part(m, "PillarCap", V(4.2, 1.2, 4.2), at(c[1] * w / 2, h + 1.6, c[2] * d / 2), trim)
+	end
+	-- roof with an overhang, a rim and a raised middle
+	part(m, "Roof", V(w + 6, 1.4, d + 6), at(0, h + 0.7, 0), COL.NavyDark)
+	part(m, "RoofRim", V(w + 6.4, 0.8, d + 6.4), at(0, h + 0.2, 0), accent)
+	part(m, "RoofTop", V(w * 0.6, 2.4, d * 0.5), at(0, h + 2.6, 0), wall)
+	part(m, "RoofTopRim", V(w * 0.6 + 0.6, 0.7, d * 0.5 + 0.6), at(0, h + 3.8, 0), trim)
+	-- entrance: two pillars and a canopy over the open front
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "FrontPillar", V(2.4, h, 2.4), at(sx * w * 0.22, h / 2, -d / 2 - 3), trim)
+	end
+	part(m, "Canopy", V(w * 0.55, 1.2, 7), at(0, h - 1.5, -d / 2 - 2.5), accent)
+	return m
+end
+
 -- The lobby's six stations round the plaza.
 local function buildLobbyStations(parent, records)
 	local folder = Instance.new("Folder")
@@ -3306,16 +3455,12 @@ local function buildLobbyStations(parent, records)
 	gym.Name = "GymBuilding"
 	gym.Parent = folder
 	patch(gym, "Floor", 64, 34, CFrame.new(gymCenter), COL.Rubber, Enum.Material.SmoothPlastic, 0.3)
-	for _, x in ipairs({ -32, 32 }) do part(gym, "Wall", V(1.5, 14, 34), CFrame.new(gymCenter + V(x, 7, 0)), COL.White) end
-	part(gym, "BackWall", V(65, 14, 1.5), CFrame.new(gymCenter + V(0, 7, 17)), COL.White)
-	part(gym, "Stripe", V(65.2, 2, 1.6), CFrame.new(gymCenter + V(0, 10, 17)), STAT_COLOR.PHY, Enum.Material.SmoothPlastic)
-	part(gym, "Roof", V(68, 1.2, 38), CFrame.new(gymCenter + V(0, 14.6, 0)), COL.NavyDark)
-	for _, x in ipairs({ -32, 32 }) do part(gym, "FrontPost", V(1.5, 14, 1.5), CFrame.new(gymCenter + V(x, 7, -17)), COL.White) end
+	building(gym, CFrame.new(gymCenter), 64, 34, 15, rgb(245, 245, 250), STAT_COLOR.PHY, rgb(255, 214, 90))
 	local gymCF = CFrame.lookAt(gymCenter + V(0, 0, 4), gymCenter + V(0, 0, 20))
 	for _, rec in ipairs(StationBuilder.Gym(folder, gymCF, { Id = "Lobby_Gym", Color = STAT_COLOR.PHY })) do
 		register(records, rec, "Lobby_Gym_" .. rec.Machine, "Lobby")
 	end
-	MapKit.sign(gym, "GymSign", 26, 6, CFrame.lookAt(gymCenter + V(0, 9, -17.8), gymCenter + V(0, 9, -40)), {
+	MapKit.sign(gym, "GymSign", 26, 6, CFrame.lookAt(gymCenter + V(0, 11, -23), gymCenter + V(0, 11, -40)), {
 		{ "\u{1F4AA} GYM", COL.White, 2, 5 }, { "+PHY  \u{2022}  PRESS IN THE GREEN", STAT_COLOR.PHY, 1, 4 },
 	}, { COL.NavyDark, STAT_COLOR.PHY }, 0)
 	path(folder, dir(90) * PLAZA_RADIUS, gymCenter + V(0, 0, -17), 12)
@@ -3329,12 +3474,12 @@ local function buildVIP(parent, records)
 	local center = V(56, 0, -100)
 	local gold = rgb(255, 200, 40)
 	patch(folder, "Carpet", 64, 40, CFrame.new(center), rgb(120, 20, 40), Enum.Material.Fabric, 0.3)
-	for _, x in ipairs({ -32, 32 }) do part(folder, "Wall", V(1.5, 12, 40), CFrame.new(center + V(x, 6, 0)), rgb(30, 20, 40)) end
-	part(folder, "BackWall", V(65, 12, 1.5), CFrame.new(center + V(0, 6, -20)), rgb(30, 20, 40))
-	part(folder, "Roof", V(68, 1, 44), CFrame.new(center + V(0, 12.5, 0)), rgb(30, 20, 40))
-	part(folder, "GoldTrim", V(68.4, 0.6, 44.4), CFrame.new(center + V(0, 12, 0)), gold, Enum.Material.Neon)
-	-- front wall with the VIP gate
-	for _, x in ipairs({ -22, 22 }) do part(folder, "Front", V(20, 12, 1.5), CFrame.new(center + V(x, 6, 20)), rgb(30, 20, 40)) end
+	-- the lounge opens to the south (+Z), where the VIP gate is
+	building(folder, CFrame.lookAt(center, center + V(0, 0, 1)), 64, 40, 13, rgb(60, 36, 90), gold, rgb(255, 120, 200))
+	-- front wall either side of the VIP gate
+	for _, x in ipairs({ -22, 22 }) do part(folder, "Front", V(20, 13, 1.5), CFrame.new(center + V(x, 6.5, 20)), rgb(60, 36, 90)) end
+	-- a red carpet out of the gate
+	patch(folder, "RedCarpet", 8, 16, CFrame.new(center + V(0, 0, 29)), rgb(200, 30, 50), Enum.Material.Fabric, 0.34)
 	gate(workspace:FindFirstChild("Gates") or parent, "VIPGate", CFrame.lookAt(center + V(0, 0, 20), center + V(0, 0, 40)), 22, 0, "VIP LOUNGE", gold, true)
 	-- sofas
 	for _, x in ipairs({ -24, 24 }) do
@@ -3359,14 +3504,26 @@ local function buildAcademy(parent, records, area, center)
 	folder.Name = area .. "Academy"
 	folder.Parent = parent
 	local color = def.Color
-	local function at(x, z) return center + V(x, 0, z) end
+	-- the whole academy at 80 % so the map stays small
+	local k = ACADEMY_SCALE
+	local function at(x, z) return center + V(x * k, 0, z * k) end
 	-- ground and a low fence
-	patch(folder, "Ground", 260, 230, CFrame.new(center), rgb(76, 166, 70), Enum.Material.Grass, 0.1)
-	for _, z in ipairs({ -115, 115 }) do part(folder, "Fence", V(260, 3, 1), CFrame.new(at(0, z) + V(0, 1.5, 0)), color, Enum.Material.SmoothPlastic) end
+	patch(folder, "Ground", 260 * k, 230 * k, CFrame.new(center), rgb(76, 166, 70), Enum.Material.Grass, 0.1)
+	for _, z in ipairs({ -115, 115 }) do part(folder, "Fence", V(260 * k, 3, 1), CFrame.new(at(0, z) + V(0, 1.5, 0)), color, Enum.Material.SmoothPlastic) end
 	for _, x in ipairs({ -130, 130 }) do
-		for _, zs in ipairs({ { -115, -9 }, { 9, 115 } }) do
-			local len = zs[2] - zs[1]
+		for _, zs in ipairs({ { -115, -12 }, { 12, 115 } }) do
+			local len = (zs[2] - zs[1]) * k
 			part(folder, "Fence", V(1, 3, len), CFrame.new(at(x, (zs[1] + zs[2]) / 2) + V(0, 1.5, 0)), color, Enum.Material.SmoothPlastic)
+		end
+	end
+	-- an entrance building round the gate: two towers with windows and a banner
+	for _, sz in ipairs({ -1, 1 }) do
+		local base = at(-130, sz * 22)
+		part(folder, "Tower", V(12, 22, 12), CFrame.new(base + V(0, 11, 0)), COL.NavyDark)
+		part(folder, "TowerBand", V(12.6, 2, 12.6), CFrame.new(base + V(0, 16, 0)), color)
+		part(folder, "TowerTop", V(14, 2, 14), CFrame.new(base + V(0, 23, 0)), color)
+		for _, y in ipairs({ 6, 11 }) do
+			part(folder, "Window", V(12.4, 2.6, 5), CFrame.new(base + V(0, y, 0)), rgb(120, 200, 255), Enum.Material.Glass, { Transparency = 0.2 })
 		end
 	end
 	path(folder, at(-130, 0), at(130, 0), 14)
@@ -3406,7 +3563,7 @@ local function buildStadium(parent, records)
 	local folder = Instance.new("Model")
 	folder.Name = "Stadium"
 	folder.Parent = parent
-	local center = V(-340, 0, 0)
+	local center = V(-300, 0, 0)
 	local length, width = 112, 72
 	local pitchCF = CFrame.lookAt(center, center + V(-1, 0, 0)) -- attack toward the west goal
 	-- the pitch with stripes and lines
@@ -3421,7 +3578,8 @@ local function buildStadium(parent, records)
 	line(folder, p(-width / 2, -length / 2), p(width / 2, -length / 2), 0.6, 0.3)
 	line(folder, p(-width / 2, length / 2), p(width / 2, length / 2), 0.6, 0.3)
 	line(folder, p(-width / 2, 0), p(width / 2, 0), 0.6, 0.3)
-	ring(folder, "Circle", center, 10, 0.6, COL.Line, 40, 0.3)
+	disc(folder, "Circle", center, 21.2, COL.Line, 0.34, Enum.Material.SmoothPlastic)
+	disc(folder, "CircleGrass", center, 20, COL.GrassLight, 0.38, Enum.Material.Grass)
 	for _, s in ipairs({ -1, 1 }) do
 		local gl = s * length / 2
 		line(folder, p(-18, gl), p(-18, gl - s * 16), 0.6, 0.3)
@@ -3452,10 +3610,11 @@ local function buildStadium(parent, records)
 				cfTier = pitchCF * CFrame.new(0, 1.2 + tier * 2.4, sign * (offset + tier * 3.5)) * CFrame.Angles(0, (sign &gt; 0) and math.pi or 0, 0)
 			end
 			part(folder, "Stand", V(along, 2.4 + tier * 2.4, 3.5), cfTier * CFrame.new(0, -(tier * 1.2), 0), COL.ConcreteDark, Enum.Material.Concrete)
-			for k = 0, math.floor(along / 3) - 1 do
-				if rnd() &lt; 0.75 then
-					part(folder, "Fan", V(1.4, 1.8, 1), cfTier * CFrame.new(-along / 2 + 1.5 + k * 3, 2.1, 0), crowd[math.floor(rnd() * #crowd) + 1],
-						Enum.Material.SmoothPlastic, { CanCollide = false, CanQuery = false })
+			-- the crowd: long sides only, spaced out (it used to be 560 parts)
+			for k = 0, (side &lt;= 2) and math.floor(along / 4.5) - 1 or -1 do
+				if rnd() &lt; 0.62 then
+					part(folder, "Fan", V(1.6, 1.9, 1.1), cfTier * CFrame.new(-along / 2 + 2 + k * 4.5, 2.15, 0), crowd[math.floor(rnd() * #crowd) + 1],
+						Enum.Material.SmoothPlastic, { CanCollide = false, CanQuery = false, CastShadow = false })
 				end
 			end
 		end
@@ -3467,12 +3626,12 @@ local function buildStadium(parent, records)
 	local _, _, gui = MapKit.sign(folder, "Scoreboard", 30, 10, CFrame.lookAt(p(0, -length / 2 - 30), p(0, 0)), {}, { COL.NavyDark, rgb(255, 90, 90) }, 16)
 	local score = MapKit.uiText(gui, "HOME 0 - 0 AWAY", 5, COL.White, { Name = "Score", Size = UDim2.fromScale(0.9, 0.6), Position = UDim2.fromScale(0.05, 0.2) })
 	-- the way in: a gate at 75 OVR, then the kick-off spot
-	gate(workspace:FindFirstChild("Gates") or parent, "StadiumGate", CFrame.lookAt(V(-196, 0, 0), V(-186, 0, 0)), 16, Config.Areas.Stadium.NeedOVR, "STADIUM", rgb(255, 90, 90))
-	path(folder, V(-PLAZA_RADIUS, 0, 0), V(-260, 0, 0), 14)
-	local kickoff = V(-262, 0, 0)
+	gate(workspace:FindFirstChild("Gates") or parent, "StadiumGate", CFrame.lookAt(V(-156, 0, 0), V(-146, 0, 0)), 16, Config.Areas.Stadium.NeedOVR, "STADIUM", rgb(255, 90, 90))
+	path(folder, V(-PLAZA_RADIUS, 0, 0), V(-204, 0, 0), 14)
+	local kickoff = V(-206, 0, 0) -- just outside the east stand
 	MapKit.startPad(folder, kickoff, rgb(255, 90, 90), "\u{26BD} PLAY MATCH")
 	local prompt = MapKit.prompt(folder, "Prompt", kickoff + V(0, 2.5, 0), "Play", "Stadium Match", 10)
-	MapKit.sign(folder, "MatchSign", 20, 6, CFrame.lookAt(V(-252, 0, -18), V(-200, 0, -18)), {
+	MapKit.sign(folder, "MatchSign", 20, 6, CFrame.lookAt(V(-196, 0, -18), V(-150, 0, -18)), {
 		{ "\u{1F3DF} STADIUM MATCH", COL.White, 2, 5 }, { "WIN = HUGE XP FOR EVERY STAT", rgb(255, 200, 60), 1, 4 },
 	}, { COL.NavyDark, rgb(255, 90, 90) }, 5)
 
@@ -3492,53 +3651,83 @@ end
 -- Scenery
 --------------------------------------------------------------------------------
 
--- A leafy tree: a trunk that reaches into a crown of overlapping leaf
--- balls, a few branches, roots at the foot.
-local function leafyTree(parent, at, size, rnd)
+-- Blocky trees (all blocks, so they wear the studs like everything else).
+local function blockyTree(parent, at, size, rnd)
 	local m = Instance.new("Model")
 	m.Name = "Tree"
 	m.Parent = parent
-	local bark = rgb(104, 70, 42)
-	local trunkH = 9 * size
-	cylinder(m, "Trunk", trunkH, 1.7 * size, at, bark, Enum.Material.Wood)
-	for i = 0, 3 do
-		local a = math.rad(i * 90 + 45)
-		local d = V(math.cos(a), 0, math.sin(a))
-		part(m, "Root", V(0.8 * size, 0.7 * size, 2.2 * size), CFrame.lookAt(at + d * 1.1 * size + V(0, 0.3 * size, 0), at + d * 3 * size) * CFrame.Angles(math.rad(-12), 0, 0), bark, Enum.Material.Wood)
-	end
-	for _, b in ipairs({ { 1, 5.8 }, { -1, 6.8 } }) do
-		local from = at + V(0, b[2] * size, 0)
-		MapKit.rod(m, "Branch", from, from + V(b[1] * 2.6 * size, 2.2 * size, 0.6 * size), 0.7 * size, bark, Enum.Material.Wood)
-	end
-	local greens = { rgb(46, 132, 52), rgb(58, 152, 60), rgb(74, 170, 70), rgb(40, 120, 48) }
+	local bark = rgb(120, 80, 48)
+	local greens = { rgb(60, 170, 70), rgb(80, 190, 80), rgb(50, 150, 64), rgb(100, 205, 90) }
+	local g = greens[math.floor(rnd() * #greens) + 1]
+	local trunkH = 7 * size
+	part(m, "Trunk", V(2.4 * size, trunkH, 2.4 * size), CFrame.new(at + V(0, trunkH / 2, 0)), bark, Enum.Material.Wood)
+	local yaw = CFrame.Angles(0, math.rad(math.floor(rnd() * 4) * 22.5), 0)
 	local top = at + V(0, trunkH, 0)
-	ball(m, "Leaves", 9 * size, top, greens[2], Enum.Material.Grass)
-	for i = 1, 5 do
-		local a = rnd() * math.pi * 2
-		local r = (2.6 + rnd() * 1.2) * size
-		local off = V(math.cos(a) * r, (-1.2 + rnd() * 2.6) * size, math.sin(a) * r)
-		ball(m, "Leaves", (5.5 + rnd() * 2.5) * size, top + off, greens[1 + (i % #greens)], Enum.Material.Grass)
-	end
-	ball(m, "Leaves", 6 * size, top + V(0, 3.2 * size, 0), greens[3], Enum.Material.Grass)
+	part(m, "Leaves", V(10, 6, 10) * size, CFrame.new(top + V(0, 2 * size, 0)) * yaw, g, Enum.Material.Grass)
+	part(m, "Leaves", V(7, 4, 7) * size, CFrame.new(top + V(0, 6.5 * size, 0)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
 	return m
 end
 
--- A pine: a trunk and four square tiers, each smaller and turned a little.
-local function pineTree(parent, at, size)
+local function blockyPine(parent, at, size)
 	local m = Instance.new("Model")
 	m.Name = "Tree"
 	m.Parent = parent
-	cylinder(m, "Trunk", 5 * size, 1.4 * size, at, rgb(96, 64, 40), Enum.Material.Wood)
-	local greens = { rgb(30, 104, 60), rgb(36, 118, 66), rgb(44, 132, 72), rgb(54, 146, 80) }
-	local y = 3.2 * size
-	for i = 1, 4 do
-		local w = (9.5 - i * 1.9) * size
-		local h = 2.6 * size
-		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)) * CFrame.Angles(0, math.rad(i * 22), 0), greens[i], Enum.Material.Grass)
-		y += h * 0.78
+	part(m, "Trunk", V(2 * size, 4 * size, 2 * size), CFrame.new(at + V(0, 2 * size, 0)), rgb(110, 72, 44), Enum.Material.Wood)
+	local greens = { rgb(34, 120, 66), rgb(42, 138, 74), rgb(54, 156, 84) }
+	local y = 3.5 * size
+	for i = 1, 3 do
+		local w = (11 - i * 3) * size
+		local h = 3.4 * size
+		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)), greens[i], Enum.Material.Grass)
+		y += h * 0.8
 	end
-	part(m, "Needles", V(1.2 * size, 1.6 * size, 1.2 * size), CFrame.new(at + V(0, y + 0.8 * size, 0)) * CFrame.Angles(0, math.rad(45), 0), greens[4], Enum.Material.Grass)
 	return m
+end
+
+-- Blocky mountains round the edge of the map: stacked blocks, grass at the
+-- foot, rock above, snow on the high ones.
+local function mountain(parent, at, width, height, rnd)
+	local m = Instance.new("Model")
+	m.Name = "Mountain"
+	m.Parent = parent
+	local tiers = math.max(3, math.floor(height / 16))
+	local yaw = CFrame.Angles(0, math.rad(rnd() * 90), 0)
+	local y = 0
+	for i = 1, tiers do
+		local t = (i - 1) / tiers
+		local w = width * (1 - t * 0.78)
+		local h = height / tiers
+		local color = t &lt; 0.25 and rgb(86, 170, 74) or (t &lt; 0.7 and rgb(130, 132, 140):Lerp(rgb(160, 162, 170), rnd()) or rgb(236, 242, 250))
+		if t &gt;= 0.7 and height &lt; 60 then color = rgb(150, 152, 160) end
+		local off = V((rnd() - 0.5) * w * 0.12, 0, (rnd() - 0.5) * w * 0.12)
+		part(m, "Rock", V(w, h + 0.5, w * (0.8 + rnd() * 0.3)), CFrame.new(at + off + V(0, y + h / 2, 0)) * yaw, color, Enum.Material.Rock,
+			{ CastShadow = i &lt;= 2 })
+		y += h
+	end
+	return m
+end
+
+local MAP_MIN, MAP_MAX = V(-440, 0, -330), V(470, 0, 330) -- inside the mountains
+
+local function buildMountains(parent, rnd)
+	local folder = Instance.new("Folder")
+	folder.Name = "Mountains"
+	folder.Parent = parent
+	local function edge(a, b, step)
+		local length = (b - a).Magnitude
+		for d = 0, length, step do
+			local pos = a + (b - a).Unit * d
+			local out = (pos * V(1, 0, 1)).Unit
+			-- one row on the edge, a bigger one behind it
+			mountain(folder, pos + out * (rnd() * 12), 60 + rnd() * 40, 40 + rnd() * 50, rnd)
+			if rnd() &lt; 0.7 then mountain(folder, pos + out * (70 + rnd() * 30), 90 + rnd() * 50, 80 + rnd() * 70, rnd) end
+		end
+	end
+	local x0, x1, z0, z1 = MAP_MIN.X - 30, MAP_MAX.X + 30, MAP_MIN.Z - 30, MAP_MAX.Z + 30
+	edge(V(x0, 0, z0), V(x1, 0, z0), 62)
+	edge(V(x1, 0, z0), V(x1, 0, z1), 62)
+	edge(V(x1, 0, z1), V(x0, 0, z1), 62)
+	edge(V(x0, 0, z1), V(x0, 0, z0), 62)
 end
 
 -- Where everything else stands, seen from above (x0, z0, x1, z1), so no tree
@@ -3583,16 +3772,16 @@ local function scatterTrees(parent)
 	-- on the grass (the stadium pitch)
 	local keepClear = {
 		{ V(0, 0, 0), 90 }, { V(0, 0, -178), 90 }, { dir(-30) * 150, 45 }, { dir(30) * 150, 55 }, { V(0, 0, 150), 45 },
-		{ dir(150) * 160, 55 }, { dir(210) * 160, 55 }, { V(56, 0, -100), 40 }, { V(-340, 0, 0), 120 }, { V(-230, 0, 0), 40 },
+		{ dir(150) * 160, 55 }, { dir(210) * 160, 55 }, { V(56, 0, -100), 40 }, { V(-300, 0, 0), 120 }, { V(-190, 0, 0), 40 },
 	}
 	local planted = {}
 	local count = 0
 	for _ = 1, 1500 do
-		if count &gt;= 80 then break end
-		local pos = V(-600 + rnd() * 800, 0, -380 + rnd() * 760)
-		local size = 0.8 + rnd() * 0.6
+		if count &gt;= 55 then break end
+		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
+		local size = 0.8 + rnd() * 0.5
 		local pine = rnd() &lt; 0.4
-		local ok = pos.X &lt; 190 and clearOf(boxes, pos, 10 * size)
+		local ok = clearOf(boxes, pos, 9 * size)
 		for _, zone in ipairs(keepClear) do
 			if (pos - zone[1]).Magnitude &lt; zone[2] then
 				ok = false
@@ -3608,11 +3797,53 @@ local function scatterTrees(parent)
 			end
 		end
 		if ok then
-			if pine then pineTree(folder, pos, size) else leafyTree(folder, pos, size, rnd) end
+			if pine then blockyPine(folder, pos, size) else blockyTree(folder, pos, size, rnd) end
 			table.insert(planted, pos)
 			count += 1
 		end
 	end
+end
+
+-- Flat pieces lying on each other at the same height flicker (the two
+-- faces fight over which one shows). Lift each later piece a hair until no
+-- two overlapping flat pieces share a top.
+local function fixOverlaps(root)
+	local flats = {}
+	for _, p in ipairs(root:GetDescendants()) do
+		if p:IsA("BasePart") then
+			local cf, size = p.CFrame, p.Size
+			local r, u, b = cf.RightVector * size.X / 2, cf.UpVector * size.Y / 2, cf.LookVector * size.Z / 2
+			local hy = math.abs(r.Y) + math.abs(u.Y) + math.abs(b.Y)
+			if hy &lt;= 0.4 then
+				local hx = math.abs(r.X) + math.abs(u.X) + math.abs(b.X)
+				local hz = math.abs(r.Z) + math.abs(u.Z) + math.abs(b.Z)
+				local pos = cf.Position
+				table.insert(flats, { Part = p, X0 = pos.X - hx, X1 = pos.X + hx, Z0 = pos.Z - hz, Z1 = pos.Z + hz, Top = pos.Y + hy })
+			end
+		end
+	end
+	local moved = 0
+	for i, f in ipairs(flats) do
+		local lift = 0
+		for _ = 1, 8 do
+			local clash = false
+			for j = 1, i - 1 do
+				local g = flats[j]
+				if math.abs(g.Top - (f.Top + lift)) &lt; 0.008 and f.X0 &lt; g.X1 and f.X1 &gt; g.X0 and f.Z0 &lt; g.Z1 and f.Z1 &gt; g.Z0 then
+					clash = true
+					break
+				end
+			end
+			if not clash then break end
+			lift += 0.02
+		end
+		if lift &gt; 0 then
+			f.Part.CFrame += V(0, lift, 0)
+			f.Top += lift
+			moved += 1
+		end
+	end
+	return moved
 end
 
 --------------------------------------------------------------------------------
@@ -3664,13 +3895,24 @@ function MapBuilder.Build()
 	buildLobbyStations(map, records)
 	map.Parent = workspace -- gates look for workspace.Gates (made above)
 	buildVIP(map, records)
-	for _, spec in ipairs({ { "Pro", V(330, 0, 0) }, { "Elite", V(590, 0, 0) }, { "Legend", V(850, 0, 0) } }) do
+	-- the three academies side by side east of the plaza (not in a long row)
+	local ax = 330
+	for _, spec in ipairs({ { "Pro", V(ax, 0, -196) }, { "Elite", V(ax, 0, 0) }, { "Legend", V(ax, 0, 196) } }) do
 		buildAcademy(map, records, spec[1], spec[2])
 	end
-	-- the avenue from the plaza to the academies
-	path(map, V(PLAZA_RADIUS, 0, 0), V(200, 0, 0), 14)
+	-- the avenue from the plaza, then a road past the three gates
+	local roadX = ax - 130 * ACADEMY_SCALE - 12
+	path(map, V(PLAZA_RADIUS, 0, 0), V(roadX, 0, 0), 14)
+	path(map, V(roadX, 0, -196), V(roadX, 0, 196), 14)
+	for _, z in ipairs({ -196, 196 }) do path(map, V(roadX, 0, z), V(ax - 130 * ACADEMY_SCALE, 0, z), 14) end
 	buildStadium(map, records)
+	local seed = 5
+	buildMountains(map, function()
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return seed / 2147483648
+	end)
 	scatterTrees(map)
+	fixOverlaps(map)
 
 	return records, boards, { PositionPrompt = positionPrompt }
 end
@@ -3716,6 +3958,7 @@ function MapKit.part(parent, name, size, cf, color, material, props)
 	p.Material = material or Enum.Material.SmoothPlastic
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.CanTouch = false -- nothing listens for touches on the map
 	for k, v in pairs(props or {}) do p[k] = v end
 	p.Parent = parent
 	return p
@@ -3872,9 +4115,9 @@ end
 
 -- A glowing START pad: a disc, a ring and a floating label.
 function MapKit.startPad(parent, at, color, text)
-	local pad = MapKit.disc(parent, "StartPad", at, 6, color or COL.Gold, 0.3, Enum.Material.Neon, { CanCollide = false })
-	pad.Transparency = 0.25
-	MapKit.ring(parent, "PadRing", at, 3.6, 0.5, COL.White, 24, 0.32, 0.06, Enum.Material.Neon)
+	-- a white rim under a coloured disc (two parts, not a ring of 24)
+	MapKit.disc(parent, "PadRing", at, 8, COL.White, 0.3, Enum.Material.Neon, { CanCollide = false, CanQuery = false, CanTouch = false })
+	local pad = MapKit.disc(parent, "StartPad", at, 6.6, color or COL.Gold, 0.36, Enum.Material.Neon, { CanCollide = false, CanTouch = false })
 	local anchor = part(parent, "PadLabel", Vector3.new(1, 1, 1), CFrame.new(at + Vector3.new(0, 5.5, 0)), COL.White,
 		Enum.Material.SmoothPlastic, { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
 	local gui = Instance.new("BillboardGui")
@@ -4499,6 +4742,7 @@ local function setPass(player, key, owned)
 	player:SetAttribute("Pass_" .. key, owned == true)
 	if owned and key == "Cosmetics" then RewardService.UnlockPack(player) end
 	if owned then StatService.Sync(player) end
+	if owned and key == "SpeedBoots" and not StatService.IsBusy(player) then StatService.ApplyWalkSpeed(player) end
 end
 
 -- Checks every gamepass for a player who just joined.
@@ -4517,7 +4761,7 @@ local function grant(player, key)
 	local data = DataService.Get(player)
 	local product = Config.Products[key]
 	if not (data and product) then return false end
-	if key == "Boost15" then
+	if key == "Boost15" or key == "Boost60" then
 		data.Boost = math.max(data.Boost, os.time()) + product.Minutes * 60
 		Notify:FireClient(player, ("2x XP for %d more minutes!"):format(product.Minutes), "gold")
 		StatService.Sync(player)
@@ -4540,6 +4784,33 @@ local function grant(player, key)
 			StatService.AddXP(player, low, Config.XPToNext(data.Stats[low]), 1, true)
 			Notify:FireClient(player, ("Your stats are too high for a point: +XP to %s instead!"):format(low), "gold")
 		end
+	elseif key == "StatPoint3" then
+		-- +1 to the lowest stats that can still take it
+		local given = {}
+		for _ = 1, product.Points do
+			local low
+			for _, s in ipairs(Config.StatOrder) do
+				if not given[s] and data.Stats[s] &lt; product.MaxLevel and (not low or data.Stats[s] &lt; data.Stats[low]) then low = s end
+			end
+			if not low then break end
+			given[low] = true
+			StatService.AddLevel(player, low, 1, product.MaxLevel)
+		end
+		local names = {}
+		for s in pairs(given) do table.insert(names, s) end
+		table.sort(names)
+		Notify:FireClient(player, #names &gt; 0 and ("+1 " .. table.concat(names, ", ") .. "!") or "Your stats are already at 84!", "gold")
+	elseif key == "TrainingPack" or key == "MegaPack" then
+		-- XP worth `Levels` levels for every stat still under MaxLevel
+		for _, s in ipairs(Config.StatOrder) do
+			local level = data.Stats[s]
+			local amount = 0
+			for l = level, math.min(level + product.Levels - 1, product.MaxLevel - 1) do
+				amount += Config.XPToNext(l)
+			end
+			if amount &gt; 0 then StatService.AddXP(player, s, amount, 1, true) end
+		end
+		Notify:FireClient(player, product.Name .. ": XP for every stat!", "gold")
 	end
 	DataService.MarkDirty(player)
 	return true
@@ -4706,6 +4977,10 @@ end
 --------------------------------------------------------------------------------
 
 -- A drill takes over walking speed while it runs (busy = true).
+function StatService.IsBusy(player)
+	return busy[player] == true
+end
+
 function StatService.SetBusy(player, on)
 	busy[player] = on or nil
 	if not on then StatService.ApplyWalkSpeed(player) end
@@ -4715,7 +4990,8 @@ function StatService.ApplyWalkSpeed(player)
 	local data = DataService.Get(player)
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if not (data and humanoid) then return end
-	humanoid.WalkSpeed = Config.WalkSpeed(data.Stats.PAC)
+	local boots = player:GetAttribute("Pass_SpeedBoots") and (1 + Config.Gamepasses.SpeedBoots.WalkBonus) or 1
+	humanoid.WalkSpeed = Config.WalkSpeed(data.Stats.PAC) * boots
 	humanoid.UseJumpPower = true
 	humanoid.JumpPower = Config.Speed.JumpPower
 end
@@ -5178,10 +5454,10 @@ function StationBuilder.Passing(parent, cf, opts)
 			hoop.Name = "Ring"
 			hoop.Parent = model
 			local face = CFrame.lookAt(pos + V(0, 2.6, 0), V(cf.Position.X, 2.6, cf.Position.Z))
-			for k = 0, 15 do
-				local a = k / 16 * math.pi * 2
+			for k = 0, 7 do
+				local a = k / 8 * math.pi * 2
 				local p = face * CFrame.new(math.cos(a) * 2.2, math.sin(a) * 2.2, 0) * CFrame.Angles(0, 0, a)
-				part(hoop, "Hoop", V(0.4, 0.95, 0.4), p, rgb(60, 230, 255), Enum.Material.Neon, { CanCollide = false })
+				part(hoop, "Hoop", V(0.5, 1.85, 0.5), p, rgb(60, 230, 255), Enum.Material.Neon, { CanCollide = false })
 			end
 			cylinder(hoop, "Stand", 0.4, 0.5, pos, COL.Metal, Enum.Material.Metal)
 			rod(hoop, "Leg", pos + V(0, 0, 0), pos + V(0, 0.4, 0), 0.5, COL.Metal, Enum.Material.Metal)
@@ -7324,6 +7600,15 @@ local PASS_LOOK = {
 	VIP = { "\u{1F451}", { Color3.fromRGB(255, 200, 255), Color3.fromRGB(190, 60, 230) } },
 	AutoTrain = { "\u{1F916}", { Color3.fromRGB(150, 240, 255), Color3.fromRGB(20, 140, 230) } },
 	Cosmetics = { "\u{1F3A8}", { Color3.fromRGB(255, 170, 200), Color3.fromRGB(230, 50, 120) } },
+	SpeedBoots = { "\u{1F45F}", { Color3.fromRGB(170, 255, 170), Color3.fromRGB(30, 170, 80) } },
+}
+
+-- the XP packs: icon and colours
+local PACK_LOOK = {
+	Boost60 = { "stopwatch", { Color3.fromRGB(255, 180, 120), Color3.fromRGB(240, 90, 30) } },
+	StatPoint3 = { "plus", { Color3.fromRGB(140, 230, 255), Color3.fromRGB(30, 130, 240) } },
+	TrainingPack = { "star", { Color3.fromRGB(200, 255, 140), Color3.fromRGB(60, 180, 60) } },
+	MegaPack = { "diamond", { Color3.fromRGB(230, 170, 255), Color3.fromRGB(140, 50, 240) } },
 }
 
 local pickedStat -- the stat the +1 Stat Point goes to
@@ -7337,7 +7622,7 @@ function WINDOWS.Shop.Build(page)
 		local pass = Config.Gamepasses[key]
 		local look = PASS_LOOK[key]
 		local ownedPass = attr("Pass_" .. key, false)
-		local tile = box(passes, { Size = UDim2.new(0.25, -6, 1, 0), LayoutOrder = i }, look[2], 16)
+		local tile = box(passes, { Size = UDim2.new(1 / #Config.PassOrder, -7, 1, 0), LayoutOrder = i }, look[2], 16)
 		Icons.new(tile, Icons.FromEmoji(look[1]), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(44, 44), ZIndex = tile.ZIndex })
 		FKit.fit(tile, pass.Name, 19, C.White, { Position = UDim2.fromOffset(6, 50), Size = UDim2.new(1, -12, 0, 24) })
 		bodyText(tile, pass.Line, 15, C.White, { Position = UDim2.fromOffset(6, 76), Size = UDim2.new(1, -12, 0, 68), TextYAlignment = Enum.TextYAlignment.Top })
@@ -7345,6 +7630,7 @@ function WINDOWS.Shop.Build(page)
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
 		withIcon(b, priceLabel, ownedPass and "check" or "coin")
+		if not ownedPass then FKit.shine(b, 2 + i * 0.4) end
 		if ownedPass then
 			b.Active = false
 		else
@@ -7368,6 +7654,7 @@ function WINDOWS.Shop.Build(page)
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 	})
 	withIcon(boostButton, boostPrice, "coin")
+	FKit.shine(boostButton, 2.6)
 	boostButton.Activated:Connect(function()
 		ctx.Sound("Click")
 		ask("BuyProduct", "Boost15")
@@ -7430,8 +7717,38 @@ function WINDOWS.Shop.Build(page)
 		ask("BuyProduct", "StatPoint", pickedStat)
 	end)
 
+	-- XP packs: four tiles with a tag on the best ones
+	heading(list, "XP PACKS", 5)
+	local packs = new("Frame", { Size = UDim2.new(1, 0, 0, 176), BackgroundTransparency = 1, LayoutOrder = 6, Parent = list })
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = packs })
+	for i, key in ipairs(Config.PackOrder) do
+		local product = Config.Products[key]
+		local look = PACK_LOOK[key]
+		local tile = box(packs, { Size = UDim2.new(1 / #Config.PackOrder, -6, 1, 0), LayoutOrder = i }, look[2], 16)
+		FKit.fallingBlocks(tile, { Max = 3, Every = 1.1, Transparency = 0.6, Corner = 16, ZIndex = tile.ZIndex })
+		local icon = Icons.new(tile, look[1], { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(40, 40), ZIndex = tile.ZIndex + 1 })
+		FKit.pulse(icon, 0.08, 0.8 + i * 0.1)
+		FKit.fit(tile, product.Name, 18, C.White, { Position = UDim2.fromOffset(6, 48), Size = UDim2.new(1, -12, 0, 22), ZIndex = tile.ZIndex + 1 })
+		bodyText(tile, product.Line, 13, C.White, { Position = UDim2.fromOffset(6, 72), Size = UDim2.new(1, -12, 0, 48), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = tile.ZIndex + 1 })
+		local b, priceLabel = candy(tile, tostring(product.Price), "green", {
+			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 40), ZIndex = tile.ZIndex + 2,
+		})
+		withIcon(b, priceLabel, "coin", 28)
+		FKit.shine(b, 1.8 + i * 0.5)
+		b.Activated:Connect(function()
+			ctx.Sound("Click")
+			ask("BuyProduct", key)
+		end)
+		if product.Tag then
+			local tag = FKit.tag(tile, product.Tag, product.Tag == "HOT" and { Color3.fromRGB(255, 150, 90), Color3.fromRGB(230, 40, 40) } or nil, {
+				AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -18, 0, 4), ZIndex = tile.ZIndex + 4,
+			})
+			FKit.wobble(tag, 7, 0.6)
+		end
+	end
+
 	bodyText(list, "\u{1F6E1} Fair play: LEGEND cards and Seasons can never be bought. You earn them by training!", 16, Color3.fromRGB(200, 220, 255), {
-		Size = UDim2.new(1, 0, 0, 44), LayoutOrder = 5,
+		Size = UDim2.new(1, 0, 0, 44), LayoutOrder = 7,
 	})
 
 	return function()
@@ -7516,6 +7833,7 @@ local function buildWindow()
 	})
 	MenusUI.Fit(holder, 740, 540)
 	panel = FKit.panel(holder, { Size = UDim2.fromScale(1, 1), ZIndex = 2 }, 22)
+	FKit.fallingBlocks(panel, { Corner = 22, ZIndex = 2 })
 	local header = new("Frame", { Name = "Header", Position = UDim2.fromOffset(10, -22), Size = UDim2.new(0, 330, 0, 58), BackgroundColor3 = C.White, ZIndex = 3, Parent = panel })
 	FKit.corner(header, 16)
 	FKit.gradient(header, { C.Gold, C.GoldDark }, 90)
@@ -7525,10 +7843,10 @@ local function buildWindow()
 		Position = UDim2.fromOffset(58, 6), Size = UDim2.new(1, -66, 1, -12), ZIndex = 4, TextXAlignment = Enum.TextXAlignment.Left,
 	})
 	local close = candy(panel, "\u{2715}", "red", {
-		Name = "Close", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(58, 58), ZIndex = 4,
+		Name = "Close", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(48, 48), ZIndex = 4,
 	})
 	close.Label.Text = ""
-	Icons.new(close, "cross", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(38, 38), ZIndex = close.ZIndex + 2 })
+	Icons.new(close, "cross", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.48), Size = UDim2.fromOffset(30, 30), ZIndex = close.ZIndex + 2 })
 	close.Activated:Connect(MenusUI.Close)
 	page = new("Frame", { Name = "Page", Position = UDim2.fromOffset(20, 50), Size = UDim2.new(1, -40, 1, -64), BackgroundTransparency = 1, ZIndex = 3, Parent = panel })
 end
@@ -7549,7 +7867,7 @@ local MENU = {
 
 local function buildMenu()
 	local menu = new("Frame", {
-		Name = "Menu", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 30), Size = UDim2.fromOffset(168, 340),
+		Name = "Menu", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 30), Size = UDim2.fromOffset(138, 284),
 		BackgroundTransparency = 1, ZIndex = 5, Parent = gui,
 	})
 	MenusUI.Fit(menu, 900, 600)
@@ -7559,19 +7877,19 @@ local function buildMenu()
 		local col, row = (i - 1) % 2, (i - 1) // 2
 		local b, label = candy(menu, text, palette, {
 			Name = key,
-			Position = UDim2.fromOffset(wide and 0 or col * 88, row * 86),
-			Size = UDim2.fromOffset(wide and 168 or 80, 80),
+			Position = UDim2.fromOffset(wide and 0 or col * 72, row * 72),
+			Size = UDim2.fromOffset(wide and 138 or 66, wide and 56 or 66),
 		})
 		if not wide then
-			label.Position = UDim2.new(0, 4, 1, -30)
-			label.Size = UDim2.new(1, -8, 0, 22)
-			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 17
-			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 5), Size = UDim2.fromOffset(42, 42), ZIndex = b.ZIndex + 1 })
+			label.Position = UDim2.new(0, 3, 1, -23)
+			label.Size = UDim2.new(1, -6, 0, 17)
+			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 14
+			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(36, 36), ZIndex = b.ZIndex + 1 })
 		else
-			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -2), Size = UDim2.fromOffset(50, 50), ZIndex = b.ZIndex + 1 })
-			label.Position = UDim2.fromOffset(62, 1)
-			label.Size = UDim2.new(1, -70, 1, -4)
-			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 30
+			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, -1), Size = UDim2.fromOffset(40, 40), ZIndex = b.ZIndex + 1 })
+			label.Position = UDim2.fromOffset(52, 1)
+			label.Size = UDim2.new(1, -58, 1, -4)
+			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 24
 		end
 		local badge = new("Frame", {
 			Name = "Badge", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -6, 0, 6), Size = UDim2.fromOffset(30, 30),
@@ -7916,12 +8234,12 @@ local function buildHud()
 	-- EXIT: in every drill, top right (or X on a keyboard); the server stops
 	-- the drill and puts you back on its start pad
 	hud.Leave = FKit.button(root, "\u{2715} EXIT", FKit.Palette.red, {
-		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(190, 64),
+		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 10), Size = UDim2.fromOffset(140, 50),
 	})
 	hud.Leave.Label.Text = "EXIT"
-	hud.Leave.Label.Position = UDim2.fromOffset(56, 1)
-	hud.Leave.Label.Size = UDim2.new(1, -64, 1, -4)
-	Icons.new(hud.Leave, "cross", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -1), Size = UDim2.fromOffset(40, 40), ZIndex = hud.Leave.ZIndex + 2 })
+	hud.Leave.Label.Position = UDim2.fromOffset(44, 1)
+	hud.Leave.Label.Size = UDim2.new(1, -50, 1, -4)
+	Icons.new(hud.Leave, "cross", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, -1), Size = UDim2.fromOffset(30, 30), ZIndex = hud.Leave.ZIndex + 2 })
 	hud.LeaveHint = FKit.text(hud.Leave, "PRESS X", 14, C.White, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.fromOffset(120, 18), ZIndex = 5,
 	})
@@ -7929,7 +8247,7 @@ local function buildHud()
 
 	-- the big action button (a must on phones, handy with a mouse too)
 	local action, actionLabel = FKit.button(root, "SHOOT", FKit.Palette.orange, {
-		Name = "Action", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -176, 1, -26), Size = UDim2.fromOffset(124, 124),
+		Name = "Action", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -170, 1, -26), Size = UDim2.fromOffset(104, 104),
 	})
 	for _, d in ipairs(action:GetDescendants()) do
 		if d:IsA("UICorner") then d.CornerRadius = UDim.new(0.5, 0) end

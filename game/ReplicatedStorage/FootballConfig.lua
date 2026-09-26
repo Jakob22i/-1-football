@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v14"
+Config.Version = "v15"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -154,7 +154,8 @@ Config.Lighting = {
 		GeographicLatitude = 17.165,
 	},
 	-- newer settings (skipped where Roblox does not have them)
-	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = true },
+	-- PrioritizeLightingQuality off: the same look, smoother on weak devices
+	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
 	Atmosphere = { Density = 0.269, Offset = 0, Color = rgb(201, 162, 255), Decay = rgb(119, 97, 141), Glare = 0.1, Haze = 0.2 },
 	ColorCorrection = { Brightness = 0.1, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(221, 210, 255) },
 	SunRays = { Intensity = 0.25, Spread = 0.2 },
@@ -429,14 +430,21 @@ Config.Gamepasses = {
 	VIP = { Id = 0, Price = 249, Name = "VIP Training", Line = "The VIP lounge: better XP and a gold name." },
 	AutoTrain = { Id = 0, Price = 149, Name = "Auto-Train", Line = "Earn XP while you stand in the lobby." },
 	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations." },
+	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", WalkBonus = 0.2 },
 }
-Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "Cosmetics" }
+Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "SpeedBoots", "Cosmetics" }
 
 Config.Products = {
 	Boost15 = { ProductId = 0, Price = 29, Name = "2x XP Boost", Line = "15 minutes. They add up.", Minutes = 15 },
 	StatPoint = { ProductId = 0, Price = 15, Name = "+1 Stat Point", Line = "+1 to a stat of your choice (up to 84).", MaxLevel = 84 },
+	Boost60 = { ProductId = 0, Price = 79, Name = "2x XP Hour", Line = "A full hour of 2x XP.", Minutes = 60, Tag = "HOT" },
+	StatPoint3 = { ProductId = 0, Price = 39, Name = "+3 Stat Points", Line = "+1 to your three lowest stats (up to 84).", Points = 3, MaxLevel = 84 },
+	TrainingPack = { ProductId = 0, Price = 49, Name = "Training Pack", Line = "A level's worth of XP for every stat (up to 90).", Levels = 1, MaxLevel = 90 },
+	MegaPack = { ProductId = 0, Price = 149, Name = "Mega Pack", Line = "Three levels' worth of XP for every stat (up to 90).", Levels = 3, MaxLevel = 90, Tag = "BEST VALUE" },
 }
-Config.ProductOrder = { "Boost15", "StatPoint" }
+Config.ProductOrder = { "Boost15", "StatPoint", "Boost60", "StatPoint3", "TrainingPack", "MegaPack" }
+-- the XP packs row in the shop
+Config.PackOrder = { "Boost60", "StatPoint3", "TrainingPack", "MegaPack" }
 
 --------------------------------------------------------------------------------
 -- Helpers

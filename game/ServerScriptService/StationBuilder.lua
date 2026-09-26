@@ -174,10 +174,10 @@ function StationBuilder.Passing(parent, cf, opts)
 			hoop.Name = "Ring"
 			hoop.Parent = model
 			local face = CFrame.lookAt(pos + V(0, 2.6, 0), V(cf.Position.X, 2.6, cf.Position.Z))
-			for k = 0, 15 do
-				local a = k / 16 * math.pi * 2
+			for k = 0, 7 do
+				local a = k / 8 * math.pi * 2
 				local p = face * CFrame.new(math.cos(a) * 2.2, math.sin(a) * 2.2, 0) * CFrame.Angles(0, 0, a)
-				part(hoop, "Hoop", V(0.4, 0.95, 0.4), p, rgb(60, 230, 255), Enum.Material.Neon, { CanCollide = false })
+				part(hoop, "Hoop", V(0.5, 1.85, 0.5), p, rgb(60, 230, 255), Enum.Material.Neon, { CanCollide = false })
 			end
 			cylinder(hoop, "Stand", 0.4, 0.5, pos, COL.Metal, Enum.Material.Metal)
 			rod(hoop, "Leg", pos + V(0, 0, 0), pos + V(0, 0.4, 0), 0.5, COL.Metal, Enum.Material.Metal)

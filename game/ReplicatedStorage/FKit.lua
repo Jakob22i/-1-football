@@ -151,29 +151,24 @@ function FKit.studs(parent, cell, strength, zindex)
 		ZIndex = zindex or parent.ZIndex,
 		Parent = parent,
 	})
+	-- one plain square per stud (no corners, no shadow frame): cheap to draw
 	local made = 0
 	local function fill()
 		local size = holder.AbsoluteSize
-		local cols = math.clamp(math.ceil(size.X / cell), 0, 24)
-		local rows = math.clamp(math.ceil(size.Y / cell), 0, 16)
+		local cols = math.clamp(math.ceil(size.X / cell), 0, 20)
+		local rows = math.clamp(math.ceil(size.Y / cell), 0, 12)
 		if cols * rows == made then return end
 		holder:ClearAllChildren()
 		made = cols * rows
-		local stud = math.floor(cell * 0.62)
+		local stud = math.floor(cell * 0.56)
 		local off = math.floor((cell - stud) / 2)
 		for r = 0, rows - 1 do
 			for c = 0, cols - 1 do
-				local x, y = c * cell + off, r * cell + off
-				local shadow = new("Frame", {
-					BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1 - 0.16 * strength, BorderSizePixel = 0,
-					Position = UDim2.fromOffset(x + 2, y + 2), Size = UDim2.fromOffset(stud, stud), ZIndex = holder.ZIndex, Parent = holder,
-				})
-				FKit.corner(shadow, 3)
-				local top = new("Frame", {
+				new("Frame", {
 					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1 - 0.2 * strength, BorderSizePixel = 0,
-					Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(stud, stud), ZIndex = holder.ZIndex, Parent = holder,
+					Position = UDim2.fromOffset(c * cell + off, r * cell + off), Size = UDim2.fromOffset(stud, stud),
+					ZIndex = holder.ZIndex, Parent = holder,
 				})
-				FKit.corner(top, 3)
 			end
 		end
 	end
@@ -205,7 +200,7 @@ function FKit.button(parent, text, palette, props)
 		Parent = b,
 	})
 	FKit.corner(face, UDim.new(0.22, 0))
-	FKit.studs(face, 14, 1, b.ZIndex)
+	FKit.studs(face, 16, 1, b.ZIndex)
 	-- the light inner edge
 	local rim = new("Frame", {
 		Name = "Rim",
@@ -237,6 +232,102 @@ function FKit.recolor(button, palette)
 	if inner then inner.Color = palette[1]:Lerp(C.White, 0.35) end
 end
 
+--------------------------------------------------------------------------------
+-- Motion that costs next to nothing (TweenService runs it, no per-frame code)
+--------------------------------------------------------------------------------
+
+local BLOCK_COLORS = {
+	Color3.fromRGB(255, 90, 110), Color3.fromRGB(255, 200, 50), Color3.fromRGB(80, 220, 120),
+	Color3.fromRGB(70, 170, 255), Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 150, 60),
+}
+
+-- Is a gui object really on screen (every parent visible)?
+local function shown(obj)
+	local node = obj
+	while node do
+		if node:IsA("GuiObject") and not node.Visible then return false end
+		if node:IsA("LayerCollector") then return node.Enabled end
+		node = node.Parent
+	end
+	return false
+end
+FKit.shown = shown
+
+-- Little studded blocks that tumble down behind a frame's content while it
+-- is on screen. A handful at a time, each one tween.
+function FKit.fallingBlocks(frame, opts)
+	opts = opts or {}
+	local layer = new("Frame", {
+		Name = "FallingBlocks", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
+		ClipsDescendants = true, ZIndex = opts.ZIndex or frame.ZIndex, Parent = frame,
+	})
+	if opts.Corner then FKit.corner(layer, opts.Corner) end
+	local every = opts.Every or 0.55
+	task.spawn(function()
+		while layer.Parent do
+			if shown(layer) and #layer:GetChildren() < (opts.Max or 9) then
+				local size = math.random(12, 24)
+				local color = BLOCK_COLORS[math.random(1, #BLOCK_COLORS)]
+				local block = new("Frame", {
+					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(math.random(), 0, 0, -size),
+					Size = UDim2.fromOffset(size, size), Rotation = math.random(-30, 30),
+					BackgroundColor3 = color, BackgroundTransparency = opts.Transparency or 0.45, BorderSizePixel = 0,
+					ZIndex = layer.ZIndex, Parent = layer,
+				})
+				FKit.corner(block, UDim.new(0.2, 0))
+				new("Frame", { -- the stud on top
+					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.45, 0.45),
+					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0,
+					ZIndex = layer.ZIndex, Parent = block,
+				})
+				local time = 2.6 + math.random() * 2.2
+				local t = TweenService:Create(block, TweenInfo.new(time, Enum.EasingStyle.Linear), {
+					Position = UDim2.new(block.Position.X.Scale + (math.random() - 0.5) * 0.15, 0, 1, size),
+					Rotation = block.Rotation + math.random(-160, 160),
+				})
+				t.Completed:Connect(function() block:Destroy() end)
+				t:Play()
+			end
+			task.wait(every)
+		end
+	end)
+	return layer
+end
+
+-- A light that sweeps across a button now and then.
+function FKit.shine(button, period)
+	local sweep = new("Frame", {
+		Name = "Shine", BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.35, BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1), ZIndex = button.ZIndex + 1, Parent = button,
+	})
+	FKit.corner(sweep, UDim.new(0.22, 0))
+	local g = new("UIGradient", {
+		Rotation = 20, Offset = Vector2.new(-1.2, 0), Parent = sweep,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.2),
+			NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1),
+		}),
+	})
+	TweenService:Create(g, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, period or 2.2),
+		{ Offset = Vector2.new(1.2, 0) }):Play()
+	return sweep
+end
+
+-- A slow breathing scale, for things that want to be clicked.
+function FKit.pulse(obj, amount, period)
+	local s = new("UIScale", { Name = "Pulse", Parent = obj })
+	TweenService:Create(s, TweenInfo.new(period or 0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Scale = 1 + (amount or 0.05) }):Play()
+	return s
+end
+
+-- A gentle wobble (tags like HOT and BEST).
+function FKit.wobble(obj, degrees, period)
+	obj.Rotation = -(degrees or 6)
+	TweenService:Create(obj, TweenInfo.new(period or 0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Rotation = degrees or 6 }):Play()
+end
+
 -- A navy panel with a lighter rim.
 function FKit.panel(parent, props, radius)
 	local f = new("Frame", { Name = "Panel", BackgroundColor3 = C.White, Parent = parent })
@@ -254,7 +345,7 @@ function FKit.panel(parent, props, radius)
 	})
 	FKit.corner(rim, math.max(2, (radius or 18) - 3))
 	FKit.stroke(rim, 2, C.White, true, 0.8)
-	FKit.studs(f, 22, 0.45, f.ZIndex)
+	FKit.studs(f, 28, 0.4, f.ZIndex)
 	return f
 end
 

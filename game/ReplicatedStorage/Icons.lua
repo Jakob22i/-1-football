@@ -162,6 +162,13 @@ local ICONS = {
 		{ 34, 60, 16, 40, K.green, rot = -45, r = 0.5 },
 		{ 60, 48, 16, 66, K.green, rot = 38, r = 0.5 },
 	},
+	boot = {
+		{ 40, 42, 34, 46, K.green, r = 0.2 },
+		{ 54, 66, 70, 26, K.green, r = 0.3 },
+		{ 54, 82, 74, 10, K.white, r = 0.4 },
+		D({ 40, 40, 24, 6, K.white, r = 0.5, line = false }),
+		D({ 40, 52, 24, 6, K.white, r = 0.5, line = false }),
+	},
 	cross = {
 		{ 50, 50, 20, 80, K.red, rot = 45, r = 0.5 },
 		{ 50, 50, 20, 80, K.red, rot = -45, r = 0.5 },
@@ -422,7 +429,7 @@ local FROM_EMOJI = {
 	["\u{1F3C6}"] = "trophy", ["\u{1F3A8}"] = "palette", ["\u{1F6D2}"] = "cart", ["\u{26A1}"] = "bolt",
 	["\u{26BD}"] = "ball", ["\u{1F3AF}"] = "target", ["\u{1F300}"] = "swirl", ["\u{1F6E1}"] = "shield",
 	["\u{1F4AA}"] = "dumbbell", ["\u{2B50}"] = "star", ["\u{1F451}"] = "crown", ["\u{1F916}"] = "robot",
-	["\u{23F1}"] = "stopwatch", ["\u{1F512}"] = "lock", ["\u{2705}"] = "check", ["\u{1F525}"] = "fire", ["\u{1F504}"] = "refresh",
+	["\u{23F1}"] = "stopwatch", ["\u{1F512}"] = "lock", ["\u{2705}"] = "check", ["\u{1F525}"] = "fire", ["\u{1F504}"] = "refresh", ["\u{1F45F}"] = "boot",
 }
 function Icons.FromEmoji(emoji)
 	return FROM_EMOJI[emoji] or "star"
