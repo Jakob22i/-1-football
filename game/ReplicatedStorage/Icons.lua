@@ -162,6 +162,28 @@ local ICONS = {
 		{ 34, 60, 16, 40, K.green, rot = -45, r = 0.5 },
 		{ 60, 48, 16, 66, K.green, rot = 38, r = 0.5 },
 	},
+	cross = {
+		{ 50, 50, 20, 80, K.red, rot = 45, r = 0.5 },
+		{ 50, 50, 20, 80, K.red, rot = -45, r = 0.5 },
+	},
+	plus = {
+		{ 50, 50, 22, 76, K.white, r = 0.4 },
+		{ 50, 50, 76, 22, K.white, r = 0.4 },
+	},
+	coin = {
+		{ 50, 50, 80, 80, K.gold, r = 0.3 },
+		D({ 50, 50, 50, 50, K.goldDark, r = 0.25 }),
+		D({ 50, 50, 14, 14, K.gold, r = 0.1, line = false }),
+	},
+	diamond = {
+		{ 50, 52, 60, 60, K.cyan, rot = 45, r = 0.12 },
+		D({ 42, 42, 12, 26, K.white, rot = 45, r = 0.5, line = false }),
+	},
+	refresh = {
+		{ 50, 50, 80, 80, K.red, r = 0.5 },
+		D({ 50, 50, 46, 46, K.white, r = 0.5 }),
+		D({ 72, 30, 20, 20, K.white, rot = 45, r = 0.1, line = false }),
+	},
 	fire = {
 		{ 50, 62, 60, 60, K.orange, r = 0.5 },
 		{ 50, 40, 38, 38, K.orange, rot = 45, r = 0.4 },
@@ -217,6 +239,42 @@ end
 
 -- icon -> image id (fill in from the list the game prints in Output)
 Icons.Images = {}
+
+-- The icon sheet (assets/Icons_Sheet.png in the repo: 21 icons, 7 x 3, 96
+-- px each). Upload it once (Studio > Asset Manager > Import), right-click it
+-- > Copy Asset ID, and paste the id in Image. Until then the drawn icons
+-- are used.
+Icons.Sprite = {
+	Image = "",
+	Cell = 96,
+	Columns = 7,
+	Order = { "check", "cross", "coin", "minus", "plus", "undo", "redo",
+		"diamond", "gem", "gear", "paw", "refresh", "basket", "swap",
+		"gift", "code", "hand", "cursor", "clover", "wheel", "cash" },
+	-- the game's icon -> the picture on the sheet
+	Use = {
+		check = "check", cross = "cross", coin = "coin", plus = "plus", refresh = "refresh",
+		cart = "basket", clipboard = "swap", gift = "gift", palette = "wheel", crown = "gem",
+		robot = "hand", diamond = "diamond", trophy = "diamond",
+	},
+}
+
+-- The sheet cell for an icon: its offset on the sheet, or nil.
+function Icons.SpriteCell(name)
+	local sprite = Icons.Sprite
+	local id = tostring(sprite.Image or "")
+	if id == "" or id == "0" then return nil end
+	local pick = sprite.Use[name]
+	if not pick then return nil end
+	for i, cellName in ipairs(sprite.Order) do
+		if cellName == pick then
+			local col, row = (i - 1) % sprite.Columns, (i - 1) // sprite.Columns
+			if id:match("^%d+$") then id = "rbxassetid://" .. id end
+			return id, Vector2.new(col * sprite.Cell, row * sprite.Cell), Vector2.new(sprite.Cell, sprite.Cell)
+		end
+	end
+	return nil
+end
 
 -- words to look for in the pack's image names, best first
 local KEYWORDS = {
@@ -287,6 +345,20 @@ local function draw(holder, name)
 	aspect.AspectRatio = 1
 	aspect.Parent = holder
 	holder:SetAttribute("Icon", name)
+	local sheet, offset, size = Icons.SpriteCell(name)
+	if sheet then
+		local l = Instance.new("ImageLabel")
+		l.Name = "Picture"
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.fromScale(1, 1)
+		l.ScaleType = Enum.ScaleType.Fit
+		l.Image = sheet
+		l.ImageRectOffset = offset
+		l.ImageRectSize = size
+		l.ZIndex = holder.ZIndex + 1
+		l.Parent = holder
+		return function() end
+	end
 	local image = Icons.Image(name)
 	if image then
 		local l = Instance.new("ImageLabel")
@@ -349,7 +421,7 @@ local FROM_EMOJI = {
 	["\u{1F3C6}"] = "trophy", ["\u{1F3A8}"] = "palette", ["\u{1F6D2}"] = "cart", ["\u{26A1}"] = "bolt",
 	["\u{26BD}"] = "ball", ["\u{1F3AF}"] = "target", ["\u{1F300}"] = "swirl", ["\u{1F6E1}"] = "shield",
 	["\u{1F4AA}"] = "dumbbell", ["\u{2B50}"] = "star", ["\u{1F451}"] = "crown", ["\u{1F916}"] = "robot",
-	["\u{23F1}"] = "stopwatch", ["\u{1F512}"] = "lock", ["\u{2705}"] = "check", ["\u{1F525}"] = "fire",
+	["\u{23F1}"] = "stopwatch", ["\u{1F512}"] = "lock", ["\u{2705}"] = "check", ["\u{1F525}"] = "fire", ["\u{1F504}"] = "refresh",
 }
 function Icons.FromEmoji(emoji)
 	return FROM_EMOJI[emoji] or "star"

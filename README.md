@@ -135,6 +135,11 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   dark outline round each one (`Icons.lua`). With DevJoob's "Simulator Icon
   Pack" from the Toolbox in ReplicatedStorage, the icons use its pictures
   instead and Output lists its image ids to bake into `Icons.Images`.
+  `assets/Icons_Sheet.png` holds 21 icons (check, cross, Robux coin, plus,
+  refresh, basket, swap arrows, gift, colour wheel, gems, hand ...): upload it
+  once and put its id in `Icons.Sprite.Image`; then the close and EXIT
+  buttons, prices, Season, Shop, Position, Daily, Style, VIP and Auto-Train
+  use those pictures.
 - **Trees**: leafy trees and pines, kept clear of every stand, pitch and path.
 
 ## Things you will want to change

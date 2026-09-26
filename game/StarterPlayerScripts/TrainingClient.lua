@@ -205,6 +205,10 @@ local function buildHud()
 	hud.Leave = FKit.button(root, "\u{2715} EXIT", FKit.Palette.red, {
 		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(190, 64),
 	})
+	hud.Leave.Label.Text = "EXIT"
+	hud.Leave.Label.Position = UDim2.fromOffset(56, 1)
+	hud.Leave.Label.Size = UDim2.new(1, -64, 1, -4)
+	Icons.new(hud.Leave, "cross", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -1), Size = UDim2.fromOffset(40, 40), ZIndex = hud.Leave.ZIndex + 2 })
 	hud.LeaveHint = FKit.text(hud.Leave, "PRESS X", 14, C.White, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.fromOffset(120, 18), ZIndex = 5,
 	})

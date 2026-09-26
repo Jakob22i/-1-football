@@ -124,6 +124,18 @@ local function candy(parent, text, palette, props)
 	return b, label
 end
 
+-- An icon at the left of a button's text (a coin before a price, a check
+-- before OWNED).
+local function withIcon(button, label, icon, size)
+	size = size or 34
+	Icons.new(button, icon, {
+		Name = "LabelIcon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, -1),
+		Size = UDim2.fromOffset(size, size), ZIndex = button.ZIndex + 2,
+	})
+	label.Position = UDim2.fromOffset(size + 12, 1)
+	label.Size = UDim2.new(1, -(size + 18), 1, -4)
+end
+
 local function multiplier()
 	local mult = 1 + Config.Season.BonusPer * attr("Season", 0)
 	if attr("Pass_DoubleXP", false) then mult *= 2 end
@@ -447,7 +459,7 @@ end
 --------------------------------------------------------------------------------
 
 WINDOWS.Season = {
-	Title = "NEW SEASON", Icon = "\u{1F3C6}", Colors = { Color3.fromRGB(230, 170, 255), Color3.fromRGB(130, 50, 230) },
+	Title = "NEW SEASON", Icon = "\u{1F504}", Colors = { Color3.fromRGB(230, 170, 255), Color3.fromRGB(130, 50, 230) },
 	Watch = { Season = true, OVR = true },
 }
 
@@ -669,9 +681,10 @@ function WINDOWS.Shop.Build(page)
 		Icons.new(tile, Icons.FromEmoji(look[1]), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(44, 44), ZIndex = tile.ZIndex })
 		FKit.fit(tile, pass.Name, 19, C.White, { Position = UDim2.fromOffset(6, 50), Size = UDim2.new(1, -12, 0, 24) })
 		bodyText(tile, pass.Line, 15, C.White, { Position = UDim2.fromOffset(6, 76), Size = UDim2.new(1, -12, 0, 68), TextYAlignment = Enum.TextYAlignment.Top })
-		local b = candy(tile, ownedPass and "\u{2705} OWNED" or ("R$ " .. pass.Price), ownedPass and "grey" or "green", {
+		local b, priceLabel = candy(tile, ownedPass and "OWNED" or tostring(pass.Price), ownedPass and "grey" or "green", {
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
+		withIcon(b, priceLabel, ownedPass and "check" or "coin")
 		if ownedPass then
 			b.Active = false
 		else
@@ -691,9 +704,10 @@ function WINDOWS.Shop.Build(page)
 	FKit.fit(boostTile, boost.Name, 20, C.White, { Position = UDim2.fromOffset(6, 44), Size = UDim2.new(1, -12, 0, 24) })
 	local boostLeft = FKit.fit(boostTile, boost.Line, 15, C.White, { Position = UDim2.fromOffset(6, 70), Size = UDim2.new(1, -12, 0, 36) })
 	boostLeft.TextWrapped = true
-	local boostButton = candy(boostTile, "R$ " .. boost.Price, "green", {
+	local boostButton, boostPrice = candy(boostTile, tostring(boost.Price), "green", {
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 	})
+	withIcon(boostButton, boostPrice, "coin")
 	boostButton.Activated:Connect(function()
 		ctx.Sound("Click")
 		ask("BuyProduct", "Boost15")
@@ -702,7 +716,8 @@ function WINDOWS.Shop.Build(page)
 	-- +1 stat point: pick the stat first
 	local point = Config.Products.StatPoint
 	local pointTile = box(products, { Position = UDim2.new(0.34, 4, 0, 0), Size = UDim2.new(0.66, -4, 1, 0) }, { Color3.fromRGB(150, 240, 170), Color3.fromRGB(20, 150, 70) }, 16)
-	FKit.fit(pointTile, point.Name, 20, C.White, { Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 24), TextXAlignment = Enum.TextXAlignment.Left })
+	Icons.new(pointTile, "plus", { Position = UDim2.fromOffset(8, 4), Size = UDim2.fromOffset(28, 28), ZIndex = pointTile.ZIndex })
+	FKit.fit(pointTile, point.Name, 20, C.White, { Position = UDim2.fromOffset(40, 6), Size = UDim2.new(1, -50, 0, 24), TextXAlignment = Enum.TextXAlignment.Left })
 	FKit.fit(pointTile, point.Line, 15, C.White, { Position = UDim2.fromOffset(10, 30), Size = UDim2.new(1, -20, 0, 18), TextXAlignment = Enum.TextXAlignment.Left })
 	local statRow = new("Frame", { Position = UDim2.fromOffset(10, 52), Size = UDim2.new(1, -20, 0, 54), BackgroundTransparency = 1, Parent = pointTile })
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder, Parent = statRow })
@@ -711,6 +726,7 @@ function WINDOWS.Shop.Build(page)
 	local buy, buyLabel = candy(pointTile, "", "green", {
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -20, 0, 46),
 	})
+	withIcon(buy, buyLabel, "coin")
 	local function pick(stat)
 		pickedStat = stat
 		for s, b in pairs(statButtons) do
@@ -720,7 +736,7 @@ function WINDOWS.Shop.Build(page)
 			b.UIStroke.Color = s == stat and C.Gold or C.Ink
 		end
 		if stat then
-			buyLabel.Text = ("+1 %s  R$ %d"):format(stat, point.Price)
+			buyLabel.Text = ("+1 %s  %d"):format(stat, point.Price)
 			greyOut(buy, false)
 		else
 			buyLabel.Text = "PICK A STAT"
@@ -851,7 +867,8 @@ local function buildWindow()
 	local close = candy(panel, "\u{2715}", "red", {
 		Name = "Close", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(58, 58), ZIndex = 4,
 	})
-	close.Label.UITextSizeConstraint.MaxTextSize = 30
+	close.Label.Text = ""
+	Icons.new(close, "cross", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(38, 38), ZIndex = close.ZIndex + 2 })
 	close.Activated:Connect(MenusUI.Close)
 	page = new("Frame", { Name = "Page", Position = UDim2.fromOffset(20, 50), Size = UDim2.new(1, -40, 1, -64), BackgroundTransparency = 1, ZIndex = 3, Parent = panel })
 end
@@ -865,7 +882,7 @@ local MENU = {
 	{ "Daily", "DAILY", "\u{1F381}", "green" },
 	{ "Quests", "QUESTS", "\u{1F4DC}", "orange" },
 	{ "Positions", "POSITION", "\u{1F4CB}", "blue" },
-	{ "Season", "SEASON", "\u{1F3C6}", "purple" },
+	{ "Season", "SEASON", "\u{1F504}", "purple" },
 	{ "Style", "STYLE", "\u{1F3A8}", "red" },
 	{ "Shop", "SHOP", "\u{1F6D2}", "gold" },
 }

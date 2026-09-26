@@ -41,6 +41,7 @@ for _, n in ipairs({ "Gift", "Trophy", "Lightning", "Shopping Cart", "Lock" }) d
 	local d = Instance.new("Decal") d.Texture = "rbxassetid://" .. (#n * 1000) d.Parent = part
 end
 end
+if SPRITE then require("Icons").Sprite.Image = SPRITE end -- SPRITE="1": the uploaded icon sheet
 -- the server
 script = newInstance("Script")
 script.Parent = game:GetService("ServerScriptService")
