@@ -136,13 +136,14 @@ end
 -- Walking speed: Pace makes you faster everywhere
 --------------------------------------------------------------------------------
 
--- The texture on everything except the characters: Roblox's own Baseplate
--- squares (a grid of rounded squares, one every 8 studs). Id, colour and
--- transparency are the ones the Baseplate template uses.
+-- The texture on everything except the characters: Roblox's Baseplate
+-- squares (a grid of raised rounded squares, 8 per tile). The image is
+-- tinted with each part's own colour and brightened (the grey image is about
+-- half as bright as white), so a red part gets red squares, a green one green.
 Config.Texture = {
 	Id = "rbxassetid://6372755229",
-	Color = Color3.new(0, 0, 0),
-	Transparency = 0.8,
+	Brightness = 1.95,
+	Transparency = 0,
 	StudsPerTile = 8,
 	-- parts smaller than this (studs, biggest side) stay plain: a bolt or a
 	-- seat is too small to show a square

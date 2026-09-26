@@ -26,6 +26,13 @@ local function isCharacter(part)
 	return false
 end
 
+-- The image in the part's colour, brightened (Color3 above 1 brightens a
+-- texture), so the squares look like the part itself.
+local function tint(color)
+	local k = Config.Texture.Brightness
+	return Color3.new(color.R * k, color.G * k, color.B * k)
+end
+
 local function wants(part)
 	local cfg = Config.Texture
 	if not part:IsA("BasePart") or part:IsA("Terrain") then return false end
@@ -42,17 +49,23 @@ end
 function StudTexture.Apply(part)
 	if not wants(part) then return end
 	local cfg = Config.Texture
+	local textures = {}
 	for _, face in ipairs(FACES) do
 		local tex = Instance.new("Texture")
 		tex.Name = TAG
 		tex.Face = face
 		tex.Texture = cfg.Id
-		tex.Color3 = cfg.Color
+		tex.Color3 = tint(part.Color)
 		tex.Transparency = cfg.Transparency
 		tex.StudsPerTileU = cfg.StudsPerTile
 		tex.StudsPerTileV = cfg.StudsPerTile
 		tex.Parent = part
+		table.insert(textures, tex)
 	end
+	-- a part that changes colour (a gate opening) takes its squares along
+	part:GetPropertyChangedSignal("Color"):Connect(function()
+		for _, tex in ipairs(textures) do tex.Color3 = tint(part.Color) end
+	end)
 end
 
 function StudTexture.ApplyAll(root)

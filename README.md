@@ -113,7 +113,7 @@ without Studio, so flat colours and emoji as words) are in `images/`.
 ## The look
 
 - **The texture**: every part the game builds wears Roblox's Baseplate squares
-  (`Config.Texture` in `FootballConfig.lua`: the image id, colour,
+  (`Config.Texture` in `FootballConfig.lua`: the image id, brightness,
   transparency and studs per tile). Characters never get it: players, the
   crowd, the drill players and the dummies. Neither do glass, glows, nets and
   parts under 2 studs.
