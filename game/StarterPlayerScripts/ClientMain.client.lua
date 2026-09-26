@@ -161,11 +161,14 @@ UpgradeFX.Init(ctx)
 TrainingClient.Init(ctx)
 MenusUI.Init(ctx)
 
--- does the texture image load? (the answer is in Output)
+-- the texture's squares: drawn right here (EditableImage); if that is not
+-- allowed, the image id, and Output says whether it loaded
 task.spawn(function()
+	local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
+	if StudTexture.UseDrawnImage() then return end
 	local start = os.clock()
 	while not ReplicatedStorage:GetAttribute("StudTextureImage") and os.clock() - start < 15 do task.wait(0.5) end
-	require(ReplicatedStorage:WaitForChild("StudTexture")).CheckLoaded()
+	StudTexture.CheckLoaded()
 end)
 
 ctx.Remotes.Progress.OnClientEvent:Connect(function(kind, data)
