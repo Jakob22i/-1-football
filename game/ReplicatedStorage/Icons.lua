@@ -262,7 +262,8 @@ Icons.Sprite = {
 -- The sheet cell for an icon: its offset on the sheet, or nil.
 function Icons.SpriteCell(name)
 	local sprite = Icons.Sprite
-	local id = tostring(sprite.Image or "")
+	-- the server may have found the image behind a Decal id (Main)
+	local id = game:GetService("ReplicatedStorage"):GetAttribute("IconSheet") or tostring(sprite.Image or "")
 	if id == "" or id == "0" then return nil end
 	local pick = sprite.Use[name]
 	if not pick then return nil end

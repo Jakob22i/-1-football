@@ -59,6 +59,22 @@ if not ok then
 end
 print(string.format("[Football] map built in %.2fs", os.clock() - started))
 
+-- the icon sheet: a Decal id (from create.roblox.com) does not show in an
+-- ImageLabel; the image inside the Decal does, so look it up once
+do
+	local Icons = require(ReplicatedStorage:WaitForChild("Icons"))
+	local id = tonumber(tostring(Icons.Sprite.Image):match("%d+"))
+	if id then
+		local ok, model = pcall(function() return game:GetService("InsertService"):LoadAsset(id) end)
+		local decal = ok and model and model:FindFirstChildWhichIsA("Decal", true)
+		if decal and decal.Texture ~= "" then
+			ReplicatedStorage:SetAttribute("IconSheet", decal.Texture)
+			print("[Football] icon sheet: Decal " .. id .. " -> " .. decal.Texture)
+		end
+		if ok and model then model:Destroy() end
+	end
+end
+
 -- the light (Config.Lighting)
 do
 	local Lighting = game:GetService("Lighting")
