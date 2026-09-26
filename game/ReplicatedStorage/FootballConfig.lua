@@ -1,0 +1,413 @@
+-- Every tuning number of Football Stars in one place: the stats and their
+-- XP curve, how OVR is worked out per position, the card tiers, every drill,
+-- the gates, seasons, daily rewards, quests and the shop.
+--
+-- Shared by the server (which does all the maths) and the client (which
+-- only shows it).
+
+local Config = {}
+
+Config.GameName = "FOOTBALL STARS"
+Config.Tagline = "TRAIN TO 99"
+
+--------------------------------------------------------------------------------
+-- Stats
+--------------------------------------------------------------------------------
+
+-- The six stats, in the order the card shows them.
+Config.StatOrder = { "PAC", "SHO", "PAS", "DRI", "DEF", "PHY" }
+
+Config.Stats = {
+	PAC = { Name = "Pace", Drill = "Speed Course", Color = Color3.fromRGB(40, 220, 255), Icon = "\u{26A1}" },
+	SHO = { Name = "Shooting", Drill = "Shooting Practice", Color = Color3.fromRGB(255, 72, 88), Icon = "\u{26BD}" },
+	PAS = { Name = "Passing", Drill = "Passing Drill", Color = Color3.fromRGB(90, 230, 90), Icon = "\u{1F3AF}" },
+	DRI = { Name = "Dribbling", Drill = "Dribbling Cones", Color = Color3.fromRGB(190, 110, 255), Icon = "\u{1F300}" },
+	DEF = { Name = "Defending", Drill = "Tackle Zone", Color = Color3.fromRGB(70, 140, 255), Icon = "\u{1F6E1}" },
+	PHY = { Name = "Physical", Drill = "Gym", Color = Color3.fromRGB(255, 160, 40), Icon = "\u{1F4AA}" },
+}
+
+Config.StartLevel = 60
+Config.MaxLevel = 99
+
+-- XP a stat needs to go from `level` to level + 1. Every +1 costs more than
+-- the last: fast at first (the first few in a couple of minutes), then it
+-- gets steeper after 65. With normal play (about 150 XP a minute once walking
+-- and misses are counted) that is roughly:
+--   OVR 60 -> 65   5 - 10 minutes
+--   OVR 65 -> 75   1 - 2 hours
+--   OVR 75 -> 85   several sessions
+--   OVR 85 -> 99   days to weeks (seasons, passes and the academies help)
+function Config.XPToNext(level)
+	if level >= Config.MaxLevel then return math.huge end
+	local steps = level - Config.StartLevel
+	local cost = 45 * 1.13 ^ steps * 1.06 ^ math.max(0, level - 65)
+	return math.floor(cost + 0.5)
+end
+
+-- XP from drills grows a little with the stat, so higher levels do not feel
+-- like standing still: +3% per level above 60.
+function Config.LevelBonus(level)
+	return 1 + 0.03 * math.max(0, level - Config.StartLevel)
+end
+
+--------------------------------------------------------------------------------
+-- Positions and OVR
+--------------------------------------------------------------------------------
+
+Config.PositionOrder = { "ST", "W", "CAM", "CM", "CB", "GK" }
+
+-- How much each stat counts toward OVR in each position (each adds up to 1).
+Config.Positions = {
+	ST = { Name = "Striker", Weights = { PAC = 0.20, SHO = 0.30, PAS = 0.10, DRI = 0.20, DEF = 0.05, PHY = 0.15 } },
+	W = { Name = "Winger", Weights = { PAC = 0.30, SHO = 0.15, PAS = 0.15, DRI = 0.25, DEF = 0.05, PHY = 0.10 } },
+	CAM = { Name = "Attacking Mid", Weights = { PAC = 0.10, SHO = 0.20, PAS = 0.30, DRI = 0.25, DEF = 0.05, PHY = 0.10 } },
+	CM = { Name = "Central Mid", Weights = { PAC = 0.10, SHO = 0.10, PAS = 0.30, DRI = 0.15, DEF = 0.15, PHY = 0.20 } },
+	CB = { Name = "Centre Back", Weights = { PAC = 0.10, SHO = 0.05, PAS = 0.10, DRI = 0.05, DEF = 0.40, PHY = 0.30 } },
+	GK = { Name = "Goalkeeper", Weights = { PAC = 0.05, SHO = 0.00, PAS = 0.15, DRI = 0.00, DEF = 0.45, PHY = 0.35 } },
+}
+Config.StartPosition = "ST"
+Config.PositionsUnlockOVR = 70
+
+-- OVR from the stats for a position. 99 needs every counted stat at 99.
+function Config.OVR(stats, position)
+	local weights = (Config.Positions[position] or Config.Positions.ST).Weights
+	local total = 0
+	for stat, weight in pairs(weights) do
+		total += weight * (stats[stat] or Config.StartLevel)
+	end
+	return math.clamp(math.floor(total + 0.0001), Config.StartLevel, Config.MaxLevel)
+end
+
+--------------------------------------------------------------------------------
+-- Card tiers
+--------------------------------------------------------------------------------
+
+Config.TierOrder = { "Bronze", "Silver", "Gold", "Special", "Elite", "WorldClass", "Legend" }
+
+Config.Tiers = {
+	Bronze = { Min = 60, Label = "BRONZE" },
+	Silver = { Min = 65, Label = "SILVER" },
+	Gold = { Min = 75, Label = "GOLD" },
+	Special = { Min = 85, Label = "SPECIAL" },
+	Elite = { Min = 90, Label = "ELITE" },
+	WorldClass = { Min = 95, Label = "WORLD CLASS" },
+	Legend = { Min = 99, Label = "LEGEND" },
+}
+
+function Config.TierFor(ovr)
+	local found = "Bronze"
+	for _, name in ipairs(Config.TierOrder) do
+		if ovr >= Config.Tiers[name].Min then found = name end
+	end
+	return found
+end
+
+function Config.TierIndex(name)
+	for i, tier in ipairs(Config.TierOrder) do
+		if tier == name then return i end
+	end
+	return 1
+end
+
+--------------------------------------------------------------------------------
+-- Seasons (rebirth)
+--------------------------------------------------------------------------------
+
+-- At 99 OVR you can start a New Season: the card goes back to 60, you keep
+-- +25% XP for every season forever, and the card gets a season badge.
+Config.Season = {
+	NeedOVR = 99,
+	BonusPer = 0.25,
+	-- the border colour for each season (it cycles after the last one)
+	Colors = {
+		Color3.fromRGB(255, 255, 255), Color3.fromRGB(40, 220, 255), Color3.fromRGB(255, 90, 200),
+		Color3.fromRGB(120, 255, 90), Color3.fromRGB(255, 170, 30), Color3.fromRGB(170, 90, 255),
+		Color3.fromRGB(255, 60, 60), Color3.fromRGB(255, 230, 60),
+	},
+}
+
+function Config.SeasonColor(season)
+	if season <= 0 then return nil end
+	local list = Config.Season.Colors
+	return list[(season - 1) % #list + 1]
+end
+
+--------------------------------------------------------------------------------
+-- Walking speed: Pace makes you faster everywhere
+--------------------------------------------------------------------------------
+
+Config.Speed = {
+	Base = 16,
+	PerPace = 0.22,   -- +0.22 walk speed per Pace level above 60 (99 -> about 24.6)
+	Dribble = 14,     -- with the ball at your feet (plus Dribbling)
+	PerDribble = 0.2,
+	JumpPower = 50,
+}
+
+function Config.WalkSpeed(pace)
+	return Config.Speed.Base + Config.Speed.PerPace * math.max(0, pace - Config.StartLevel)
+end
+
+function Config.DribbleSpeed(dribbling)
+	return Config.Speed.Dribble + Config.Speed.PerDribble * math.max(0, dribbling - Config.StartLevel)
+end
+
+--------------------------------------------------------------------------------
+-- Drills
+--------------------------------------------------------------------------------
+-- Base XP is for a stat at 60 in the lobby's stations; it grows with the
+-- stat (Config.LevelBonus) and the station's multiplier (the academies).
+
+Config.Drills = {
+	Speed = {
+		Stat = "PAC",
+		Title = "SPEED COURSE",
+		Line = "Sprint through every gate. Beat your best time!",
+		BaseXP = 80,        -- for a run at par time
+		MaxFactor = 1.7,    -- the most a very fast run multiplies it by
+		Countdown = 3,
+		Timeout = 90,
+		Slack = 1.12,       -- a run can not be faster than distance / (speed * slack)
+	},
+	Shooting = {
+		Stat = "SHO",
+		Title = "SHOOTING PRACTICE",
+		Line = "Aim, hold to power up, release in the green. Hit the targets!",
+		HitXP = 10,
+		OnTargetXP = 2,     -- on target but not on a circle
+		TopCornerBonus = 1.5,
+		StreakForFire = 5,  -- hits in a row for ON FIRE
+		FireSeconds = 10,
+		FireMultiplier = 2,
+		ShotCooldown = 1.2,
+		FlightTime = 0.38,
+		IdleEnd = 40,       -- no shot for this long ends the session
+		-- target size (radius in studs) and movement from SHO 60 to 99
+		RadiusEasy = 2.3, RadiusHard = 1.2,
+		MoveEasy = 0, MoveHard = 5.5,
+		SpeedEasy = 0.5, SpeedHard = 1.7,
+		-- accuracy: how far a shot can drift (studs) from SHO 60 to 99
+		SpreadEasy = 2.8, SpreadHard = 1.0,
+		GreenFrom = 0.68, GreenTo = 0.86, -- the power sweet spot
+		TopCornerChance = 0.35,
+		TopCornerLife = 7,
+	},
+	Passing = {
+		Stat = "PAS",
+		Title = "PASSING DRILL",
+		Line = "Pass to the target that lights up. Quick and accurate = more XP!",
+		PassXP = 8,
+		RingBonus = 1.4,
+		MaxDistance = 62,       -- full power reaches this far
+		PassCooldown = 0.55,
+		TargetLife = 6,         -- a lit target waits this long
+		NextDelay = 0.45,
+		IdleEnd = 40,
+		QuickTime = 1.4,        -- faster than this: x1.3
+		SlowTime = 3,           -- slower than this: x0.75
+		LateralEasy = 1.5, LateralHard = 0.45,  -- random side error at 30 studs
+		LengthEasy = 3.6, LengthHard = 1.2,     -- random length error
+		DummyWidth = 2.4, DummyDepth = 4.5,     -- how close counts, per target type
+		RingWidth = 1.5, RingDepth = 3.2,
+		RingChance = 0.3,
+	},
+	Dribbling = {
+		Stat = "DRI",
+		Title = "DRIBBLING CONES",
+		Line = "Weave left and right round every cone. Don't touch them!",
+		BaseXP = 55,
+		MaxFactor = 1.7,
+		PerfectBonus = 1.5,
+		TouchPenalty = 1,     -- seconds per cone touched
+		MissPenalty = 2,      -- seconds per cone passed on the wrong side
+		ConeRadius = 1.3,     -- touching distance
+		Countdown = 3,
+		Timeout = 60,
+		Slack = 1.15,
+	},
+	Defending = {
+		Stat = "DEF",
+		Title = "TACKLE ZONE",
+		Line = "Stop the attackers before they reach your goal line!",
+		StopXP = 9,
+		WaveBonus = 4,        -- x the wave number, for clearing a wave without a goal
+		Lives = 3,
+		Reach = 5,            -- tackle distance (+ a bit with DEF)
+		ReachPerLevel = 0.03,
+		TackleCooldown = 0.55,
+		SpeedStart = 8.5, SpeedPerWave = 0.9, SpeedMax = 23,
+		ZigZag = 4,
+		WaveGap = 3,
+	},
+	Gym = {
+		Stat = "PHY",
+		Title = "GYM",
+		Line = "Press when the marker is in the green. Gold = perfect!",
+		GoodXP = 4,
+		PerfectXP = 6,
+		SetBonus = 1.5,       -- x good reps, at the end of a set
+		Reps = 10,
+		PeriodStart = 1.35, PeriodEnd = 0.85, -- seconds for the marker to cross the bar
+		ZoneEasy = 0.22, ZoneHard = 0.14,
+		Perfect = 0.05,
+		PressWindow = 0.14,   -- how far the client's press time may be from the server's guess
+		RestSeconds = 2,
+	},
+	Match = {
+		Stat = "ALL",
+		Title = "STADIUM MATCH",
+		Line = "5-a-side. Score, pass and defend in the big moments!",
+		NeedOVR = 75,
+		WinXP = 70,           -- to every stat
+		DrawXP = 35,
+		LossXP = 18,
+		MomentGap = 1.6,
+	},
+}
+
+-- Where the drills are and how much better the XP is. Academy stations sit
+-- behind gates that open at an OVR; the VIP lounge needs the VIP pass.
+Config.Areas = {
+	Lobby = { Title = "TRAINING GROUND", Mult = 1, Difficulty = 0 },
+	VIP = { Title = "VIP TRAINING", Mult = 1.25, Difficulty = 0, VIP = true },
+	Pro = { Title = "PRO ACADEMY", Mult = 1.25, Difficulty = 0.15, NeedOVR = 70, Color = Color3.fromRGB(60, 200, 255) },
+	Elite = { Title = "ELITE ACADEMY", Mult = 1.6, Difficulty = 0.3, NeedOVR = 80, Color = Color3.fromRGB(200, 90, 255) },
+	Legend = { Title = "LEGEND ACADEMY", Mult = 2, Difficulty = 0.45, NeedOVR = 90, Color = Color3.fromRGB(255, 200, 40) },
+	Stadium = { Title = "STADIUM", Mult = 1, Difficulty = 0, NeedOVR = 75, Color = Color3.fromRGB(255, 90, 90) },
+}
+
+--------------------------------------------------------------------------------
+-- Streaks, boosts and AFK
+--------------------------------------------------------------------------------
+
+-- Train on days in a row: +5% XP per day, up to +35%.
+Config.TrainingStreak = { PerDay = 0.05, MaxDays = 8 }
+
+function Config.StreakMultiplier(days)
+	return 1 + Config.TrainingStreak.PerDay * math.clamp((days or 0) - 1, 0, Config.TrainingStreak.MaxDays - 1)
+end
+
+Config.Boost = { Multiplier = 2 }
+
+-- Auto-Train pass: XP while standing in the lobby.
+Config.AutoTrain = { Every = 15, XP = 14, Radius = 60 }
+
+--------------------------------------------------------------------------------
+-- Daily login reward
+--------------------------------------------------------------------------------
+
+Config.Daily = {
+	Cooldown = 20 * 3600,
+	Reset = 48 * 3600,
+	Days = {
+		{ Kind = "Boost", Minutes = 15, Name = "2x XP", Line = "15 minutes" },
+		{ Kind = "XPAll", Amount = 60, Name = "XP PACK", Line = "every stat" },
+		{ Kind = "Cosmetic", Item = "Border_Neon", Name = "NEON BORDER", Line = "for your card" },
+		{ Kind = "Boost", Minutes = 30, Name = "2x XP", Line = "30 minutes" },
+		{ Kind = "Cosmetic", Item = "Background_Sunset", Name = "SUNSET", Line = "card background" },
+		{ Kind = "XPAll", Amount = 150, Name = "BIG XP PACK", Line = "every stat" },
+		{ Kind = "Big", Minutes = 60, Amount = 250, Item = "Celebration_Fireworks", Name = "MEGA REWARD", Line = "fireworks + 1h 2x XP + XP" },
+	},
+}
+
+--------------------------------------------------------------------------------
+-- Quests: goals that never run out (a bigger one follows each)
+--------------------------------------------------------------------------------
+
+Config.Quests = {
+	{ Id = "Goals", Counter = "Goals", Stat = "SHO", Text = "Score %s goals in Shooting Practice", Goals = { 10, 25, 50, 100, 250, 500, 1000 } },
+	{ Id = "Corners", Counter = "TopCorners", Stat = "SHO", Text = "Hit %s top corner targets", Goals = { 3, 10, 25, 60, 150 } },
+	{ Id = "Passes", Counter = "Passes", Stat = "PAS", Text = "Make %s accurate passes", Goals = { 15, 40, 100, 250, 600 } },
+	{ Id = "Perfect", Counter = "PerfectRuns", Stat = "DRI", Text = "Do %s PERFECT RUNS in the cones", Goals = { 1, 3, 10, 25, 60 } },
+	{ Id = "SpeedTime", Counter = "SpeedBest", Stat = "PAC", Lower = true, Text = "Finish the Speed Course under %ss", Goals = { 26, 24, 22, 20, 19, 18, 17, 16 } },
+	{ Id = "Tackles", Counter = "Tackles", Stat = "DEF", Text = "Stop %s attackers", Goals = { 10, 30, 75, 200, 500 } },
+	{ Id = "Reps", Counter = "PerfectReps", Stat = "PHY", Text = "Do %s perfect reps in the gym", Goals = { 10, 30, 75, 200, 500 } },
+	{ Id = "OVR", Counter = "BestOVR", Stat = "ALL", Text = "Reach %s OVR", Goals = { 65, 70, 75, 80, 85, 90, 95, 99 } },
+	{ Id = "Matches", Counter = "MatchesWon", Stat = "ALL", Text = "Win %s Stadium Matches", Goals = { 1, 3, 10, 25, 60 } },
+}
+
+function Config.GetQuest(id)
+	for _, quest in ipairs(Config.Quests) do
+		if quest.Id == id then return quest end
+	end
+	return nil
+end
+
+-- A quest reward: XP worth about 1.5 levels of the stat (for "ALL", half a
+-- level of every stat).
+Config.QuestReward = { Levels = 1.5, AllLevels = 0.5 }
+
+--------------------------------------------------------------------------------
+-- Card cosmetics
+--------------------------------------------------------------------------------
+
+Config.Cosmetics = {
+	Border_Classic = { Kind = "Border", Name = "Classic", Default = true },
+	Border_Neon = { Kind = "Border", Name = "Neon", Colors = { Color3.fromRGB(0, 255, 230), Color3.fromRGB(0, 140, 255) } },
+	Border_Fire = { Kind = "Border", Name = "Fire", Pack = true, Colors = { Color3.fromRGB(255, 230, 60), Color3.fromRGB(255, 60, 20) } },
+	Border_Ice = { Kind = "Border", Name = "Ice", Pack = true, Colors = { Color3.fromRGB(230, 255, 255), Color3.fromRGB(90, 190, 255) } },
+	Border_Galaxy = { Kind = "Border", Name = "Galaxy", Pack = true, Colors = { Color3.fromRGB(255, 90, 230), Color3.fromRGB(90, 60, 255) } },
+	Background_Stadium = { Kind = "Background", Name = "Stadium", Default = true, Colors = { Color3.fromRGB(40, 80, 160), Color3.fromRGB(10, 20, 60) } },
+	Background_Pitch = { Kind = "Background", Name = "Pitch", Default = true, Colors = { Color3.fromRGB(90, 210, 110), Color3.fromRGB(20, 110, 50) } },
+	Background_Sunset = { Kind = "Background", Name = "Sunset", Colors = { Color3.fromRGB(255, 190, 90), Color3.fromRGB(230, 60, 120) } },
+	Background_City = { Kind = "Background", Name = "City Lights", Pack = true, Colors = { Color3.fromRGB(120, 90, 255), Color3.fromRGB(20, 10, 60) } },
+	Background_Space = { Kind = "Background", Name = "Space", Pack = true, Colors = { Color3.fromRGB(60, 30, 120), Color3.fromRGB(0, 0, 20) } },
+	Celebration_Confetti = { Kind = "Celebration", Name = "Confetti", Default = true },
+	Celebration_Fireworks = { Kind = "Celebration", Name = "Fireworks" },
+	Celebration_Lightning = { Kind = "Celebration", Name = "Lightning", Pack = true },
+	Celebration_Hearts = { Kind = "Celebration", Name = "Hearts", Pack = true },
+}
+Config.CosmeticKinds = { "Border", "Background", "Celebration" }
+
+--------------------------------------------------------------------------------
+-- Shop (fair: LEGEND and seasons can never be bought)
+--------------------------------------------------------------------------------
+
+-- Ids start at 0: "coming soon" in a live game, free in Studio so you can
+-- test. Price is only what the button says; set the real price on the pass
+-- or product itself.
+Config.Gamepasses = {
+	DoubleXP = { Id = 0, Price = 199, Name = "2x Training XP", Line = "Every drill gives double XP. Forever." },
+	VIP = { Id = 0, Price = 249, Name = "VIP Training", Line = "The VIP lounge: better XP and a gold name." },
+	AutoTrain = { Id = 0, Price = 149, Name = "Auto-Train", Line = "Earn XP while you stand in the lobby." },
+	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations." },
+}
+Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "Cosmetics" }
+
+Config.Products = {
+	Boost15 = { ProductId = 0, Price = 29, Name = "2x XP Boost", Line = "15 minutes. They add up.", Minutes = 15 },
+	StatPoint = { ProductId = 0, Price = 15, Name = "+1 Stat Point", Line = "+1 to a stat of your choice (up to 84).", MaxLevel = 84 },
+}
+Config.ProductOrder = { "Boost15", "StatPoint" }
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+function Config.Short(n)
+	n = tonumber(n) or 0
+	local a = math.abs(n)
+	if a >= 1e9 then return (string.format("%.1fB", n / 1e9):gsub("%.0B", "B")) end
+	if a >= 1e6 then return (string.format("%.1fM", n / 1e6):gsub("%.0M", "M")) end
+	if a >= 1e4 then return (string.format("%.1fK", n / 1e3):gsub("%.0K", "K")) end
+	return tostring(math.floor(n + 0.5))
+end
+
+function Config.Clock(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	if seconds >= 3600 then
+		return string.format("%d:%02d:%02d", seconds // 3600, seconds % 3600 // 60, seconds % 60)
+	end
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+-- 0 at a stat of 60, 1 at 99: how hard a drill gets.
+function Config.Progress(level)
+	return math.clamp((level - Config.StartLevel) / (Config.MaxLevel - Config.StartLevel), 0, 1)
+end
+
+function Config.Lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+return Config
