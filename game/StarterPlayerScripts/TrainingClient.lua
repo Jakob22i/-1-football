@@ -18,6 +18,7 @@ local FKit = require(ReplicatedStorage:WaitForChild("FKit"))
 local DrillMath = require(ReplicatedStorage:WaitForChild("DrillMath"))
 local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
 local PlayerFigure = require(ReplicatedStorage:WaitForChild("PlayerFigure"))
+local Icons = require(ReplicatedStorage:WaitForChild("Icons"))
 
 local TrainingClient = {}
 
@@ -186,7 +187,7 @@ local function buildHud()
 	FKit.corner(badge, UDim.new(0.5, 0))
 	hud.XPBadgeGradient = FKit.gradient(badge, { C.White, C.Grey }, 90)
 	FKit.stroke(badge, 4, C.Ink, true)
-	hud.XPIcon = FKit.fit(badge, "\u{26BD}", 30, C.White, { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), ZIndex = 4, Font = Enum.Font.GothamBold })
+	hud.XPIcon = Icons.new(badge, "ball", { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), ZIndex = 4 })
 	hud.XPStat = FKit.text(xpHolder, "SHO 60", 24, C.White, {
 		Position = UDim2.fromOffset(64, -6), Size = UDim2.fromOffset(200, 28), TextXAlignment = Enum.TextXAlignment.Left,
 	})
@@ -318,7 +319,7 @@ local function setXPBar(stat)
 	local level = player:GetAttribute(stat) or Config.StartLevel
 	local xp = player:GetAttribute("XP_" .. stat) or 0
 	local need = player:GetAttribute("Need_" .. stat) or 1
-	hud.XPIcon.Text = def.Icon
+	Icons.set(hud.XPIcon, Icons.Stat[stat] or "star")
 	hud.XPBadgeGradient.Color = ColorSequence.new(def.Color:Lerp(C.White, 0.4), def.Color)
 	hud.XP.Gradient.Color = ColorSequence.new(def.Color:Lerp(C.White, 0.45), def.Color)
 	hud.XPStat.Text = ("%s %d"):format(stat, level)

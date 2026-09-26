@@ -18,6 +18,7 @@ MODULES = [
     "ReplicatedStorage/StudTexture.lua",
     "ReplicatedStorage/PlayerFigure.lua",
     "ReplicatedStorage/FKit.lua",
+    "ReplicatedStorage/Icons.lua",
     "ReplicatedStorage/CardView.lua",
     "ReplicatedStorage/FootballSounds.lua",
     "ServerScriptService/MapKit.lua",

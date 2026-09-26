@@ -170,4 +170,33 @@ if UPGRADE then
 	RunScheduler(tonumber(STEPS) or 6)
 end
 
+if ICONS then
+	-- every drawn icon on one sheet
+	local Icons = require("Icons")
+	local sheet = Instance.new("ScreenGui")
+	sheet.Name = "IconSheet"
+	sheet.Parent = pg
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = Color3.fromRGB(30, 40, 90)
+	bg.ZIndex = 50
+	bg.Parent = sheet
+	local names = {}
+	for name in pairs(Icons.Names) do table.insert(names, name) end
+	table.sort(names)
+	for i, name in ipairs(names) do
+		local col, row = (i - 1) % 7, (i - 1) // 7
+		Icons.new(bg, name, { Position = UDim2.fromOffset(40 + col * 175, 40 + row * 170), Size = UDim2.fromOffset(120, 120), ZIndex = 51 })
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1
+		l.Text = name
+		l.TextColor3 = Color3.new(1, 1, 1)
+		l.TextSize = 20
+		l.Position = UDim2.fromOffset(40 + col * 175, 165 + row * 170)
+		l.Size = UDim2.fromOffset(120, 24)
+		l.ZIndex = 51
+		l.Parent = bg
+	end
+	RunScheduler(1)
+end
 ExportGui(pg)

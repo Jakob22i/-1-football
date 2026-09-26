@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 local FKit = require(ReplicatedStorage:WaitForChild("FKit"))
+local Icons = require(ReplicatedStorage:WaitForChild("Icons"))
 local CardView = require(ReplicatedStorage:WaitForChild("CardView"))
 local CardUI = require(script.Parent:WaitForChild("CardUI"))
 
@@ -161,7 +162,7 @@ function WINDOWS.Card.Build(page)
 		local def = Config.Stats[stat]
 		local row = new("Frame", { Position = UDim2.fromOffset(0, (i - 1) * 46), Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1, Parent = right })
 		local icon = box(row, { Size = UDim2.fromOffset(40, 40) }, { def.Color:Lerp(C.White, 0.35), def.Color }, 20)
-		FKit.fit(icon, def.Icon, 24, C.White, { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Font = Enum.Font.GothamBold })
+		Icons.new(icon, Icons.Stat[stat], { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), ZIndex = icon.ZIndex })
 		local name = FKit.text(row, "", 20, C.White, {
 			Position = UDim2.fromOffset(48, -3), Size = UDim2.new(1, -48, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, RichText = true,
 		})
@@ -275,13 +276,13 @@ function WINDOWS.Daily.Build(page)
 			s.Thickness = 4
 		end
 		FKit.fit(tile, "DAY " .. day, 18, C.White, { Size = UDim2.new(1, -6, 0, 22), Position = UDim2.fromOffset(3, 4) })
-		FKit.fit(tile, DAILY_ICON[entry.Kind] or "\u{2B50}", 40, C.White, {
-			Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, 28), Font = Enum.Font.GothamBold,
+		Icons.new(tile, Icons.FromEmoji(DAILY_ICON[entry.Kind] or "\u{2B50}"), {
+			AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(44, 44), Position = UDim2.new(0.5, 0, 0, 28), ZIndex = tile.ZIndex,
 		})
 		FKit.fit(tile, entry.Name, 17, C.White, { Size = UDim2.new(1, -6, 0, 36), Position = UDim2.fromOffset(3, 76) }).TextWrapped = true
 		FKit.fit(tile, entry.Line, 13, Color3.fromRGB(225, 235, 255), { Size = UDim2.new(1, -6, 0, 34), Position = UDim2.fromOffset(3, 112) }).TextWrapped = true
 		if done then
-			FKit.fit(tile, "\u{2705}", 30, C.White, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.36), Size = UDim2.fromOffset(40, 40), ZIndex = 3, Font = Enum.Font.GothamBold })
+			Icons.new(tile, "check", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.36), Size = UDim2.fromOffset(40, 40), ZIndex = tile.ZIndex + 4 })
 		end
 	end
 
@@ -345,7 +346,7 @@ function WINDOWS.Quests.Build(page)
 		local row = box(list, { Size = UDim2.new(1, 0, 0, 76), LayoutOrder = i },
 			q.Ready and { Color3.fromRGB(90, 200, 110), Color3.fromRGB(26, 120, 56) } or nil, 14)
 		local icon = box(row, { Position = UDim2.fromOffset(10, 12), Size = UDim2.fromOffset(52, 52) }, { color:Lerp(C.White, 0.35), color }, 26)
-		FKit.fit(icon, statDef and statDef.Icon or "\u{2B50}", 30, C.White, { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Font = Enum.Font.GothamBold })
+		Icons.new(icon, statDef and Icons.Stat[q.Stat] or "star", { Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), ZIndex = icon.ZIndex })
 		FKit.fit(row, q.Text, 20, C.White, {
 			Position = UDim2.fromOffset(72, 6), Size = UDim2.new(1, -250, 0, 26), TextXAlignment = Enum.TextXAlignment.Left,
 		})
@@ -665,7 +666,7 @@ function WINDOWS.Shop.Build(page)
 		local look = PASS_LOOK[key]
 		local ownedPass = attr("Pass_" .. key, false)
 		local tile = box(passes, { Size = UDim2.new(0.25, -6, 1, 0), LayoutOrder = i }, look[2], 16)
-		FKit.fit(tile, look[1], 40, C.White, { Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 44), Font = Enum.Font.GothamBold })
+		Icons.new(tile, Icons.FromEmoji(look[1]), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(44, 44), ZIndex = tile.ZIndex })
 		FKit.fit(tile, pass.Name, 19, C.White, { Position = UDim2.fromOffset(6, 50), Size = UDim2.new(1, -12, 0, 24) })
 		bodyText(tile, pass.Line, 15, C.White, { Position = UDim2.fromOffset(6, 76), Size = UDim2.new(1, -12, 0, 68), TextYAlignment = Enum.TextYAlignment.Top })
 		local b = candy(tile, ownedPass and "\u{2705} OWNED" or ("R$ " .. pass.Price), ownedPass and "grey" or "green", {
@@ -686,7 +687,7 @@ function WINDOWS.Shop.Build(page)
 	-- 2x XP boost
 	local boost = Config.Products.Boost15
 	local boostTile = box(products, { Size = UDim2.new(0.34, -4, 1, 0) }, PASS_LOOK.DoubleXP[2], 16)
-	FKit.fit(boostTile, "\u{23F1}", 36, C.White, { Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 40), Font = Enum.Font.GothamBold })
+	Icons.new(boostTile, "stopwatch", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(40, 40), ZIndex = boostTile.ZIndex })
 	FKit.fit(boostTile, boost.Name, 20, C.White, { Position = UDim2.fromOffset(6, 44), Size = UDim2.new(1, -12, 0, 24) })
 	local boostLeft = FKit.fit(boostTile, boost.Line, 15, C.White, { Position = UDim2.fromOffset(6, 70), Size = UDim2.new(1, -12, 0, 36) })
 	boostLeft.TextWrapped = true
@@ -813,7 +814,7 @@ function MenusUI.Open(name, toggle)
 	end
 	current = name
 	titleLabel.Text = def.Title
-	titleIcon.Text = def.Icon
+	Icons.set(titleIcon, Icons.FromEmoji(def.Icon))
 	panel.Header.UIGradient.Color = FKit.sequence(def.Colors)
 	for key, b in pairs(buttons) do b.Button.Border.Color = key == name and C.White or C.Ink end
 	build(name)
@@ -843,7 +844,7 @@ local function buildWindow()
 	FKit.corner(header, 16)
 	FKit.gradient(header, { C.Gold, C.GoldDark }, 90)
 	FKit.stroke(header, 4, C.Ink, true)
-	titleIcon = FKit.fit(header, "", 32, C.White, { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(46, 46), ZIndex = 4, Font = Enum.Font.GothamBold })
+	titleIcon = Icons.new(header, "star", { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(46, 46), ZIndex = 4 })
 	titleLabel = FKit.fit(header, "", 34, C.White, {
 		Position = UDim2.fromOffset(58, 6), Size = UDim2.new(1, -66, 1, -12), ZIndex = 4, TextXAlignment = Enum.TextXAlignment.Left,
 	})
@@ -888,9 +889,11 @@ local function buildMenu()
 			label.Position = UDim2.new(0, 4, 1, -30)
 			label.Size = UDim2.new(1, -8, 0, 22)
 			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 17
-			FKit.fit(b, icon, 34, C.White, { Name = "Icon", Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 40), ZIndex = b.ZIndex + 1, Font = Enum.Font.GothamBold })
+			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 5), Size = UDim2.fromOffset(42, 42), ZIndex = b.ZIndex + 1 })
 		else
-			label.Text = icon .. " " .. text
+			Icons.new(b, Icons.FromEmoji(icon), { Name = "Icon", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, -2), Size = UDim2.fromOffset(50, 50), ZIndex = b.ZIndex + 1 })
+			label.Position = UDim2.fromOffset(62, 1)
+			label.Size = UDim2.new(1, -70, 1, -4)
 			label:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 30
 		end
 		local badge = new("Frame", {
@@ -926,7 +929,7 @@ local function updateBadges()
 	setBadge("Season", attr("OVR", 0) >= Config.Season.NeedOVR and "!" or nil)
 	local lock = buttons.Positions
 	if lock then
-		lock.Button.Icon.Text = attr("PositionsUnlocked", false) and "\u{1F4CB}" or "\u{1F512}"
+		Icons.set(lock.Button.Icon, attr("PositionsUnlocked", false) and "clipboard" or "lock")
 	end
 end
 
