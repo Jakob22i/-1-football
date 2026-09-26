@@ -8,6 +8,7 @@
 
 local MapKit = require(script.Parent:WaitForChild("MapKit"))
 local PlayerFigure = require(game:GetService("ReplicatedStorage"):WaitForChild("PlayerFigure"))
+local RigService = require(script.Parent:WaitForChild("RigService"))
 
 local part, patch, line, cylinder, rod, ball, disc = MapKit.part, MapKit.patch, MapKit.line, MapKit.cylinder, MapKit.rod, MapKit.ball, MapKit.disc
 local COL = MapKit.Colors
@@ -82,18 +83,26 @@ local function goal(parent, goalCF, width, height, depth, color)
 end
 StationBuilder.Goal = goal
 
--- A training dummy: a footballer in a yellow bib on a round base, facing
--- `lookAt` (the passer).
+-- A training dummy: a real Roblox character in a yellow bib on a round
+-- stand, facing `lookAt` (the passer). The character arrives a moment after
+-- the map is built (RigService makes it); the model is there from the start.
 local function dummy(parent, at, lookAt, seed)
-	local base = Instance.new("Model")
-	base.Name = "DummyStand"
-	base.Parent = parent
-	disc(base, "Base", at, 3.4, COL.NavyDark, 0.4, Enum.Material.SmoothPlastic)
-	local m = PlayerFigure.Build(parent, PlayerFigure.Kits.Dummy, { Name = "Dummy", Seed = seed })
-	local torso = at + V(0, 3.4, 0)
+	local stand = Instance.new("Model")
+	stand.Name = "DummyStand"
+	stand.Parent = parent
+	disc(stand, "Base", at, 3.4, COL.NavyDark, 0.4, Enum.Material.SmoothPlastic)
+	local m = Instance.new("Model")
+	m.Name = "Dummy"
+	m.Parent = parent
+	local middle = at + V(0, 3.4, 0)
 	local facing = flat((lookAt or (at + V(0, 0, 1))) - at)
 	if facing.Magnitude < 0.01 then facing = V(0, 0, 1) end
-	PlayerFigure.Pose(m, CFrame.lookAt(torso, torso + facing.Unit))
+	task.spawn(function()
+		RigService.WaitReady(60)
+		if not m.Parent then return end
+		local fig = PlayerFigure.Build(m, "Dummy", { Seed = seed, Avatars = false, Name = "Character" })
+		PlayerFigure.Pose(fig, CFrame.lookAt(middle, middle + facing.Unit))
+	end)
 	return m
 end
 StationBuilder.Dummy = dummy

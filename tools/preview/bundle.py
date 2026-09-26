@@ -21,6 +21,7 @@ MODULES = [
     "ReplicatedStorage/CardView.lua",
     "ReplicatedStorage/FootballSounds.lua",
     "ServerScriptService/MapKit.lua",
+    "ServerScriptService/RigService.lua",
     "ServerScriptService/StationBuilder.lua",
     "ServerScriptService/MapBuilder.lua",
     "ServerScriptService/DataService.lua",

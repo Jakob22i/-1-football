@@ -95,11 +95,12 @@ local function makeBall(parent)
 	return m
 end
 
--- A footballer (attackers, teammates, the keeper): see PlayerFigure.
-local figureCount = 0
-local function makeFigure(parent, kit)
+-- A real Roblox character (attackers, teammates, the keeper): your
+-- friends' avatars when there are some, see PlayerFigure.
+local figureCount = math.random(0, 50)
+local function makeFigure(parent, kitName)
 	figureCount += 1
-	return PlayerFigure.Build(parent, kit, { Local = true, Seed = figureCount * 37 + math.random(0, 9) })
+	return PlayerFigure.Build(parent, kitName, { Local = true, Seed = figureCount })
 end
 
 -- Stands the figure on `pos` facing `facing`; with a stride it runs.
@@ -832,7 +833,7 @@ controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpda
 local function addAttackers(s, list)
 	s.Attackers = s.Attackers or {}
 	for _, att in ipairs(list) do
-		local fig = makeFigure(localFolder(), PlayerFigure.Kits.Attacker)
+		local fig = makeFigure(localFolder(), "Attacker")
 		local ball = makeBall(localFolder())
 		s.Attackers[att.Id] = { Data = att, Figure = fig, Ball = ball }
 		placeFigure(fig, att.Start, att.End - att.Start)
@@ -1124,7 +1125,7 @@ controllers.Match = {
 				shootSetup(s, data.Spot, data.Goal, data.GoalWidth, data.GoalHeight, data.Green)
 				s.CanShoot = true
 				s.Keeper = data.Keeper
-				s.KeeperFigure = makeFigure(localFolder(), PlayerFigure.Kits.Keeper)
+				s.KeeperFigure = makeFigure(localFolder(), "Keeper")
 				table.insert(s.MomentParts, s.KeeperFigure)
 				table.insert(s.MomentParts, s.Reticle)
 			elseif data.Type == "Pass" then
@@ -1132,7 +1133,7 @@ controllers.Match = {
 				passSetup(s, data.Spot, forward, data.MaxDistance)
 				s.Targets = {}
 				for i, pos in ipairs(data.Teammates) do
-					local fig = makeFigure(localFolder(), PlayerFigure.Kits.Teammate)
+					local fig = makeFigure(localFolder(), "Teammate")
 					placeFigure(fig, pos, data.Spot - pos)
 					table.insert(s.MomentParts, fig)
 					table.insert(s.Targets, { Id = i, Kind = "Dummy", Pos = pos, Model = fig })

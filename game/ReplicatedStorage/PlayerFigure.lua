@@ -1,16 +1,29 @@
--- A footballer made of parts, for the drills: the attackers you tackle, the
--- keeper, your teammates in the stadium and the passing dummies. Hair, a
--- face, a kit with a trim and a number on the back, shorts, socks, boots
--- with coloured soles, and a keeper with gloves. Arms and legs swing when it
--- runs (PlayerFigure.Pose with a stride).
+-- The people in the drills: the attackers you tackle, the keeper, your
+-- teammates in the stadium and the passing dummies. They are real Roblox
+-- characters (R15 rigs with a Humanoid, playing Roblox's own run and idle
+-- animations):
 --
---   local fig = PlayerFigure.Build(folder, { Shirt = red, Accent = white }, { Local = true, Seed = 3 })
+--   * the avatars of your Roblox friends and of the other players in the
+--     server (RigService builds them into ReplicatedStorage.FigureRigs)
+--   * otherwise default Roblox avatars in the team's colours (the kits below)
+--
+-- A glowing ring in the team's colour under their feet shows the side.
+--
+--   local fig = PlayerFigure.Build(folder, "Attacker", { Local = true, Seed = 3 })
 --   PlayerFigure.Pose(fig, CFrame.lookAt(pos + Vector3.new(0, 3, 0), ...), os.clock() * 12)
 --
--- The model is built facing -Z with its feet at y = 0; its pivot (and
--- PrimaryPart) is the torso, 3 studs up.
+-- Pose takes the middle of the body, 3 studs over the ground (feet on the
+-- ground whatever the avatar's height).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 
 local PlayerFigure = {}
+
+local rigs = setmetatable({}, { __mode = "k" }) -- model -> how to pose it
 
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
 
@@ -27,9 +40,13 @@ local JOINTS = {
 }
 local SWING = { LL = 1, RL = -1, LA = -0.8, RA = 0.8 }
 
-local rigs = setmetatable({}, { __mode = "k" }) -- model -> { { part, offset, limb } }
 
-function PlayerFigure.Build(parent, kit, opts)
+
+PlayerFigure.Skins = SKIN
+
+-- A figure made of parts. Only used when Roblox could not make a single
+-- character (the avatar service is down), so a drill still has someone in it.
+local function buildBlocky(parent, kit, opts)
 	kit = kit or {}
 	opts = opts or {}
 	local seed = opts.Seed or math.random(1, 100000)
@@ -149,19 +166,161 @@ function PlayerFigure.Build(parent, kit, opts)
 	end
 
 	m.PrimaryPart = torso
-	rigs[m] = entries
+	rigs[m] = { Blocky = entries }
 	m.Parent = parent
 	return m
 end
 
--- Puts the figure's torso at `cf`. With a stride (an angle that keeps
--- growing while it runs) the arms and legs swing; without one it stands.
+-- The kits used in the drills.
+PlayerFigure.Kits = {
+	Attacker = { Shirt = rgb(220, 36, 48), Accent = rgb(255, 255, 255), Shorts = rgb(255, 255, 255), Socks = rgb(220, 36, 48), Sole = rgb(255, 210, 40) },
+	Teammate = { Shirt = rgb(36, 110, 240), Accent = rgb(255, 255, 255), Shorts = rgb(16, 30, 80), Socks = rgb(36, 110, 240), Sole = rgb(80, 255, 140) },
+	Keeper = { Shirt = rgb(60, 220, 90), Accent = rgb(12, 18, 48), Shorts = rgb(12, 18, 48), Socks = rgb(60, 220, 90), Keeper = true, Gloves = rgb(255, 255, 255), Number = 1 },
+	Dummy = { Shirt = rgb(255, 214, 60), Accent = rgb(22, 36, 88), Shorts = rgb(22, 36, 88), Socks = rgb(255, 214, 60) },
+}
+
+
+--------------------------------------------------------------------------------
+-- Real Roblox characters
+--------------------------------------------------------------------------------
+
+-- The rigs this figure can be, best first: friends' and players' avatars,
+-- then the default avatars in the kit's colours.
+local function candidates(kitName, opts)
+	local pool = ReplicatedStorage:FindFirstChild("FigureRigs")
+	if not pool then return {}, {} end
+	local avatars, kits = {}, {}
+	if opts.Avatars ~= false then
+		local me = RunService:IsClient() and Players.LocalPlayer
+		local friends = me and pool:FindFirstChild("Friends_" .. me.UserId)
+		if friends then
+			for _, rig in ipairs(friends:GetChildren()) do table.insert(avatars, rig) end
+		end
+		local others = pool:FindFirstChild("Avatars")
+		if others then
+			for _, rig in ipairs(others:GetChildren()) do
+				if not (me and rig.Name == "Avatar_" .. me.UserId) then table.insert(avatars, rig) end
+			end
+		end
+	end
+	local kitFolder = pool:FindFirstChild("Kits")
+	if kitFolder then
+		for _, rig in ipairs(kitFolder:GetChildren()) do
+			if rig.Name:sub(1, #kitName + 1) == kitName .. "_" then table.insert(kits, rig) end
+		end
+	end
+	return avatars, kits
+end
+
+local function loadTrack(animator, id)
+	local anim = Instance.new("Animation")
+	anim.AnimationId = id
+	local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+	if ok and track then
+		track.Looped = true
+		return track
+	end
+	return nil
+end
+
+-- A copy of `template`, ready to stand in a drill.
+local function fromRig(parent, template, kit, opts)
+	local rig = template:Clone()
+	rig.Name = opts.Name or "Figure"
+	local humanoid = rig:FindFirstChildOfClass("Humanoid")
+	local root = rig:FindFirstChild("HumanoidRootPart")
+	if not (humanoid and root) then
+		rig:Destroy()
+		return nil
+	end
+	rig.PrimaryPart = root
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	humanoid.BreakJointsOnDeath = false
+	humanoid.RequiresNeck = false
+	-- a puppet: we move it, the Animator moves its arms and legs
+	humanoid.EvaluateStateMachine = false
+	for _, d in ipairs(rig:GetDescendants()) do
+		if d:IsA("BaseScript") then
+			d:Destroy()
+		elseif d:IsA("BasePart") then
+			d.Anchored = d == root
+			d.CanCollide = (not opts.Local) and d == root
+			d.CanTouch = false
+			if opts.Local then d.CanQuery = false end
+		end
+	end
+	local rootHeight = humanoid.HipHeight + root.Size.Y / 2
+	-- the team ring under the feet
+	local ring = Instance.new("Part")
+	ring.Name = "TeamRing"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.2, 4.4, 4.4)
+	ring.Color = kit.Ring or kit.Shirt
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.25
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.CastShadow = false
+	ring.CFrame = root.CFrame * CFrame.new(0, -rootHeight + 0.12, 0) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Parent = rig
+	rig.Parent = parent
+	local state = { Rig = true, RootHeight = rootHeight, Running = false }
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	state.Run = loadTrack(animator, Config.Figures.RunAnimation)
+	state.Idle = loadTrack(animator, Config.Figures.IdleAnimation)
+	if state.Idle then state.Idle:Play(0) end
+	rigs[rig] = state
+	return rig
+end
+
+-- A figure for a drill. kitName: "Attacker", "Keeper", "Teammate" or
+-- "Dummy". opts: Local (only this player sees it: no collisions), Seed (which
+-- avatar), Avatars = false (only the default avatars in the kit), Name.
+function PlayerFigure.Build(parent, kitName, opts)
+	opts = opts or {}
+	local kit = PlayerFigure.Kits[kitName] or PlayerFigure.Kits.Attacker
+	local seed = opts.Seed or math.random(1, 100000)
+	local avatars, kits = candidates(kitName, opts)
+	local list = #avatars > 0 and avatars or kits
+	if #list > 0 then
+		local fig = fromRig(parent, list[seed % #list + 1], kit, opts)
+		if fig then return fig end
+	end
+	return buildBlocky(parent, kit, opts)
+end
+
+-- Puts the figure's middle at `cf` (3 studs over the ground). With a stride
+-- it runs (a number that keeps growing; its speed sets the pace), without
+-- one it stands.
 function PlayerFigure.Pose(fig, cf, stride)
-	local entries = rigs[fig]
-	if not entries then
+	local state = rigs[fig]
+	if not state then
 		fig:PivotTo(cf)
 		return
 	end
+	if state.Rig then
+		fig:PivotTo(cf * CFrame.new(0, state.RootHeight - 3, 0))
+		local running = stride ~= nil
+		if running ~= state.Running then
+			state.Running = running
+			if running then
+				if state.Idle then state.Idle:Stop(0.2) end
+				if state.Run then state.Run:Play(0.2) end
+			else
+				if state.Run then state.Run:Stop(0.2) end
+				if state.Idle then state.Idle:Play(0.2) end
+			end
+		end
+		return
+	end
+	local entries = state.Blocky
 	local swing = stride and math.sin(stride) * 0.75 or 0
 	local limbs = {}
 	for limb, joint in pairs(JOINTS) do
@@ -174,13 +333,5 @@ function PlayerFigure.Pose(fig, cf, stride)
 		end
 	end
 end
-
--- The kits used in the drills.
-PlayerFigure.Kits = {
-	Attacker = { Shirt = rgb(220, 36, 48), Accent = rgb(255, 255, 255), Shorts = rgb(255, 255, 255), Socks = rgb(220, 36, 48), Sole = rgb(255, 210, 40) },
-	Teammate = { Shirt = rgb(36, 110, 240), Accent = rgb(255, 255, 255), Shorts = rgb(16, 30, 80), Socks = rgb(36, 110, 240), Sole = rgb(80, 255, 140) },
-	Keeper = { Shirt = rgb(60, 220, 90), Accent = rgb(12, 18, 48), Shorts = rgb(12, 18, 48), Socks = rgb(60, 220, 90), Keeper = true, Gloves = rgb(255, 255, 255), Number = 1 },
-	Dummy = { Shirt = rgb(255, 214, 60), Accent = rgb(22, 36, 88), Shorts = rgb(22, 36, 88), Socks = rgb(255, 214, 60) },
-}
 
 return PlayerFigure

@@ -3,6 +3,8 @@ script = newInstance("Script")
 script.Parent = game:GetService("ServerScriptService")
 -- Builds the map and exports every part (for render.py).
 local MapBuilder = require("MapBuilder")
+-- the drill characters (the passing dummies wait for these)
+require("RigService").Init()
 -- the template's Baseplate (the game paints it grass)
 local base = Instance.new("Part")
 base.Name = "Baseplate"
@@ -15,6 +17,7 @@ if not ok then print("BUILD ERROR", records) end
 local n = 0
 if ok then for _ in pairs(records) do n += 1 end end
 print("STATIONS", n)
+if RunScheduler then RunScheduler(3) end
 if TEXTURE then
 	local StudTexture = require("StudTexture")
 	StudTexture.ApplyAll(workspace)

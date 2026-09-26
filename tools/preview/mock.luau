@@ -905,6 +905,22 @@ function MockRig(description)
 	return model
 end
 function INST.CreateHumanoidModelFromDescription(self, desc) return MockRig(desc) end
+-- A made-up avatar for a user id (a shirt and trousers from the id).
+function INST.GetHumanoidDescriptionFromUserId(self, userId)
+	local d = newInstance("HumanoidDescription")
+	local k = (userId * 7919) % 360 / 360
+	d.TorsoColor = Color3.fromHSV(k, 0.7, 0.85)
+	d.LeftLegColor = Color3.fromHSV((k + 0.5) % 1, 0.5, 0.35)
+	d.RightLegColor = d.LeftLegColor
+	return d
+end
+-- FRIENDS="11,12,13" gives the player friends.
+function INST.GetFriendsAsync(self, userId)
+	local page = {}
+	for id in tostring(FRIENDS or ""):gmatch("%d+") do table.insert(page, { Id = tonumber(id), Username = "Friend" .. id }) end
+	return { IsFinished = true, GetCurrentPage = function() return page end, AdvanceToNextPageAsync = function() end }
+end
+function INST.AdjustSpeed() end
 
 -- task.wait parks the running thread; nothing moves on by itself, but a
 -- driver can call RunScheduler(n) to let every waiting thread (and every

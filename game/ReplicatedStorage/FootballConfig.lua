@@ -153,6 +153,16 @@ Config.Texture = {
 	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true },
 }
 
+-- The people in the drills are real Roblox characters (PlayerFigure,
+-- RigService): your friends' avatars and the other players' in the server,
+-- otherwise default avatars in the team's colours.
+Config.Figures = {
+	FriendsPerPlayer = 8,                -- friends' avatars made for each player
+	KitRigs = { Attacker = 3, Keeper = 2, Teammate = 3, Dummy = 5 }, -- default avatars per kit
+	RunAnimation = "rbxassetid://913376220",  -- Roblox's own R15 run
+	IdleAnimation = "rbxassetid://507766666", -- Roblox's own R15 idle
+}
+
 Config.Speed = {
 	Base = 16,
 	PerPace = 0.22,   -- +0.22 walk speed per Pace level above 60 (99 -> about 24.6)

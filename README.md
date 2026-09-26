@@ -19,7 +19,7 @@ empty baseplate.
    python3 tools/build_place.py "Football_Stars.rbxlx" "Football Stars.rbxlx"
    ```
 
-   It puts the 23 scripts in their services, removes the template
+   It puts the 24 scripts in their services, removes the template
    SpawnLocation (the map has its own), and checks every script byte for byte.
 2. Open `Football Stars.rbxlx` in Studio and press **Play**.
 3. **Game Settings → Security → Enable Studio Access to API Services**, so
@@ -118,9 +118,12 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   crowd, the drill players and the dummies. Neither do glass, glows, nets and
   parts under 2 studs.
 - **The drill players** (the attackers you tackle, the keeper, your
-  teammates in the stadium and the passing dummies) are footballers with hair,
-  a face, a kit with a trim and a number on the back, socks and boots; the
-  attackers swing their arms and legs as they run (`PlayerFigure.lua`).
+  teammates in the stadium and the passing dummies) are real Roblox
+  characters playing Roblox's own run and idle animations: your Roblox
+  friends' avatars and the other players' in the server, otherwise default
+  avatars in the team's colours. A glowing ring under their feet shows the
+  side: red attackers, green keeper, blue teammates, yellow dummies
+  (`PlayerFigure.lua`, `RigService.lua`, `Config.Figures`).
 - **Trees**: leafy trees and pines, kept clear of every stand, pitch and path.
 
 ## Things you will want to change
@@ -136,7 +139,7 @@ game/ReplicatedStorage      FootballConfig  all the numbers
                             FKit            the UI kit (buttons, panels, bars)
                             CardView        the player card
                             DrillMath       maths shared by server and client
-                            PlayerFigure    the footballers in the drills
+                            PlayerFigure    the characters in the drills
                             StudTexture     the Baseplate squares on everything
                             FootballSounds  the sound sprite and fallbacks
 game/ServerScriptService    Main            remotes, map, services, players
@@ -146,6 +149,7 @@ game/ServerScriptService    Main            remotes, map, services, players
                             MatchService    the stadium match
                             RewardService   daily, quests, cosmetics
                             ShopService     gamepasses and products
+                            RigService      the real Roblox characters for the drills
                             LeaderboardService, MapBuilder, StationBuilder, MapKit
 game/StarterPlayerScripts   ClientMain      starts the client
                             CardUI, UpgradeFX, TrainingClient, MenusUI

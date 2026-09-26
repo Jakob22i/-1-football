@@ -231,7 +231,20 @@ function CardView.new(parent, opts)
 		vp.CurrentCamera = cam
 		self.Viewport, self.Camera = vp, cam
 	end
-	-- a simple silhouette when there is no avatar (or on the head cards)
+	-- the player's own avatar, head and shoulders (ShowPlayer)
+	self.Photo = new("ImageLabel", {
+		Name = "Photo",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 1),
+		Size = UDim2.fromScale(1, 1),
+		ScaleType = Enum.ScaleType.Crop,
+		Image = "",
+		Visible = false,
+		ZIndex = z + 2,
+		Parent = window,
+	})
+	-- a simple silhouette until the avatar is there
 	self.Silhouette = frame(window, { Name = "Silhouette", Size = UDim2.fromScale(1, 1), ZIndex = z + 2, Visible = not opts.Viewport })
 	local head = frame(self.Silhouette, {
 		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.16), Size = UDim2.fromScale(0.3, 0.36),
@@ -482,6 +495,19 @@ function CardView:Animate(t)
 	end
 end
 
+-- Puts the player's own Roblox avatar on the card (head and shoulders, like
+-- a real player card). Works on every card, the ones over players' heads
+-- too. A test player in Studio has no avatar picture (UserId 0 or below),
+-- so those cards fall back to ShowCharacter.
+function CardView:ShowPlayer(userId)
+	if not (userId and userId &gt; 0) then return false end
+	self.Photo.Image = ("rbxthumb://type=AvatarBust&amp;id=%d&amp;w=420&amp;h=420"):format(userId)
+	self.Photo.Visible = true
+	self.Silhouette.Visible = false
+	if self.Viewport then self.Viewport.Visible = false end
+	return true
+end
+
 -- Puts a copy of a character in the card's avatar window, head and
 -- shoulders.
 function CardView:ShowCharacter(character)
@@ -510,6 +536,8 @@ function CardView:ShowCharacter(character)
 	end
 	copy:PivotTo(CFrame.new(0, 0, 0))
 	copy.Parent = self.Viewport
+	self.Viewport.Visible = true
+	self.Photo.Visible = false
 	local focus = head.Position + Vector3.new(0, -0.9, 0)
 	cam.CFrame = CFrame.lookAt(focus + Vector3.new(-1.2, 0.6, -7.4), focus)
 	self.Silhouette.Visible = false
@@ -1092,6 +1120,33 @@ end
 -- Walking speed: Pace makes you faster everywhere
 --------------------------------------------------------------------------------
 
+-- The texture on everything except the characters: Roblox's own Baseplate
+-- squares (a grid of rounded squares, one every 8 studs). Id, colour and
+-- transparency are the ones the Baseplate template uses.
+Config.Texture = {
+	Id = "rbxassetid://6372755229",
+	Color = Color3.new(0, 0, 0),
+	Transparency = 0.8,
+	StudsPerTile = 8,
+	-- parts smaller than this (studs, biggest side) stay plain: a bolt or a
+	-- seat is too small to show a square
+	MinSize = 2,
+	-- see-through parts (glass, nets, glows) stay plain
+	MaxTransparency = 0.25,
+	-- people, not things: the crowd, the drill players, the dummies
+	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true },
+}
+
+-- The people in the drills are real Roblox characters (PlayerFigure,
+-- RigService): your friends' avatars and the other players' in the server,
+-- otherwise default avatars in the team's colours.
+Config.Figures = {
+	FriendsPerPlayer = 8,                -- friends' avatars made for each player
+	KitRigs = { Attacker = 3, Keeper = 2, Teammate = 3, Dummy = 5 }, -- default avatars per kit
+	RunAnimation = "rbxassetid://913376220",  -- Roblox's own R15 run
+	IdleAnimation = "rbxassetid://507766666", -- Roblox's own R15 idle
+}
+
 Config.Speed = {
 	Base = 16,
 	PerPace = 0.22,   -- +0.22 walk speed per Pace level above 60 (99 -&gt; about 24.6)
@@ -1476,8 +1531,423 @@ function Sounds.Play(name, volume, pitch)
 end
 
 return Sounds
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL6"><Properties><string name="Name">PlayerFigure</string><ProtectedString name="Source">-- The people in the drills: the attackers you tackle, the keeper, your
+-- teammates in the stadium and the passing dummies. They are real Roblox
+-- characters (R15 rigs with a Humanoid, playing Roblox's own run and idle
+-- animations):
+--
+--   * the avatars of your Roblox friends and of the other players in the
+--     server (RigService builds them into ReplicatedStorage.FigureRigs)
+--   * otherwise default Roblox avatars in the team's colours (the kits below)
+--
+-- A glowing ring in the team's colour under their feet shows the side.
+--
+--   local fig = PlayerFigure.Build(folder, "Attacker", { Local = true, Seed = 3 })
+--   PlayerFigure.Pose(fig, CFrame.lookAt(pos + Vector3.new(0, 3, 0), ...), os.clock() * 12)
+--
+-- Pose takes the middle of the body, 3 studs over the ground (feet on the
+-- ground whatever the avatar's height).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
+
+local PlayerFigure = {}
+
+local rigs = setmetatable({}, { __mode = "k" }) -- model -&gt; how to pose it
+
+local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
+
+local SKIN = { rgb(255, 214, 170), rgb(234, 184, 146), rgb(198, 140, 100), rgb(150, 98, 64), rgb(104, 66, 44) }
+local HAIR = { rgb(30, 22, 18), rgb(72, 46, 28), rgb(140, 92, 50), rgb(226, 190, 110), rgb(20, 20, 24), rgb(170, 60, 30) }
+local STYLES = { "Short", "Short", "Mohawk", "Afro", "Spiky", "Bald" }
+local BOOT = rgb(24, 24, 30)
+local FACE = "rbxasset://textures/face.png"
+
+-- the joints, from the torso's centre
+local JOINTS = {
+	LL = Vector3.new(-0.5, -1, 0), RL = Vector3.new(0.5, -1, 0),
+	LA = Vector3.new(-1.5, 0.8, 0), RA = Vector3.new(1.5, 0.8, 0),
+}
+local SWING = { LL = 1, RL = -1, LA = -0.8, RA = 0.8 }
+
+
+
+PlayerFigure.Skins = SKIN
+
+-- A figure made of parts. Only used when Roblox could not make a single
+-- character (the avatar service is down), so a drill still has someone in it.
+local function buildBlocky(parent, kit, opts)
+	kit = kit or {}
+	opts = opts or {}
+	local seed = opts.Seed or math.random(1, 100000)
+	local function pick(list, salt) return list[(seed * 7 + salt * 13) % #list + 1] end
+
+	local shirt = kit.Shirt or rgb(230, 40, 50)
+	local accent = kit.Accent or rgb(255, 255, 255)
+	local shorts = kit.Shorts or accent
+	local socks = kit.Socks or shirt
+	local skin = kit.Skin or pick(SKIN, 1)
+	local hair = kit.Hair or pick(HAIR, 2)
+	local style = kit.HairStyle or pick(STYLES, 3)
+	local number = kit.Number or (seed % 11) + 1
+
+	local m = Instance.new("Model")
+	m.Name = opts.Name or "Figure"
+	local entries = {}
+
+	local function add(name, size, pos, color, limb, props)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.Size = size
+		p.Color = color
+		p.Material = Enum.Material.SmoothPlastic
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		if opts.Local then
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.CastShadow = false
+		end
+		for k, v in pairs(props or {}) do p[k] = v end
+		p.CFrame = CFrame.new(pos)
+		p.Parent = m
+		table.insert(entries, { p, CFrame.new(pos - Vector3.new(0, 3, 0)), limb })
+		return p
+	end
+
+	-- legs: shorts, knee, sock with a band, boot with a coloured sole
+	for _, side in ipairs({ -1, 1 }) do
+		local limb = side &lt; 0 and "LL" or "RL"
+		local x = side * 0.5
+		add("Shorts", Vector3.new(1, 0.8, 1.05), Vector3.new(x, 1.65, 0), shorts, limb)
+		add("Knee", Vector3.new(0.86, 0.36, 0.86), Vector3.new(x, 1.08, 0), skin, limb)
+		add("Sock", Vector3.new(0.92, 0.72, 0.92), Vector3.new(x, 0.6, 0), socks, limb)
+		add("SockBand", Vector3.new(0.95, 0.14, 0.95), Vector3.new(x, 0.9, 0), accent, limb)
+		add("Boot", Vector3.new(0.98, 0.36, 1.3), Vector3.new(x, 0.22, -0.14), BOOT, limb)
+		add("Sole", Vector3.new(1, 0.08, 1.32), Vector3.new(x, 0.04, -0.14), kit.Sole or accent, limb)
+	end
+
+	-- torso: the shirt with a collar, side stripes, a badge and the number
+	local torso = add("Torso", Vector3.new(2, 2, 1), Vector3.new(0, 3, 0), shirt)
+	add("Collar", Vector3.new(1, 0.2, 1.04), Vector3.new(0, 3.92, 0), accent)
+	for _, side in ipairs({ -1, 1 }) do
+		add("Stripe", Vector3.new(0.14, 2, 1.04), Vector3.new(side * 0.95, 3, 0), accent)
+	end
+	add("Badge", Vector3.new(0.34, 0.4, 0.06), Vector3.new(-0.5, 3.45, -0.52), rgb(255, 204, 40))
+	local numberGui = Instance.new("SurfaceGui")
+	numberGui.Name = "Number"
+	numberGui.Face = Enum.NormalId.Back
+	numberGui.CanvasSize = Vector2.new(100, 100)
+	numberGui.LightInfluence = 0
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Text = tostring(number)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBlack
+	label.TextColor3 = accent
+	label.Parent = numberGui
+	numberGui.Parent = torso
+
+	-- arms: sleeve with a cuff, forearm, hand (a keeper has long sleeves and gloves)
+	for _, side in ipairs({ -1, 1 }) do
+		local limb = side &lt; 0 and "LA" or "RA"
+		local x = side * 1.5
+		add("Sleeve", Vector3.new(0.95, 0.9, 1), Vector3.new(x, 3.52, 0), shirt, limb)
+		add("Cuff", Vector3.new(0.97, 0.14, 1.02), Vector3.new(x, 3.08, 0), accent, limb)
+		add("Arm", Vector3.new(0.86, 1.1, 0.88), Vector3.new(x, 2.46, 0), kit.Keeper and shirt or skin, limb)
+		if kit.Keeper then
+			add("Glove", Vector3.new(1.1, 0.62, 1.1), Vector3.new(x, 1.72, 0), kit.Gloves or rgb(255, 255, 255), limb)
+		else
+			add("Hand", Vector3.new(0.8, 0.42, 0.84), Vector3.new(x, 1.72, 0), skin, limb)
+		end
+	end
+
+	-- head with a face, then hair
+	local head = add("Head", Vector3.new(2, 1, 1), Vector3.new(0, 4.62, 0), skin)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Head
+	mesh.Scale = Vector3.new(1.25, 1.25, 1.25)
+	mesh.Parent = head
+	local face = Instance.new("Decal")
+	face.Name = "face"
+	face.Face = Enum.NormalId.Front
+	face.Texture = FACE
+	face.Parent = head
+	if style == "Short" then
+		add("Hair", Vector3.new(1.34, 0.36, 1.34), Vector3.new(0, 5.2, 0.04), hair)
+		add("Hair", Vector3.new(1.34, 0.7, 0.3), Vector3.new(0, 4.95, 0.56), hair)
+	elseif style == "Mohawk" then
+		add("Hair", Vector3.new(0.34, 0.6, 1.36), Vector3.new(0, 5.36, 0.05), hair)
+	elseif style == "Afro" then
+		add("Hair", Vector3.new(1.9, 1.9, 1.9), Vector3.new(0, 5.25, 0.18), hair, nil, { Shape = Enum.PartType.Ball })
+	elseif style == "Spiky" then
+		add("Hair", Vector3.new(1.34, 0.3, 1.34), Vector3.new(0, 5.18, 0.04), hair)
+		for i = -1, 1 do
+			local spike = add("Hair", Vector3.new(0.45, 0.45, 0.45), Vector3.new(i * 0.42, 5.42, 0.05), hair)
+			spike.CFrame = CFrame.new(spike.Position) * CFrame.Angles(0, 0, math.rad(45))
+			entries[#entries][2] = CFrame.new(spike.Position - Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.rad(45))
+		end
+	end
+	if kit.Headband then
+		add("Headband", Vector3.new(1.3, 0.2, 1.3), Vector3.new(0, 4.98, 0), kit.Headband)
+	end
+
+	m.PrimaryPart = torso
+	rigs[m] = { Blocky = entries }
+	m.Parent = parent
+	return m
+end
+
+-- The kits used in the drills.
+PlayerFigure.Kits = {
+	Attacker = { Shirt = rgb(220, 36, 48), Accent = rgb(255, 255, 255), Shorts = rgb(255, 255, 255), Socks = rgb(220, 36, 48), Sole = rgb(255, 210, 40) },
+	Teammate = { Shirt = rgb(36, 110, 240), Accent = rgb(255, 255, 255), Shorts = rgb(16, 30, 80), Socks = rgb(36, 110, 240), Sole = rgb(80, 255, 140) },
+	Keeper = { Shirt = rgb(60, 220, 90), Accent = rgb(12, 18, 48), Shorts = rgb(12, 18, 48), Socks = rgb(60, 220, 90), Keeper = true, Gloves = rgb(255, 255, 255), Number = 1 },
+	Dummy = { Shirt = rgb(255, 214, 60), Accent = rgb(22, 36, 88), Shorts = rgb(22, 36, 88), Socks = rgb(255, 214, 60) },
+}
+
+
+--------------------------------------------------------------------------------
+-- Real Roblox characters
+--------------------------------------------------------------------------------
+
+-- The rigs this figure can be, best first: friends' and players' avatars,
+-- then the default avatars in the kit's colours.
+local function candidates(kitName, opts)
+	local pool = ReplicatedStorage:FindFirstChild("FigureRigs")
+	if not pool then return {}, {} end
+	local avatars, kits = {}, {}
+	if opts.Avatars ~= false then
+		local me = RunService:IsClient() and Players.LocalPlayer
+		local friends = me and pool:FindFirstChild("Friends_" .. me.UserId)
+		if friends then
+			for _, rig in ipairs(friends:GetChildren()) do table.insert(avatars, rig) end
+		end
+		local others = pool:FindFirstChild("Avatars")
+		if others then
+			for _, rig in ipairs(others:GetChildren()) do
+				if not (me and rig.Name == "Avatar_" .. me.UserId) then table.insert(avatars, rig) end
+			end
+		end
+	end
+	local kitFolder = pool:FindFirstChild("Kits")
+	if kitFolder then
+		for _, rig in ipairs(kitFolder:GetChildren()) do
+			if rig.Name:sub(1, #kitName + 1) == kitName .. "_" then table.insert(kits, rig) end
+		end
+	end
+	return avatars, kits
+end
+
+local function loadTrack(animator, id)
+	local anim = Instance.new("Animation")
+	anim.AnimationId = id
+	local ok, track = pcall(function() return animator:LoadAnimation(anim) end)
+	if ok and track then
+		track.Looped = true
+		return track
+	end
+	return nil
+end
+
+-- A copy of `template`, ready to stand in a drill.
+local function fromRig(parent, template, kit, opts)
+	local rig = template:Clone()
+	rig.Name = opts.Name or "Figure"
+	local humanoid = rig:FindFirstChildOfClass("Humanoid")
+	local root = rig:FindFirstChild("HumanoidRootPart")
+	if not (humanoid and root) then
+		rig:Destroy()
+		return nil
+	end
+	rig.PrimaryPart = root
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	humanoid.BreakJointsOnDeath = false
+	humanoid.RequiresNeck = false
+	-- a puppet: we move it, the Animator moves its arms and legs
+	humanoid.EvaluateStateMachine = false
+	for _, d in ipairs(rig:GetDescendants()) do
+		if d:IsA("BaseScript") then
+			d:Destroy()
+		elseif d:IsA("BasePart") then
+			d.Anchored = d == root
+			d.CanCollide = (not opts.Local) and d == root
+			d.CanTouch = false
+			if opts.Local then d.CanQuery = false end
+		end
+	end
+	local rootHeight = humanoid.HipHeight + root.Size.Y / 2
+	-- the team ring under the feet
+	local ring = Instance.new("Part")
+	ring.Name = "TeamRing"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.2, 4.4, 4.4)
+	ring.Color = kit.Ring or kit.Shirt
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.25
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.CastShadow = false
+	ring.CFrame = root.CFrame * CFrame.new(0, -rootHeight + 0.12, 0) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Parent = rig
+	rig.Parent = parent
+	local state = { Rig = true, RootHeight = rootHeight, Running = false }
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	state.Run = loadTrack(animator, Config.Figures.RunAnimation)
+	state.Idle = loadTrack(animator, Config.Figures.IdleAnimation)
+	if state.Idle then state.Idle:Play(0) end
+	rigs[rig] = state
+	return rig
+end
+
+-- A figure for a drill. kitName: "Attacker", "Keeper", "Teammate" or
+-- "Dummy". opts: Local (only this player sees it: no collisions), Seed (which
+-- avatar), Avatars = false (only the default avatars in the kit), Name.
+function PlayerFigure.Build(parent, kitName, opts)
+	opts = opts or {}
+	local kit = PlayerFigure.Kits[kitName] or PlayerFigure.Kits.Attacker
+	local seed = opts.Seed or math.random(1, 100000)
+	local avatars, kits = candidates(kitName, opts)
+	local list = #avatars &gt; 0 and avatars or kits
+	if #list &gt; 0 then
+		local fig = fromRig(parent, list[seed % #list + 1], kit, opts)
+		if fig then return fig end
+	end
+	return buildBlocky(parent, kit, opts)
+end
+
+-- Puts the figure's middle at `cf` (3 studs over the ground). With a stride
+-- it runs (a number that keeps growing; its speed sets the pace), without
+-- one it stands.
+function PlayerFigure.Pose(fig, cf, stride)
+	local state = rigs[fig]
+	if not state then
+		fig:PivotTo(cf)
+		return
+	end
+	if state.Rig then
+		fig:PivotTo(cf * CFrame.new(0, state.RootHeight - 3, 0))
+		local running = stride ~= nil
+		if running ~= state.Running then
+			state.Running = running
+			if running then
+				if state.Idle then state.Idle:Stop(0.2) end
+				if state.Run then state.Run:Play(0.2) end
+			else
+				if state.Run then state.Run:Stop(0.2) end
+				if state.Idle then state.Idle:Play(0.2) end
+			end
+		end
+		return
+	end
+	local entries = state.Blocky
+	local swing = stride and math.sin(stride) * 0.75 or 0
+	local limbs = {}
+	for limb, joint in pairs(JOINTS) do
+		limbs[limb] = CFrame.new(joint) * CFrame.Angles(swing * SWING[limb], 0, 0) * CFrame.new(-joint)
+	end
+	for _, e in ipairs(entries) do
+		local part, offset, limb = e[1], e[2], e[3]
+		if part.Parent then
+			part.CFrame = limb and (cf * limbs[limb] * offset) or (cf * offset)
+		end
+	end
+end
+
+return PlayerFigure
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL7"><Properties><string name="Name">StudTexture</string><ProtectedString name="Source">-- Puts the Baseplate squares (Config.Texture) on every face of every part
+-- the game builds, and on every part added later. Characters never get it:
+-- anything inside a model with a Humanoid, and the crowd, the drill players
+-- and the dummies (Config.Texture.SkipNames).
+--
+--   StudTexture.Watch(workspace.Map)   -- now and from now on
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
+
+local StudTexture = {}
+
+local TAG = "StudTexture"
+local FACES = { Enum.NormalId.Top, Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right, Enum.NormalId.Bottom }
+
+-- Is this part (or something it is inside) a character?
+local function isCharacter(part)
+	local skip = Config.Texture.SkipNames
+	local node = part
+	while node and node ~= workspace and node ~= game do
+		if skip[node.Name] then return true end
+		if node:IsA("Model") and node:FindFirstChildOfClass("Humanoid") then return true end
+		node = node.Parent
+	end
+	return false
+end
+
+local function wants(part)
+	local cfg = Config.Texture
+	if not part:IsA("BasePart") or part:IsA("Terrain") then return false end
+	if part.Transparency &gt; cfg.MaxTransparency then return false end
+	if part.Material == Enum.Material.Neon or part.Material == Enum.Material.Glass or part.Material == Enum.Material.ForceField then
+		return false
+	end
+	local size = part.Size
+	if math.max(size.X, size.Y, size.Z) &lt; cfg.MinSize then return false end
+	if part:FindFirstChild(TAG) then return false end
+	return not isCharacter(part)
+end
+
+function StudTexture.Apply(part)
+	if not wants(part) then return end
+	local cfg = Config.Texture
+	for _, face in ipairs(FACES) do
+		local tex = Instance.new("Texture")
+		tex.Name = TAG
+		tex.Face = face
+		tex.Texture = cfg.Id
+		tex.Color3 = cfg.Color
+		tex.Transparency = cfg.Transparency
+		tex.StudsPerTileU = cfg.StudsPerTile
+		tex.StudsPerTileV = cfg.StudsPerTile
+		tex.Parent = part
+	end
+end
+
+function StudTexture.ApplyAll(root)
+	if root:IsA("BasePart") then StudTexture.Apply(root) end
+	for _, d in ipairs(root:GetDescendants()) do
+		StudTexture.Apply(d)
+	end
+end
+
+-- Textures `root` now, and every part put in it later. A part is checked a
+-- moment after it arrives, so its name, size and parent are set by then.
+function StudTexture.Watch(root)
+	StudTexture.ApplyAll(root)
+	return root.DescendantAdded:Connect(function(d)
+		if d:IsA("BasePart") then
+			task.defer(function()
+				if d.Parent then StudTexture.Apply(d) end
+			end)
+		end
+	end)
+end
+
+return StudTexture
 </ProtectedString><bool name="Disabled">false</bool></Properties></Item></Item>
-	<Item class="ServerScriptService" referent="BASE5"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="ModuleScript" referent="FOOTBALL6"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- Saving and loading every player's card with DataStoreService.
+	<Item class="ServerScriptService" referent="BASE5"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="ModuleScript" referent="FOOTBALL8"><Properties><string name="Name">DataService</string><ProtectedString name="Source">-- Saving and loading every player's card with DataStoreService.
 --
 -- Loads with a few retries. If it still fails the player plays on default
 -- data that is never saved, so a bad moment at Roblox can not wipe a card.
@@ -1672,7 +2142,7 @@ end)
 DataService.Blank = blank
 DataService.Reconcile = reconcile
 return DataService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL7"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- The three boards in the lobby: Highest OVR, Most Seasons and the Fastest
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL9"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- The three boards in the lobby: Highest OVR, Most Seasons and the Fastest
 -- Speed Course. Scores go into OrderedDataStores when players save and the
 -- boards refresh every minute.
 
@@ -1799,7 +2269,7 @@ end
 
 LeaderboardService.Display = display
 return LeaderboardService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="Script" referent="FOOTBALL8"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Football Stars: starts everything on the server.
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="Script" referent="FOOTBALL10"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Football Stars: starts everything on the server.
 --
 --   1. the remotes the client talks through
 --   2. the map (MapBuilder) with every station
@@ -1847,6 +2317,10 @@ local remotes = {
 -- Map and services
 --------------------------------------------------------------------------------
 
+-- the real Roblox characters for the drills (made in the background)
+local RigService = require(script.Parent:WaitForChild("RigService"))
+RigService.Init()
+
 local started = os.clock()
 local ok, records, boards, extra = pcall(MapBuilder.Build)
 if not ok then
@@ -1854,6 +2328,13 @@ if not ok then
 	records, boards, extra = {}, {}, {}
 end
 print(string.format("[Football] map built in %.2fs", os.clock() - started))
+
+-- the Baseplate squares on everything but the characters
+local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
+for _, name in ipairs({ "Map", "Gates", "Baseplate" }) do
+	local root = workspace:FindFirstChild(name)
+	if root then StudTexture.Watch(root) end
+end
 
 StatService.Init(remotes)
 TrainingService.Init(remotes, records)
@@ -1939,7 +2420,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastRequest[player] = nil
 end)
 
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL9"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source">-- Builds the whole map from code on the empty baseplate:
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL11"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source">-- Builds the whole map from code on the empty baseplate:
 --
 --   the lobby     a small stadium plaza (spawn on the centre spot, stands,
 --                 floodlights, leaderboards, the Position Board) with exits
@@ -2341,7 +2822,7 @@ local function buildStadium(parent, records)
 	-- the pitch with stripes and lines
 	for i = 0, 13 do
 		local x = -length / 2 + (i + 0.5) * length / 14
-		patch(folder, "Grass", length / 14 + 0.02, width + 8, pitchCF * CFrame.new(0, 0, x), (i % 2 == 0) and COL.Grass or COL.GrassLight, Enum.Material.Grass, 0.25)
+		patch(folder, "Grass", width + 8, length / 14 + 0.02, pitchCF * CFrame.new(0, 0, x), (i % 2 == 0) and COL.Grass or COL.GrassLight, Enum.Material.Grass, 0.25)
 	end
 	local function p(x, z) return (pitchCF * CFrame.new(x, 0, z)).Position end
 	-- touchlines and halfway line (pitch space: x across, z along; the far goal is at z = -length/2)
@@ -2421,16 +2902,85 @@ end
 -- Scenery
 --------------------------------------------------------------------------------
 
-local function tree(parent, at, size)
+-- A leafy tree: a trunk that reaches into a crown of overlapping leaf
+-- balls, a few branches, roots at the foot.
+local function leafyTree(parent, at, size, rnd)
 	local m = Instance.new("Model")
 	m.Name = "Tree"
 	m.Parent = parent
-	cylinder(m, "Trunk", 5 * size, 1.4 * size, at, rgb(110, 76, 44), Enum.Material.Wood)
-	ball(m, "Leaves", 8 * size, at + V(0, 7 * size, 0), rgb(56, 150, 60), Enum.Material.Grass)
-	ball(m, "Leaves", 6 * size, at + V(1.6 * size, 9 * size, 0.8 * size), rgb(70, 170, 70), Enum.Material.Grass)
+	local bark = rgb(104, 70, 42)
+	local trunkH = 9 * size
+	cylinder(m, "Trunk", trunkH, 1.7 * size, at, bark, Enum.Material.Wood)
+	for i = 0, 3 do
+		local a = math.rad(i * 90 + 45)
+		local d = V(math.cos(a), 0, math.sin(a))
+		part(m, "Root", V(0.8 * size, 0.7 * size, 2.2 * size), CFrame.lookAt(at + d * 1.1 * size + V(0, 0.3 * size, 0), at + d * 3 * size) * CFrame.Angles(math.rad(-12), 0, 0), bark, Enum.Material.Wood)
+	end
+	for _, b in ipairs({ { 1, 5.8 }, { -1, 6.8 } }) do
+		local from = at + V(0, b[2] * size, 0)
+		MapKit.rod(m, "Branch", from, from + V(b[1] * 2.6 * size, 2.2 * size, 0.6 * size), 0.7 * size, bark, Enum.Material.Wood)
+	end
+	local greens = { rgb(46, 132, 52), rgb(58, 152, 60), rgb(74, 170, 70), rgb(40, 120, 48) }
+	local top = at + V(0, trunkH, 0)
+	ball(m, "Leaves", 9 * size, top, greens[2], Enum.Material.Grass)
+	for i = 1, 5 do
+		local a = rnd() * math.pi * 2
+		local r = (2.6 + rnd() * 1.2) * size
+		local off = V(math.cos(a) * r, (-1.2 + rnd() * 2.6) * size, math.sin(a) * r)
+		ball(m, "Leaves", (5.5 + rnd() * 2.5) * size, top + off, greens[1 + (i % #greens)], Enum.Material.Grass)
+	end
+	ball(m, "Leaves", 6 * size, top + V(0, 3.2 * size, 0), greens[3], Enum.Material.Grass)
+	return m
+end
+
+-- A pine: a trunk and four square tiers, each smaller and turned a little.
+local function pineTree(parent, at, size)
+	local m = Instance.new("Model")
+	m.Name = "Tree"
+	m.Parent = parent
+	cylinder(m, "Trunk", 5 * size, 1.4 * size, at, rgb(96, 64, 40), Enum.Material.Wood)
+	local greens = { rgb(30, 104, 60), rgb(36, 118, 66), rgb(44, 132, 72), rgb(54, 146, 80) }
+	local y = 3.2 * size
+	for i = 1, 4 do
+		local w = (9.5 - i * 1.9) * size
+		local h = 2.6 * size
+		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)) * CFrame.Angles(0, math.rad(i * 22), 0), greens[i], Enum.Material.Grass)
+		y += h * 0.78
+	end
+	part(m, "Needles", V(1.2 * size, 1.6 * size, 1.2 * size), CFrame.new(at + V(0, y + 0.8 * size, 0)) * CFrame.Angles(0, math.rad(45), 0), greens[4], Enum.Material.Grass)
+	return m
+end
+
+-- Where everything else stands, seen from above (x0, z0, x1, z1), so no tree
+-- grows through a stand, a pitch or a path.
+local function footprints(root)
+	local boxes = {}
+	for _, p in ipairs(root:GetDescendants()) do
+		if p:IsA("BasePart") and p.Name ~= "Baseplate" then
+			local cf, size = p.CFrame, p.Size
+			local r = cf.RightVector * size.X / 2
+			local u = cf.UpVector * size.Y / 2
+			local b = cf.LookVector * size.Z / 2
+			local hx = math.abs(r.X) + math.abs(u.X) + math.abs(b.X)
+			local hz = math.abs(r.Z) + math.abs(u.Z) + math.abs(b.Z)
+			local pos = cf.Position
+			table.insert(boxes, { pos.X - hx, pos.Z - hz, pos.X + hx, pos.Z + hz })
+		end
+	end
+	return boxes
+end
+
+local function clearOf(boxes, pos, margin)
+	for _, b in ipairs(boxes) do
+		if pos.X &gt; b[1] - margin and pos.X &lt; b[3] + margin and pos.Z &gt; b[2] - margin and pos.Z &lt; b[4] + margin then
+			return false
+		end
+	end
+	return true
 end
 
 local function scatterTrees(parent)
+	local boxes = footprints(parent)
 	local folder = Instance.new("Folder")
 	folder.Name = "Trees"
 	folder.Parent = parent
@@ -2439,15 +2989,20 @@ local function scatterTrees(parent)
 		seed = (seed * 1103515245 + 12345) % 2147483648
 		return seed / 2147483648
 	end
+	-- the big areas, including the parts of them that are only painted lines
+	-- on the grass (the stadium pitch)
 	local keepClear = {
 		{ V(0, 0, 0), 90 }, { V(0, 0, -178), 90 }, { dir(-30) * 150, 45 }, { dir(30) * 150, 55 }, { V(0, 0, 150), 45 },
 		{ dir(150) * 160, 55 }, { dir(210) * 160, 55 }, { V(56, 0, -100), 40 }, { V(-340, 0, 0), 120 }, { V(-230, 0, 0), 40 },
 	}
+	local planted = {}
 	local count = 0
-	for _ = 1, 400 do
-		if count &gt;= 70 then break end
-		local pos = V(-560 + rnd() * 760, 0, -360 + rnd() * 720)
-		local ok = pos.X &lt; 190 and math.abs(pos.Z) &gt; 12
+	for _ = 1, 1500 do
+		if count &gt;= 80 then break end
+		local pos = V(-600 + rnd() * 800, 0, -380 + rnd() * 760)
+		local size = 0.8 + rnd() * 0.6
+		local pine = rnd() &lt; 0.4
+		local ok = pos.X &lt; 190 and clearOf(boxes, pos, 10 * size)
 		for _, zone in ipairs(keepClear) do
 			if (pos - zone[1]).Magnitude &lt; zone[2] then
 				ok = false
@@ -2455,7 +3010,16 @@ local function scatterTrees(parent)
 			end
 		end
 		if ok then
-			tree(folder, pos, 0.8 + rnd() * 0.7)
+			for _, other in ipairs(planted) do
+				if (other - pos).Magnitude &lt; 16 then
+					ok = false
+					break
+				end
+			end
+		end
+		if ok then
+			if pine then pineTree(folder, pos, size) else leafyTree(folder, pos, size, rnd) end
+			table.insert(planted, pos)
 			count += 1
 		end
 	end
@@ -2522,7 +3086,7 @@ function MapBuilder.Build()
 end
 
 return MapBuilder
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL10"><Properties><string name="Name">MapKit</string><ProtectedString name="Source">-- Helpers for building the map out of parts: blocks, cylinders, rings,
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL12"><Properties><string name="Name">MapKit</string><ProtectedString name="Source">-- Helpers for building the map out of parts: blocks, cylinders, rings,
 -- painted lines, signs with text, glowing gates.
 
 local MapKit = {}
@@ -2734,7 +3298,7 @@ function MapKit.startPad(parent, at, color, text)
 end
 
 return MapKit
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL11"><Properties><string name="Name">MatchService</string><ProtectedString name="Source">-- The Stadium Match (from 75 OVR): a quick 5-a-side against a team about as
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL13"><Properties><string name="Name">MatchService</string><ProtectedString name="Source">-- The Stadium Match (from 75 OVR): a quick 5-a-side against a team about as
 -- good as you. The match is played as big moments where your stats matter:
 --
 --   ATTACK   one shot at goal past their keeper (SHO)
@@ -2996,7 +3560,7 @@ end
 
 MatchService.ScoreText = scoreText
 return MatchService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL12"><Properties><string name="Name">RewardService</string><ProtectedString name="Source">-- Daily login rewards, quests and card cosmetics.
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL14"><Properties><string name="Name">RewardService</string><ProtectedString name="Source">-- Daily login rewards, quests and card cosmetics.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -3177,7 +3741,150 @@ function RewardService.Init(remotes)
 end
 
 return RewardService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL13"><Properties><string name="Name">ShopService</string><ProtectedString name="Source">-- Gamepasses and developer products. Fair by design: nothing here gives a
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL15"><Properties><string name="Name">RigService</string><ProtectedString name="Source">-- Makes the real Roblox characters the drills use (see PlayerFigure) and
+-- keeps them in ReplicatedStorage.FigureRigs, where every client can copy
+-- them:
+--
+--   Kits/Attacker_1 ...        default avatars in each kit's colours
+--   Avatars/Avatar_&lt;userId&gt;    every player in the server
+--   Friends_&lt;userId&gt;/...       each player's Roblox friends
+--
+-- Making a character asks Roblox for the avatar, so it all happens in the
+-- background; the drills use whatever is ready.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
+local PlayerFigure = require(ReplicatedStorage:WaitForChild("PlayerFigure"))
+
+local RigService = {}
+
+local root, kitsFolder, avatarsFolder
+local ready = false
+local readyEvent = Instance.new("BindableEvent")
+
+local function folder(parent, name)
+	local f = parent:FindFirstChild(name) or Instance.new("Folder")
+	f.Name = name
+	f.Parent = parent
+	return f
+end
+
+local function fromDescription(desc, name)
+	local ok, rig = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not rig then
+		warn("[Figures] could not make " .. name .. ":", rig)
+		return nil
+	end
+	rig.Name = name
+	rig.Archivable = true
+	for _, d in ipairs(rig:GetDescendants()) do
+		if d:IsA("BaseScript") then d:Destroy() end
+	end
+	return rig
+end
+
+-- A default Roblox avatar in a kit: shirt-coloured torso, shorts-coloured
+-- legs, and one of the skin tones.
+local function kitRig(kitName, index)
+	local kit = PlayerFigure.Kits[kitName]
+	local skins = PlayerFigure.Skins
+	local skin = skins[(index * 2 - 1) % #skins + 1]
+	local desc = Instance.new("HumanoidDescription")
+	desc.HeadColor = skin
+	desc.LeftArmColor = skin
+	desc.RightArmColor = skin
+	desc.TorsoColor = kit.Shirt
+	desc.LeftLegColor = kit.Shorts
+	desc.RightLegColor = kit.Shorts
+	return fromDescription(desc, kitName .. "_" .. index)
+end
+
+local function avatarRig(userId)
+	local ok, desc = pcall(function()
+		return Players:GetHumanoidDescriptionFromUserId(userId)
+	end)
+	if not ok or not desc then return nil end
+	return fromDescription(desc, "Avatar_" .. userId)
+end
+
+local function friendIds(userId)
+	local ids = {}
+	local max = Config.Figures.FriendsPerPlayer
+	local ok, pages = pcall(function() return Players:GetFriendsAsync(userId) end)
+	if not ok or not pages then return ids end
+	while #ids &lt; max do
+		for _, friend in ipairs(pages:GetCurrentPage()) do
+			if #ids &gt;= max then break end
+			table.insert(ids, friend.Id)
+		end
+		if pages.IsFinished or #ids &gt;= max then break end
+		if not pcall(function() pages:AdvanceToNextPageAsync() end) then break end
+	end
+	return ids
+end
+
+local function onPlayer(player)
+	-- a Studio test player (UserId 0 or below) has no avatar or friends
+	if player.UserId &lt;= 0 then return end
+	task.spawn(function()
+		if not avatarsFolder:FindFirstChild("Avatar_" .. player.UserId) then
+			local rig = avatarRig(player.UserId)
+			if rig then rig.Parent = avatarsFolder end
+		end
+		local friends = folder(root, "Friends_" .. player.UserId)
+		for _, id in ipairs(friendIds(player.UserId)) do
+			if not player.Parent then break end
+			if not friends:FindFirstChild("Avatar_" .. id) then
+				local rig = avatarRig(id)
+				if rig then rig.Parent = friends end
+			end
+		end
+	end)
+end
+
+function RigService.Init()
+	root = folder(ReplicatedStorage, "FigureRigs")
+	kitsFolder = folder(root, "Kits")
+	avatarsFolder = folder(root, "Avatars")
+	task.spawn(function()
+		for _, kitName in ipairs({ "Dummy", "Attacker", "Keeper", "Teammate" }) do
+			for i = 1, Config.Figures.KitRigs[kitName] or 0 do
+				local rig = kitRig(kitName, i)
+				if rig then rig.Parent = kitsFolder end
+			end
+		end
+		ready = true
+		readyEvent:Fire()
+	end)
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in ipairs(Players:GetPlayers()) do onPlayer(player) end
+	Players.PlayerRemoving:Connect(function(player)
+		local friends = root:FindFirstChild("Friends_" .. player.UserId)
+		if friends then friends:Destroy() end
+		local avatar = avatarsFolder:FindFirstChild("Avatar_" .. player.UserId)
+		if avatar then avatar:Destroy() end
+	end)
+end
+
+-- Waits (up to `timeout` seconds) until the kit characters are made.
+function RigService.WaitReady(timeout)
+	if ready then return true end
+	local done = false
+	local conn = readyEvent.Event:Connect(function() done = true end)
+	local start = os.clock()
+	while not done and not ready and os.clock() - start &lt; (timeout or 30) do
+		task.wait(0.2)
+	end
+	conn:Disconnect()
+	return ready
+end
+
+return RigService
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL16"><Properties><string name="Name">ShopService</string><ProtectedString name="Source">-- Gamepasses and developer products. Fair by design: nothing here gives a
 -- LEGEND card or a season; the stat point stops at 84.
 --
 -- Ids of 0 mean "coming soon" in a live game. In Studio they are free so
@@ -3321,7 +4028,7 @@ function ShopService.Init(remotes)
 end
 
 return ShopService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL14"><Properties><string name="Name">StatService</string><ProtectedString name="Source">-- The +1 loop, all on the server: XP goes into one stat, a full bar gives
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL17"><Properties><string name="Name">StatService</string><ProtectedString name="Source">-- The +1 loop, all on the server: XP goes into one stat, a full bar gives
 -- the stat +1, OVR is worked out from the stats for your position, and a
 -- higher OVR tells the player's screen to play the upgrade moment.
 --
@@ -3675,6 +4382,7 @@ function StatService.UpdateHeadCard(player)
 		gui.PlayerToHideFrom = player -- your own card is in the corner of your screen
 		gui.Parent = head
 		local card = CardView.new(gui, { Compact = true, Size = UDim2.fromScale(1, 1) })
+		card:ShowPlayer(player.UserId)
 		entry = { Gui = gui, Card = card }
 		headCards[player] = entry
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -3704,7 +4412,7 @@ function StatService.CharacterAdded(player)
 end
 
 return StatService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL15"><Properties><string name="Name">StationBuilder</string><ProtectedString name="Source">-- Builds one training station of each kind at a given spot, and returns a
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL18"><Properties><string name="Name">StationBuilder</string><ProtectedString name="Source">-- Builds one training station of each kind at a given spot, and returns a
 -- record the TrainingService uses: where to stand, where the goal and the
 -- targets are, the course checkpoints, and the START prompt.
 --
@@ -3713,6 +4421,8 @@ return StatService
 -- version for the academies), Color.
 
 local MapKit = require(script.Parent:WaitForChild("MapKit"))
+local PlayerFigure = require(game:GetService("ReplicatedStorage"):WaitForChild("PlayerFigure"))
+local RigService = require(script.Parent:WaitForChild("RigService"))
 
 local part, patch, line, cylinder, rod, ball, disc = MapKit.part, MapKit.patch, MapKit.line, MapKit.cylinder, MapKit.rod, MapKit.ball, MapKit.disc
 local COL = MapKit.Colors
@@ -3787,17 +4497,26 @@ local function goal(parent, goalCF, width, height, depth, color)
 end
 StationBuilder.Goal = goal
 
--- A training dummy (the passing targets and the defending attackers look
--- like this too).
-local function dummy(parent, at, color)
+-- A training dummy: a real Roblox character in a yellow bib on a round
+-- stand, facing `lookAt` (the passer). The character arrives a moment after
+-- the map is built (RigService makes it); the model is there from the start.
+local function dummy(parent, at, lookAt, seed)
+	local stand = Instance.new("Model")
+	stand.Name = "DummyStand"
+	stand.Parent = parent
+	disc(stand, "Base", at, 3.4, COL.NavyDark, 0.4, Enum.Material.SmoothPlastic)
 	local m = Instance.new("Model")
 	m.Name = "Dummy"
 	m.Parent = parent
-	disc(m, "Base", at, 3, COL.NavyDark, 0.4, Enum.Material.SmoothPlastic)
-	cylinder(m, "Pole", 3, 0.5, at + V(0, 0.4, 0), COL.Metal, Enum.Material.Metal)
-	part(m, "Body", V(2.2, 2.6, 1.1), CFrame.new(at + V(0, 4.5, 0)), color or rgb(255, 210, 40), Enum.Material.SmoothPlastic)
-	ball(m, "Head", 1.7, at + V(0, 6.6, 0), color or rgb(255, 210, 40), Enum.Material.SmoothPlastic)
-	m.PrimaryPart = m:FindFirstChild("Body")
+	local middle = at + V(0, 3.4, 0)
+	local facing = flat((lookAt or (at + V(0, 0, 1))) - at)
+	if facing.Magnitude &lt; 0.01 then facing = V(0, 0, 1) end
+	task.spawn(function()
+		RigService.WaitReady(60)
+		if not m.Parent then return end
+		local fig = PlayerFigure.Build(m, "Dummy", { Seed = seed, Avatars = false, Name = "Character" })
+		PlayerFigure.Pose(fig, CFrame.lookAt(middle, middle + facing.Unit))
+	end)
 	return m
 end
 StationBuilder.Dummy = dummy
@@ -3862,7 +4581,7 @@ function StationBuilder.Passing(parent, cf, opts)
 		pos = V(pos.X, 0, pos.Z)
 		local target = { Id = i, Kind = spec[1], Pos = pos }
 		if spec[1] == "Dummy" then
-			target.Model = dummy(model, pos, rgb(255, 214, 60))
+			target.Model = dummy(model, pos, V(cf.Position.X, 0, cf.Position.Z), i * 17)
 		else
 			-- a hoop on a stand, facing the passer
 			local hoop = Instance.new("Model")
@@ -4125,7 +4844,7 @@ function StationBuilder.Gym(parent, cf, opts)
 end
 
 return StationBuilder
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL16"><Properties><string name="Name">TrainingService</string><ProtectedString name="Source">-- The six drills, run on the server. The client draws them and sends what
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL19"><Properties><string name="Name">TrainingService</string><ProtectedString name="Source">-- The six drills, run on the server. The client draws them and sends what
 -- the player did (a shot's aim and power, a pass, a tackle, a press); the
 -- server decides what happened and hands out the XP. Runs are timed from the
 -- server's own view of the character, with checks that the time is possible.
@@ -4964,7 +5683,13 @@ function TrainingService.Init(remotes, records)
 	end
 	remotes.Train.OnServerInvoke = function(player, action, ...)
 		if action == "Leave" then
+			-- the EXIT button: stop, then stand back on the drill's start pad
+			local session = sessions[player]
+			local anchor = session and session.Station and session.Station.Prompt and session.Station.Prompt.Parent
 			TrainingService.End(player, "leave")
+			if anchor and anchor:IsA("BasePart") then
+				placeAt(player, CFrame.new(anchor.Position + Vector3.new(0, 1, 0)))
+			end
 			return true
 		end
 		local session = sessions[player]
@@ -5013,7 +5738,7 @@ return TrainingService
 </ProtectedString><bool name="Disabled">false</bool></Properties></Item></Item>
 	<Item class="StarterPlayer" referent="BASE6">
 		<Properties><string name="Name">StarterPlayer</string></Properties>
-		<Item class="StarterPlayerScripts" referent="BASE7"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="ModuleScript" referent="FOOTBALL17"><Properties><string name="Name">CardUI</string><ProtectedString name="Source">-- Your card, small and clean in the bottom-right corner, with your avatar in
+		<Item class="StarterPlayerScripts" referent="BASE7"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="ModuleScript" referent="FOOTBALL20"><Properties><string name="Name">CardUI</string><ProtectedString name="Source">-- Your card, small and clean in the bottom-right corner, with your avatar in
 -- it. It shows the six stats, pops a stat when it goes +1, and opens the big
 -- "My Card" window when you tap it.
 
@@ -5072,7 +5797,10 @@ function CardUI.Holder()
 	return holder
 end
 
+-- Your avatar on a card: your Roblox avatar picture, or (a Studio test
+-- player with no picture) a copy of your character.
 function CardUI.ShowAvatar(view)
+	if view:ShowPlayer(player.UserId) then return end
 	local character = player.Character
 	if character then view:ShowCharacter(character) end
 end
@@ -5117,6 +5845,7 @@ function CardUI.Init(c)
 		if ctx.OpenMenu then ctx.OpenMenu("Card") end
 	end)
 
+	CardUI.ShowAvatar(card)
 	local function avatar()
 		task.wait(1.2)
 		CardUI.ShowAvatar(card)
@@ -5140,7 +5869,7 @@ function CardUI.Init(c)
 end
 
 return CardUI
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="LocalScript" referent="FOOTBALL18"><Properties><string name="Name">ClientMain</string><ProtectedString name="Source">-- Football Stars on the player's screen. Starts the parts and wires them to
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="LocalScript" referent="FOOTBALL21"><Properties><string name="Name">ClientMain</string><ProtectedString name="Source">-- Football Stars on the player's screen. Starts the parts and wires them to
 -- the server:
 --
 --   CardUI          your card in the bottom right (and its +1 pops)
@@ -5338,7 +6067,7 @@ task.spawn(function()
 	task.wait(1)
 	refreshGates()
 end)
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL19"><Properties><string name="Name">MenusUI</string><ProtectedString name="Source">-- The menus: big buttons on the left (My Card, Daily, Quests, Positions,
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL22"><Properties><string name="Name">MenusUI</string><ProtectedString name="Source">-- The menus: big buttons on the left (My Card, Daily, Quests, Positions,
 -- Season, Style, Shop) with badges, one window at a time in the middle of
 -- the screen, and chips at the top left for the 2x XP boost, the training
 -- streak and your XP multiplier.
@@ -6371,7 +7100,7 @@ function MenusUI.Init(c)
 end
 
 return MenusUI
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL20"><Properties><string name="Name">TrainingClient</string><ProtectedString name="Source">-- Everything you see and press while training. The server decides what
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL23"><Properties><string name="Name">TrainingClient</string><ProtectedString name="Source">-- Everything you see and press while training. The server decides what
 -- happens; this draws it: the targets and the ball, the aim and the power
 -- bar, the lit passing targets, the countdown and timer on the courses, the
 -- attackers in the Tackle Zone, the gym's timing bar, and the stadium match.
@@ -6389,6 +7118,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 local FKit = require(ReplicatedStorage:WaitForChild("FKit"))
 local DrillMath = require(ReplicatedStorage:WaitForChild("DrillMath"))
+local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
+local PlayerFigure = require(ReplicatedStorage:WaitForChild("PlayerFigure"))
 
 local TrainingClient = {}
 
@@ -6430,6 +7161,7 @@ local function localFolder()
 		f = Instance.new("Folder")
 		f.Name = "LocalDrill"
 		f.Parent = workspace
+		StudTexture.Watch(f)
 	end
 	return f
 end
@@ -6465,32 +7197,20 @@ local function makeBall(parent)
 	return m
 end
 
--- A blocky player figure (attackers, teammates, the keeper).
-local function makeFigure(parent, shirt, shorts)
-	local m = Instance.new("Model")
-	m.Name = "Figure"
-	local function add(name, size, offset, color, shape)
-		local p = lpart(m, { Name = name, Size = size, Color = color, CFrame = CFrame.new(offset) })
-		if shape then p.Shape = shape end
-		return p
-	end
-	local torso = add("Torso", Vector3.new(2, 2, 1), Vector3.new(0, 3, 0), shirt)
-	add("Head", Vector3.new(1.3, 1.3, 1.3), Vector3.new(0, 4.7, 0), Color3.fromRGB(255, 205, 160), Enum.PartType.Ball)
-	add("LeftArm", Vector3.new(0.9, 2, 1), Vector3.new(-1.5, 3, 0), shirt)
-	add("RightArm", Vector3.new(0.9, 2, 1), Vector3.new(1.5, 3, 0), shirt)
-	add("LeftLeg", Vector3.new(0.95, 2, 1), Vector3.new(-0.5, 1, 0), shorts or C.Ink)
-	add("RightLeg", Vector3.new(0.95, 2, 1), Vector3.new(0.5, 1, 0), shorts or C.Ink)
-	add("Number", Vector3.new(0.9, 0.9, 0.05), Vector3.new(0, 3.2, 0.53), C.White)
-	m.PrimaryPart = torso
-	m.Parent = parent
-	return m
+-- A real Roblox character (attackers, teammates, the keeper): your
+-- friends' avatars when there are some, see PlayerFigure.
+local figureCount = math.random(0, 50)
+local function makeFigure(parent, kitName)
+	figureCount += 1
+	return PlayerFigure.Build(parent, kitName, { Local = true, Seed = figureCount })
 end
 
-local function placeFigure(fig, pos, facing)
+-- Stands the figure on `pos` facing `facing`; with a stride it runs.
+local function placeFigure(fig, pos, facing, stride)
 	local flat = DrillMath.Flat(facing)
 	if flat.Magnitude &lt; 0.01 then flat = Vector3.new(0, 0, -1) end
-	-- the figure's parts were made around (0, 3, 0); its pivot is the torso
-	fig:PivotTo(CFrame.lookAt(pos + Vector3.new(0, 3, 0), pos + Vector3.new(0, 3, 0) + flat))
+	-- the figure's pivot is the torso, 3 studs up
+	PlayerFigure.Pose(fig, CFrame.lookAt(pos + Vector3.new(0, 3, 0), pos + Vector3.new(0, 3, 0) + flat), stride)
 end
 
 local function highlight(model, color)
@@ -6581,14 +7301,15 @@ local function buildHud()
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -86), Size = UDim2.fromOffset(620, 36), RichText = true,
 	})
 
-	-- leave
-	hud.Leave = FKit.button(root, "\u{2715} LEAVE", FKit.Palette.red, {
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(150, 50),
+	-- EXIT: in every drill, top right (or X on a keyboard); the server stops
+	-- the drill and puts you back on its start pad
+	hud.Leave = FKit.button(root, "\u{2715} EXIT", FKit.Palette.red, {
+		Name = "Exit", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 10), Size = UDim2.fromOffset(190, 64),
 	})
-	hud.Leave.Activated:Connect(function()
-		ctx.Sound("Click")
-		task.spawn(function() pcall(function() ctx.Remotes.Train:InvokeServer("Leave") end) end)
-	end)
+	hud.LeaveHint = FKit.text(hud.Leave, "PRESS X", 14, C.White, {
+		AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 4), Size = UDim2.fromOffset(120, 18), ZIndex = 5,
+	})
+	hud.Leave.Activated:Connect(function() TrainingClient.Leave() end)
 
 	-- the big action button (a must on phones, handy with a mouse too)
 	local action, actionLabel = FKit.button(root, "SHOOT", FKit.Palette.orange, {
@@ -7214,7 +7935,7 @@ controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpda
 local function addAttackers(s, list)
 	s.Attackers = s.Attackers or {}
 	for _, att in ipairs(list) do
-		local fig = makeFigure(localFolder(), Color3.fromRGB(230, 40, 50), C.White)
+		local fig = makeFigure(localFolder(), "Attacker")
 		local ball = makeBall(localFolder())
 		s.Attackers[att.Id] = { Data = att, Figure = fig, Ball = ball }
 		placeFigure(fig, att.Start, att.End - att.Start)
@@ -7247,7 +7968,7 @@ local function updateAttackers(s)
 		local d = a.Data
 		local pos = DrillMath.AttackerPos(d, now)
 		local ahead = DrillMath.AttackerPos(d, now + 0.1)
-		placeFigure(a.Figure, pos, ahead - pos)
+		placeFigure(a.Figure, pos, ahead - pos, now &gt;= d.T0 and now * 11 or nil)
 		local dir = DrillMath.Flat(ahead - pos)
 		local lead = dir.Magnitude &gt; 0.01 and dir.Unit * 1.8 or Vector3.zero
 		a.Ball:PivotTo(CFrame.new(pos + lead + Vector3.new(0, 0.8, 0)) * CFrame.Angles(now * 8, 0, 0))
@@ -7506,7 +8227,7 @@ controllers.Match = {
 				shootSetup(s, data.Spot, data.Goal, data.GoalWidth, data.GoalHeight, data.Green)
 				s.CanShoot = true
 				s.Keeper = data.Keeper
-				s.KeeperFigure = makeFigure(localFolder(), Color3.fromRGB(60, 220, 90), C.Ink)
+				s.KeeperFigure = makeFigure(localFolder(), "Keeper")
 				table.insert(s.MomentParts, s.KeeperFigure)
 				table.insert(s.MomentParts, s.Reticle)
 			elseif data.Type == "Pass" then
@@ -7514,7 +8235,7 @@ controllers.Match = {
 				passSetup(s, data.Spot, forward, data.MaxDistance)
 				s.Targets = {}
 				for i, pos in ipairs(data.Teammates) do
-					local fig = makeFigure(localFolder(), Color3.fromRGB(40, 120, 255), C.White)
+					local fig = makeFigure(localFolder(), "Teammate")
 					placeFigure(fig, pos, data.Spot - pos)
 					table.insert(s.MomentParts, fig)
 					table.insert(s.Targets, { Id = i, Kind = "Dummy", Pos = pos, Model = fig })
@@ -7564,6 +8285,17 @@ controllers.Match = {
 -- Session start / stop and input
 --------------------------------------------------------------------------------
 
+-- Leave the drill you are in (the EXIT button or X).
+function TrainingClient.Leave()
+	if not S or S.Leaving then return end
+	local s = S
+	s.Leaving = true
+	ctx.Sound("Click")
+	task.spawn(function() pcall(function() ctx.Remotes.Train:InvokeServer("Leave") end) end)
+	-- if the server never answered, the button works again
+	task.delay(2, function() s.Leaving = nil end)
+end
+
 local function stopSession()
 	local s = S
 	if not s then return end
@@ -7587,6 +8319,7 @@ local function startSession(data)
 	hud.Info.Text = ""
 	setXPBar(data.Stat)
 	hud.Action.Visible = ctl.Action ~= nil
+	hud.LeaveHint.Visible = not touchOnly()
 	if ctl.Action then hud.ActionLabel.Text = ctl.Action end
 	local title = Config.Drills[data.Kind] and Config.Drills[data.Kind].Title or data.Kind
 	local area = Config.Areas[data.Area]
@@ -7645,6 +8378,10 @@ function TrainingClient.Init(c)
 		if gameProcessed then return end
 		lastTouch = nil
 		local key = input.KeyCode
+		if key == Enum.KeyCode.X then
+			TrainingClient.Leave()
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or key == Enum.KeyCode.Space or key == Enum.KeyCode.F
 			or key == Enum.KeyCode.ButtonR2 or key == Enum.KeyCode.ButtonA then
 			if S.Kind == "Speed" or S.Kind == "Dribbling" then return end
@@ -7674,7 +8411,7 @@ function TrainingClient.Init(c)
 end
 
 return TrainingClient
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL21"><Properties><string name="Name">UpgradeFX</string><ProtectedString name="Source">-- The upgrade moment, the best feeling in the game. When OVR goes up:
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL24"><Properties><string name="Name">UpgradeFX</string><ProtectedString name="Source">-- The upgrade moment, the best feeling in the game. When OVR goes up:
 --
 --   1. the screen dims a little
 --   2. your card flies from the corner to the middle

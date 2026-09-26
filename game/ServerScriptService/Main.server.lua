@@ -46,6 +46,10 @@ local remotes = {
 -- Map and services
 --------------------------------------------------------------------------------
 
+-- the real Roblox characters for the drills (made in the background)
+local RigService = require(script.Parent:WaitForChild("RigService"))
+RigService.Init()
+
 local started = os.clock()
 local ok, records, boards, extra = pcall(MapBuilder.Build)
 if not ok then
