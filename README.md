@@ -114,7 +114,7 @@ without Studio, so flat colours and emoji as words) are in `images/`.
 
 - **The texture**: every part the game builds has Roblox's own Studs
   surface on every face (a raised square on every stud, in the part's own
-  colour). It is built into Roblox, so it needs no image. Characters never
+  colour). Roblox only shows surfaces on Plastic, so those parts are Plastic. It is built into Roblox, so it needs no image. Characters never
   get it: players, the crowd, the drill players and the dummies. Neither do
   glass, glows, nets and parts under 2 studs (`Config.Texture`).
 - **The drill players** (the attackers you tackle, the keeper, your

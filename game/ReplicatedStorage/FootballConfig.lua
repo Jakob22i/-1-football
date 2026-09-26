@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v7"
+Config.Version = "v8"
 
 --------------------------------------------------------------------------------
 -- Stats

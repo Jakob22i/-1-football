@@ -44,6 +44,8 @@ end
 function StudTexture.Apply(part)
 	if not wants(part) then return end
 	part:SetAttribute("Studs", true)
+	-- Roblox only shows surfaces on Plastic (not SmoothPlastic, Grass, Wood ...)
+	part.Material = Enum.Material.Plastic
 	for _, face in ipairs(SURFACES) do
 		part[face] = Enum.SurfaceType.Studs
 	end
