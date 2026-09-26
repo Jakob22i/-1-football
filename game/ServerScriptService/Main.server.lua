@@ -59,6 +59,28 @@ if not ok then
 end
 print(string.format("[Football] map built in %.2fs", os.clock() - started))
 
+-- the sky (Config.Sky), when its six images are filled in
+do
+	local ids = Config.Sky
+	local function asset(id)
+		id = tostring(id or "")
+		if id:match("^%d+$") then return "rbxassetid://" .. id end
+		return id
+	end
+	if asset(ids.Bk) ~= "" and asset(ids.Up) ~= "" then
+		local Lighting = game:GetService("Lighting")
+		for _, old in ipairs(Lighting:GetChildren()) do
+			if old:IsA("Sky") then old:Destroy() end
+		end
+		local sky = Instance.new("Sky")
+		sky.Name = "GameSky"
+		sky.SkyboxBk, sky.SkyboxDn, sky.SkyboxFt = asset(ids.Bk), asset(ids.Dn), asset(ids.Ft)
+		sky.SkyboxLf, sky.SkyboxRt, sky.SkyboxUp = asset(ids.Lf), asset(ids.Rt), asset(ids.Up)
+		sky.SunAngularSize = ids.SunVisible and 21 or 0
+		sky.Parent = Lighting
+	end
+end
+
 -- studs on everything but the characters
 local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
 for _, name in ipairs({ "Map", "Gates", "Baseplate" }) do

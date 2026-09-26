@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v8"
+Config.Version = "v9"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -136,6 +136,14 @@ end
 --------------------------------------------------------------------------------
 -- Walking speed: Pace makes you faster everywhere
 --------------------------------------------------------------------------------
+
+-- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
+-- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).
+-- Empty = the game leaves Lighting alone (a Sky you put there yourself stays).
+Config.Sky = {
+	Bk = "", Dn = "", Ft = "", Lf = "", Rt = "", Up = "",
+	SunVisible = true,
+}
 
 -- The texture on everything except the characters: Roblox's own Studs
 -- surface, a raised square on every stud, in each part's own colour
