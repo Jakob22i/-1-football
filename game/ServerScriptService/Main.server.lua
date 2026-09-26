@@ -59,18 +59,17 @@ if not ok then
 end
 print(string.format("[Football] map built in %.2fs", os.clock() - started))
 
--- the Baseplate squares on everything but the characters
+-- studs on everything but the characters
 local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
-StudTexture.Resolve()
 for _, name in ipairs({ "Map", "Gates", "Baseplate" }) do
 	local root = workspace:FindFirstChild(name)
 	if root then StudTexture.Watch(root) end
 end
 local textured = 0
 for _, d in ipairs(workspace:GetDescendants()) do
-	if d:IsA("Texture") and d.Name == "StudTexture" then textured += 1 end
+	if d:IsA("BasePart") and d:GetAttribute("Studs") then textured += 1 end
 end
-print(("[Football] %s: Baseplate squares on %d faces"):format(Config.Version, textured))
+print(("[Football] %s: Studs on %d parts"):format(Config.Version, textured))
 
 StatService.Init(remotes)
 TrainingService.Init(remotes, records)

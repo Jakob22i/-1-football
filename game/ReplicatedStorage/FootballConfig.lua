@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v6"
+Config.Version = "v7"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -137,18 +137,10 @@ end
 -- Walking speed: Pace makes you faster everywhere
 --------------------------------------------------------------------------------
 
--- The texture on everything except the characters: Roblox's Baseplate
--- squares (a grid of raised rounded squares, 8 per tile). The image is
--- tinted with each part's own colour and brightened (the grey image is about
--- half as bright as white), so a red part gets red squares, a green one green.
+-- The texture on everything except the characters: Roblox's own Studs
+-- surface, a raised square on every stud, in each part's own colour
+-- (StudTexture).
 Config.Texture = {
-	-- the image: an Image id or a Decal id both work (the game finds the
-	-- image behind a Decal). Your own picture: Studio > Asset Manager >
-	-- Import, right-click it > Copy Asset ID, paste the number here.
-	Id = "rbxassetid://6372755229",
-	Brightness = 1.95,
-	Transparency = 0,
-	StudsPerTile = 8,
 	-- parts smaller than this (studs, biggest side) stay plain: a bolt or a
 	-- seat is too small to show a square
 	MinSize = 2,
