@@ -245,7 +245,7 @@ Icons.Images = {}
 -- > Copy Asset ID, and paste the id in Image. Until then the drawn icons
 -- are used.
 Icons.Sprite = {
-	Image = "",
+	Image = "rbxassetid://97433681572325",
 	Cell = 96,
 	Columns = 7,
 	Order = { "check", "cross", "coin", "minus", "plus", "undo", "redo",
