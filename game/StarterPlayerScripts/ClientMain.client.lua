@@ -161,6 +161,13 @@ UpgradeFX.Init(ctx)
 TrainingClient.Init(ctx)
 MenusUI.Init(ctx)
 
+-- does the texture image load? (the answer is in Output)
+task.spawn(function()
+	local start = os.clock()
+	while not ReplicatedStorage:GetAttribute("StudTextureImage") and os.clock() - start < 15 do task.wait(0.5) end
+	require(ReplicatedStorage:WaitForChild("StudTexture")).CheckLoaded()
+end)
+
 ctx.Remotes.Progress.OnClientEvent:Connect(function(kind, data)
 	data = data or {}
 	if kind == "xp" then

@@ -11,6 +11,53 @@ local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 
 local StudTexture = {}
 
+-- The image the textures show. The server works it out once (Resolve) and
+-- shares it in this attribute, so every client uses the same.
+local ATTRIBUTE = "StudTextureImage"
+
+local function image()
+	return ReplicatedStorage:GetAttribute(ATTRIBUTE) or Config.Texture.Id
+end
+
+-- A Decal id put straight into a Texture stays blank: a Texture needs the
+-- id of the image inside the Decal. InsertService opens the Decal and gives
+-- that image (it works for Roblox's own assets and the game owner's). An
+-- Image id cannot be opened that way and is used as it is.
+function StudTexture.Resolve()
+	local id = tonumber(tostring(Config.Texture.Id):match("%d+"))
+	local resolved = Config.Texture.Id
+	if id then
+		local ok, model = pcall(function() return game:GetService("InsertService"):LoadAsset(id) end)
+		if ok and model then
+			local found = model:FindFirstChildWhichIsA("Decal", true) or model:FindFirstChildWhichIsA("Texture", true)
+			if found and found.Texture ~= "" then resolved = found.Texture end
+			model:Destroy()
+		end
+	end
+	ReplicatedStorage:SetAttribute(ATTRIBUTE, resolved)
+	print(("[Football] texture image: %s (from %s)"):format(resolved, tostring(Config.Texture.Id)))
+	return resolved
+end
+
+-- On a client: says in Output whether the image really loaded.
+function StudTexture.CheckLoaded()
+	local probe = Instance.new("Texture")
+	probe.Texture = image()
+	task.spawn(function()
+		local ok, err = pcall(function()
+			game:GetService("ContentProvider"):PreloadAsync({ probe }, function(content, status)
+				if status == Enum.AssetFetchStatus.Success then
+					print("[Football] texture image loaded: " .. content)
+				else
+					warn("[Football] texture image did NOT load (" .. tostring(status) .. "): " .. content
+						.. " - put another Image or Decal id in Config.Texture.Id (FootballConfig)")
+				end
+			end)
+		end)
+		if not ok then warn("[Football] could not check the texture image:", err) end
+	end)
+end
+
 local TAG = "StudTexture"
 local FACES = { Enum.NormalId.Top, Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right, Enum.NormalId.Bottom }
 
@@ -54,7 +101,7 @@ function StudTexture.Apply(part)
 		local tex = Instance.new("Texture")
 		tex.Name = TAG
 		tex.Face = face
-		tex.Texture = cfg.Id
+		tex.Texture = image()
 		tex.Color3 = tint(part.Color)
 		tex.Transparency = cfg.Transparency
 		tex.StudsPerTileU = cfg.StudsPerTile

@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v4"
+Config.Version = "v5"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -142,6 +142,9 @@ end
 -- tinted with each part's own colour and brightened (the grey image is about
 -- half as bright as white), so a red part gets red squares, a green one green.
 Config.Texture = {
+	-- the image: an Image id or a Decal id both work (the game finds the
+	-- image behind a Decal). Your own picture: Studio > Asset Manager >
+	-- Import, right-click it > Copy Asset ID, paste the number here.
 	Id = "rbxassetid://6372755229",
 	Brightness = 1.95,
 	Transparency = 0,

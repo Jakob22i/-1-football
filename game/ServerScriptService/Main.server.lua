@@ -61,6 +61,7 @@ print(string.format("[Football] map built in %.2fs", os.clock() - started))
 
 -- the Baseplate squares on everything but the characters
 local StudTexture = require(ReplicatedStorage:WaitForChild("StudTexture"))
+StudTexture.Resolve()
 for _, name in ipairs({ "Map", "Gates", "Baseplate" }) do
 	local root = workspace:FindFirstChild(name)
 	if root then StudTexture.Watch(root) end
