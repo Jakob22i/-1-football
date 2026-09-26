@@ -8,6 +8,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 
 local DataService = require(script.Parent:WaitForChild("DataService"))
 local StatService = require(script.Parent:WaitForChild("StatService"))
@@ -64,6 +65,11 @@ for _, name in ipairs({ "Map", "Gates", "Baseplate" }) do
 	local root = workspace:FindFirstChild(name)
 	if root then StudTexture.Watch(root) end
 end
+local textured = 0
+for _, d in ipairs(workspace:GetDescendants()) do
+	if d:IsA("Texture") and d.Name == "StudTexture" then textured += 1 end
+end
+print(("[Football] %s: Baseplate squares on %d faces"):format(Config.Version, textured))
 
 StatService.Init(remotes)
 TrainingService.Init(remotes, records)
