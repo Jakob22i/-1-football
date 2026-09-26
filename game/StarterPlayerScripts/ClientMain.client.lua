@@ -160,6 +160,7 @@ ctx.Card = CardUI.Init(ctx)
 UpgradeFX.Init(ctx)
 TrainingClient.Init(ctx)
 MenusUI.Init(ctx)
+require(ReplicatedStorage:WaitForChild("Icons")).Report()
 
 ctx.Remotes.Progress.OnClientEvent:Connect(function(kind, data)
 	data = data or {}

@@ -1045,7 +1045,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v11"
+Config.Version = "v12"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -1823,11 +1823,98 @@ local function outlineWidth(holder, weight)
 	return math.max(1, holder.AbsoluteSize.X * 0.055 * weight)
 end
 
+--------------------------------------------------------------------------------
+-- The "Simulator Icon Pack" (DevJoob, Toolbox): when its images are known,
+-- every icon is that picture instead of the drawn one. They come from
+--   1. Icons.Images below (ids baked into the game), or
+--   2. the pack itself, if it is in the place (insert it from the Toolbox
+--      into ReplicatedStorage): its Decals are matched by name.
+--------------------------------------------------------------------------------
+
+-- icon -&gt; image id (fill in from the list the game prints in Output)
+Icons.Images = {}
+
+-- words to look for in the pack's image names, best first
+local KEYWORDS = {
+	card = { "card", "id", "profile", "player" }, gift = { "gift", "present" }, scroll = { "scroll", "quest", "paper", "map" },
+	clipboard = { "clipboard", "list", "note", "book" }, trophy = { "trophy", "cup" }, palette = { "palette", "paint", "brush", "color" },
+	cart = { "cart", "shop", "store" }, bolt = { "lightning", "bolt", "energy", "speed" }, ball = { "ball", "soccer", "football" },
+	target = { "target", "bullseye", "aim" }, swirl = { "swirl", "spiral", "portal", "vortex" }, shield = { "shield", "defen" },
+	dumbbell = { "dumbbell", "weight", "muscle", "strength", "gym" }, star = { "star" }, crown = { "crown", "vip", "king" },
+	robot = { "robot", "auto", "bot" }, stopwatch = { "stopwatch", "timer", "clock", "time", "hourglass" }, lock = { "lock" },
+	check = { "check", "tick", "yes" }, fire = { "fire", "flame" },
+}
+
+local pack = nil -- name (lower case) -&gt; image id, from the pack in the place
+local function packImages()
+	if pack then return pack end
+	pack = {}
+	local root = game:GetService("ReplicatedStorage"):FindFirstChild("Simulator Icon Pack", true)
+		or workspace:FindFirstChild("Simulator Icon Pack", true)
+	if not root then return pack end
+	for _, d in ipairs(root:GetDescendants()) do
+		local image = (d:IsA("Decal") and d.Texture) or ((d:IsA("ImageLabel") or d:IsA("ImageButton")) and d.Image) or nil
+		if image and image ~= "" then
+			local key = d.Name:lower()
+			if key == "decal" or key == "imagelabel" or key == "texture" then key = d.Parent and d.Parent.Name:lower() or key end
+			if not pack[key] then pack[key] = image end
+		end
+	end
+	return pack
+end
+
+-- The pack's picture for an icon, or nil (then the drawn icon is used).
+function Icons.Image(name)
+	if Icons.Images[name] then return Icons.Images[name] end
+	local images = packImages()
+	for _, word in ipairs(KEYWORDS[name] or { name }) do
+		if images[word] then return images[word] end
+	end
+	for _, word in ipairs(KEYWORDS[name] or { name }) do
+		for key, image in pairs(images) do
+			if key:find(word, 1, true) then return image end
+		end
+	end
+	return nil
+end
+
+-- Prints every image in the pack (name = id) so they can be baked into
+-- Icons.Images, and which icons it has a picture for.
+function Icons.Report()
+	local images = packImages()
+	local keys = {}
+	for key in pairs(images) do table.insert(keys, key) end
+	if #keys == 0 then return end
+	table.sort(keys)
+	local lines = { "[Football] Simulator Icon Pack found (" .. #keys .. " images). Send this list to Claude:" }
+	for _, key in ipairs(keys) do table.insert(lines, ("  [%q] = %q,"):format(key, images[key])) end
+	local found = {}
+	for name in pairs(KEYWORDS) do
+		table.insert(found, name .. "=" .. (Icons.Image(name) and "yes" or "NO"))
+	end
+	table.sort(found)
+	table.insert(lines, "  icons: " .. table.concat(found, " "))
+	print(table.concat(lines, "\n"))
+end
+
 local function draw(holder, name)
 	holder:ClearAllChildren()
 	local aspect = Instance.new("UIAspectRatioConstraint")
 	aspect.AspectRatio = 1
 	aspect.Parent = holder
+	holder:SetAttribute("Icon", name)
+	local image = Icons.Image(name)
+	if image then
+		local l = Instance.new("ImageLabel")
+		l.Name = "Picture"
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.fromScale(1, 1)
+		l.ScaleType = Enum.ScaleType.Fit
+		l.Image = image
+		l.ZIndex = holder.ZIndex + 1
+		l.Parent = holder
+		return function() end
+	end
 	local spec = ICONS[name] or ICONS.star
 	local z = holder.ZIndex
 	-- 1. the outline round the whole silhouette, 2. the fills over it
@@ -6445,6 +6532,7 @@ ctx.Card = CardUI.Init(ctx)
 UpgradeFX.Init(ctx)
 TrainingClient.Init(ctx)
 MenusUI.Init(ctx)
+require(ReplicatedStorage:WaitForChild("Icons")).Report()
 
 ctx.Remotes.Progress.OnClientEvent:Connect(function(kind, data)
 	data = data or {}

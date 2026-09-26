@@ -132,7 +132,9 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   `FKit.studs`); panels get faint studs too.
 - **Icons** on the buttons and windows are drawn, not emoji: the same
   things (card, gift, trophy, cart, bolt, ball ...) in fresh colours with a
-  dark outline round each one (`Icons.lua`).
+  dark outline round each one (`Icons.lua`). With DevJoob's "Simulator Icon
+  Pack" from the Toolbox in ReplicatedStorage, the icons use its pictures
+  instead and Output lists its image ids to bake into `Icons.Images`.
 - **Trees**: leafy trees and pines, kept clear of every stand, pitch and path.
 
 ## Things you will want to change

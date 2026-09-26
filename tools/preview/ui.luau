@@ -32,6 +32,15 @@ local function fire(inst, name, ...)
 	if sigs[name] then sigs[name]:Fire(...) end
 end
 
+if PACKTEST then
+local pack = Instance.new("Model")
+pack.Name = "Simulator Icon Pack"
+pack.Parent = game:GetService("ReplicatedStorage")
+for _, n in ipairs({ "Gift", "Trophy", "Lightning", "Shopping Cart", "Lock" }) do
+	local part = Instance.new("Part") part.Name = n part.Parent = pack
+	local d = Instance.new("Decal") d.Texture = "rbxassetid://" .. (#n * 1000) d.Parent = part
+end
+end
 -- the server
 script = newInstance("Script")
 script.Parent = game:GetService("ServerScriptService")
