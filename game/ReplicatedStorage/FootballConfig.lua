@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v9"
+Config.Version = "v10"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -137,10 +137,36 @@ end
 -- Walking speed: Pace makes you faster everywhere
 --------------------------------------------------------------------------------
 
+-- The light (from the "lighting settings for new devs" video): soft, warm
+-- and a little purple, with atmosphere, colour correction and sun rays.
+local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
+Config.Lighting = {
+	Lighting = {
+		Ambient = rgb(130, 130, 130),
+		Brightness = 3,
+		ColorShift_Bottom = rgb(0, 0, 0),
+		ColorShift_Top = rgb(221, 213, 68),
+		EnvironmentDiffuseScale = 0.807,
+		EnvironmentSpecularScale = 0.303,
+		GlobalShadows = true,
+		OutdoorAmbient = rgb(206, 83, 204),
+		ClockTime = 14.278,
+		GeographicLatitude = 17.165,
+	},
+	-- newer settings (skipped where Roblox does not have them)
+	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = true },
+	Atmosphere = { Density = 0.269, Offset = 0, Color = rgb(201, 162, 255), Decay = rgb(119, 97, 141), Glare = 0.1, Haze = 0.2 },
+	ColorCorrection = { Brightness = 0.1, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(221, 210, 255) },
+	SunRays = { Intensity = 0.25, Spread = 0.2 },
+}
+
 -- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
 -- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).
 -- Empty = the game leaves Lighting alone (a Sky you put there yourself stays).
 Config.Sky = {
+	-- "Obby Sky" by SaturunSnow in the Toolbox: loaded when the game starts
+	-- if Lighting has no Sky yet (a Sky you put in Lighting yourself wins)
+	AssetId = 127719608807122,
 	Bk = "", Dn = "", Ft = "", Lf = "", Rt = "", Up = "",
 	SunVisible = true,
 }

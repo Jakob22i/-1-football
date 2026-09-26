@@ -59,6 +59,28 @@ if not ok then
 end
 print(string.format("[Football] map built in %.2fs", os.clock() - started))
 
+-- the light (Config.Lighting)
+do
+	local Lighting = game:GetService("Lighting")
+	local L = Config.Lighting
+	for k, v in pairs(L.Lighting) do Lighting[k] = v end
+	for k, v in pairs(L.Newer) do
+		pcall(function()
+			if k == "LightingStyle" then Lighting[k] = Enum.LightingStyle[v] else Lighting[k] = v end
+		end)
+	end
+	local function effect(class, name, props)
+		local e = Lighting:FindFirstChild(name) or Instance.new(class)
+		e.Name = name
+		for k, v in pairs(props) do e[k] = v end
+		e.Parent = Lighting
+		return e
+	end
+	effect("Atmosphere", "Atmosphere", L.Atmosphere)
+	effect("ColorCorrectionEffect", "ColorCorrection", L.ColorCorrection)
+	effect("SunRaysEffect", "SunRays", L.SunRays)
+end
+
 -- the sky (Config.Sky), when its six images are filled in
 do
 	local ids = Config.Sky
@@ -78,6 +100,20 @@ do
 		sky.SkyboxLf, sky.SkyboxRt, sky.SkyboxUp = asset(ids.Lf), asset(ids.Rt), asset(ids.Up)
 		sky.SunAngularSize = ids.SunVisible and 21 or 0
 		sky.Parent = Lighting
+	elseif not game:GetService("Lighting"):FindFirstChildOfClass("Sky") and ids.AssetId then
+		-- no Sky yet: fetch the Toolbox one
+		task.spawn(function()
+			local ok, model = pcall(function() return game:GetService("InsertService"):LoadAsset(ids.AssetId) end)
+			local sky = ok and model and model:FindFirstChildWhichIsA("Sky", true)
+			if sky then
+				sky.Parent = game:GetService("Lighting")
+				print("[Football] sky loaded: " .. sky.Name)
+			else
+				warn("[Football] could not load the sky " .. tostring(ids.AssetId) .. ": " .. tostring(model)
+					.. " - insert Obby Sky from the Toolbox into Lighting, or fill in Config.Sky")
+			end
+			if ok and model then model:Destroy() end
+		end)
 	end
 end
 

@@ -124,6 +124,12 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   avatars in the team's colours. A glowing ring under their feet shows the
   side: red attackers, green keeper, blue teammates, yellow dummies
   (`PlayerFigure.lua`, `RigService.lua`, `Config.Figures`).
+- **Light and sky**: soft, warm light with a purple atmosphere, colour
+  correction and sun rays (`Config.Lighting`). The sky is "Obby Sky" from
+  the Toolbox, loaded at start when Lighting has no Sky (`Config.Sky`).
+- **Buttons** are stud style: a bright-to-light gradient, studs, a light
+  inner edge, a dark outer edge and round corners (`FKit.button`,
+  `FKit.studs`); panels get faint studs too.
 - **Trees**: leafy trees and pines, kept clear of every stand, pitch and path.
 
 ## Things you will want to change

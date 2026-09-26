@@ -137,41 +137,91 @@ function FKit.press(button)
 	end)
 end
 
--- A candy button: a glossy face on a darker lip. A TextButton with "Label".
+-- Studs over a frame, like the "stud style" buttons: a raised square every
+-- `cell` pixels, lit from the top left, as many as fit (they follow the
+-- frame's size). Sits under the text; clipped to the frame.
+function FKit.studs(parent, cell, strength, zindex)
+	cell = cell or 16
+	strength = strength or 1
+	local holder = new("Frame", {
+		Name = "Studs",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ClipsDescendants = true,
+		ZIndex = zindex or parent.ZIndex,
+		Parent = parent,
+	})
+	local made = 0
+	local function fill()
+		local size = holder.AbsoluteSize
+		local cols = math.clamp(math.ceil(size.X / cell), 0, 24)
+		local rows = math.clamp(math.ceil(size.Y / cell), 0, 16)
+		if cols * rows == made then return end
+		holder:ClearAllChildren()
+		made = cols * rows
+		local stud = math.floor(cell * 0.62)
+		local off = math.floor((cell - stud) / 2)
+		for r = 0, rows - 1 do
+			for c = 0, cols - 1 do
+				local x, y = c * cell + off, r * cell + off
+				local shadow = new("Frame", {
+					BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1 - 0.16 * strength, BorderSizePixel = 0,
+					Position = UDim2.fromOffset(x + 2, y + 2), Size = UDim2.fromOffset(stud, stud), ZIndex = holder.ZIndex, Parent = holder,
+				})
+				FKit.corner(shadow, 3)
+				local top = new("Frame", {
+					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1 - 0.2 * strength, BorderSizePixel = 0,
+					Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(stud, stud), ZIndex = holder.ZIndex, Parent = holder,
+				})
+				FKit.corner(top, 3)
+			end
+		end
+	end
+	holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(fill)
+	task.defer(fill)
+	return holder
+end
+
+-- A stud-style button: a gradient from a bright colour at the bottom to a
+-- lighter one on top, studs, a thin light inner edge, a dark outer edge,
+-- round corners and chunky white lettering. A TextButton with "Label".
 function FKit.button(parent, text, palette, props)
 	palette = palette or FKit.Palette.green
 	local b = new("TextButton", {
 		Text = "",
 		AutoButtonColor = false,
-		BackgroundColor3 = palette[3],
+		BackgroundColor3 = C.White,
 		Parent = parent,
 	})
 	for k, v in pairs(props or {}) do b[k] = v end
-	FKit.corner(b, 14)
+	FKit.corner(b, UDim.new(0.22, 0))
+	FKit.gradient(b, { palette[1], palette[2] }, 90).Name = "Fill"
 	FKit.stroke(b, 3.5, C.Ink, true).Name = "Border"
 	local face = new("Frame", {
 		Name = "Face",
-		Size = UDim2.new(1, 0, 1, -6),
-		BackgroundColor3 = C.White,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
 		ZIndex = b.ZIndex,
 		Parent = b,
 	})
-	FKit.corner(face, 14)
-	FKit.gradient(face, { palette[1], palette[2] }, 90)
-	local shine = new("Frame", {
-		Name = "Gloss",
-		Position = UDim2.new(0, 6, 0, 3),
-		Size = UDim2.new(1, -12, 0.38, 0),
-		BackgroundColor3 = C.White,
-		BackgroundTransparency = 0.6,
+	FKit.corner(face, UDim.new(0.22, 0))
+	FKit.studs(face, 14, 1, b.ZIndex)
+	-- the light inner edge
+	local rim = new("Frame", {
+		Name = "Rim",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -4, 1, -4),
+		BackgroundTransparency = 1,
 		ZIndex = b.ZIndex,
-		Parent = face,
+		Parent = b,
 	})
-	FKit.corner(shine, 8)
+	FKit.corner(rim, UDim.new(0.22, 0))
+	FKit.stroke(rim, 2.5, palette[1]:Lerp(C.White, 0.35), true).Name = "Inner"
 	local l = FKit.fit(b, text, 22, C.White, {
 		Name = "Label",
 		Position = UDim2.fromOffset(6, 1),
-		Size = UDim2.new(1, -12, 1, -8),
+		Size = UDim2.new(1, -12, 1, -4),
 		ZIndex = b.ZIndex + 1,
 	})
 	l.TextStroke.Thickness = 2.5
@@ -180,10 +230,11 @@ function FKit.button(parent, text, palette, props)
 end
 
 function FKit.recolor(button, palette)
-	button.BackgroundColor3 = palette[3]
-	local face = button:FindFirstChild("Face")
-	local g = face and face:FindFirstChildOfClass("UIGradient")
+	local g = button:FindFirstChild("Fill")
 	if g then g.Color = ColorSequence.new(palette[1], palette[2]) end
+	local rim = button:FindFirstChild("Rim")
+	local inner = rim and rim:FindFirstChild("Inner")
+	if inner then inner.Color = palette[1]:Lerp(C.White, 0.35) end
 end
 
 -- A navy panel with a lighter rim.
@@ -203,6 +254,7 @@ function FKit.panel(parent, props, radius)
 	})
 	FKit.corner(rim, math.max(2, (radius or 18) - 3))
 	FKit.stroke(rim, 2, C.White, true, 0.8)
+	FKit.studs(f, 22, 0.45, f.ZIndex)
 	return f
 end
 
