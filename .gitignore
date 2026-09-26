@@ -1,0 +1,16 @@
+# Roblox places and lock files (build one with tools/build_place.py)
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Generated files
+build/
+__pycache__/
+*.zip
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
