@@ -182,7 +182,16 @@ Config.Texture = {
 	-- see-through parts (glass, nets, glows) stay plain
 	MaxTransparency = 0.25,
 	-- people, not things: the crowd, the drill players, the dummies
-	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true },
+	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true, Football = true, KitDummy = true },
+}
+
+-- Real football kits from the Roblox catalogue on the four dummies round
+-- the lobby fountain (plain stripes, no club badges).
+Config.LobbyKits = {
+	{ Shirt = 14293294743, Pants = 9468319359, Skin = Color3.fromRGB(234, 184, 146) }, -- red and black
+	{ Shirt = 11451507627, Pants = 13842975371, Skin = Color3.fromRGB(150, 98, 64) },  -- blue
+	{ Shirt = 14320687825, Pants = 9468319359, Skin = Color3.fromRGB(255, 214, 170) }, -- green and black
+	{ Shirt = 11659670285, Pants = 13842975371, Skin = Color3.fromRGB(198, 140, 100) }, -- sky blue
 }
 
 -- The people in the drills are real Roblox characters (PlayerFigure,

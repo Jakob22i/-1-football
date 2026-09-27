@@ -113,7 +113,7 @@ end
 
 -- A leaderboard: a big board on legs with a title and ten rows.
 local function leaderboard(parent, name, title, subtitle, cf, color)
-	local model, _, gui = MapKit.sign(parent, name, 22, 26, cf, {}, { COL.NavyDark, color }, 4)
+	local model, _, gui = MapKit.sign(parent, name, 22, 26, cf, {}, { COL.NavyDark, color }, 9)
 	local header = Instance.new("Frame")
 	header.Size = UDim2.fromScale(1, 0.16)
 	header.BackgroundColor3 = color
@@ -170,48 +170,155 @@ local function buildPlaza(parent)
 		buildStands(plaza, a + EXIT_HALF, b - EXIT_HALF, (i % 2 == 0) and { rgb(40, 120, 255), COL.White } or { rgb(255, 70, 80), COL.White })
 	end
 
-	-- floodlights and signposts at the exits
-	local kits = { { COL.Red, "7" }, { COL.Blue, "10" }, { COL.Gold, "9" }, { rgb(60, 200, 90), "11" } }
-	for i, a in ipairs({ -135, -45, 45, 135 }) do
-		local at = dir(a) * (PLAZA_RADIUS + 20)
-		floodlight(plaza, at)
-		-- a giant shirt hanging on the pole, facing the plaza
-		local cf = CFrame.lookAt(at + V(0, 24, 0), V(0, 24, 0)) * CFrame.new(0, 0, -1.4)
-		local kit = kits[i]
-		local shirt = part(plaza, "Jersey", V(7, 7.5, 0.8), cf, kit[1], Enum.Material.SmoothPlastic)
-		for _, sx in ipairs({ -1, 1 }) do
-			part(plaza, "Sleeve", V(3, 3.2, 0.8), cf * CFrame.new(sx * 4.4, 2, 0) * CFrame.Angles(0, 0, math.rad(-sx * 30)), kit[1], Enum.Material.SmoothPlastic)
-		end
-		part(plaza, "Collar", V(3, 0.8, 0.9), cf * CFrame.new(0, 3.6, 0), COL.White, Enum.Material.SmoothPlastic)
-		local gui = MapKit.surface(shirt, Enum.NormalId.Front, 20, kit[1], 300)
-		MapKit.uiText(gui, kit[2], 4, COL.White, { Size = UDim2.fromScale(0.7, 0.7), Position = UDim2.fromScale(0.15, 0.2) })
-	end
-	for _, exit in ipairs(EXITS) do
-		local color = exit.Stat and STAT_COLOR[exit.Stat] or exit.Color
-		local pos = dir(exit.Angle) * (PLAZA_RADIUS - 6)
-		local cf = CFrame.lookAt(pos, V(0, 0, 0))
-		local text = exit.Stat and (Config.Stats[exit.Stat].Icon .. " " .. exit.Label) or exit.Label
-		MapKit.sign(plaza, "Signpost", 11, 3.2, cf, {
-			{ text, COL.White, 2, 3 },
-			{ exit.Stat and ("+ " .. exit.Stat) or "\u{2192}", color, 1.2, 3 },
-		}, { COL.NavyDark, color }, 5)
+	-- floodlights on the four corners
+	for _, a in ipairs({ -135, -45, 45, 135 }) do
+		floodlight(plaza, dir(a) * (PLAZA_RADIUS + 20))
 	end
 
-	-- a giant football on a pedestal in the middle
-	local statue = Instance.new("Model")
-	statue.Name = "BallStatue"
-	statue.Parent = plaza
-	part(statue, "Pedestal", V(11, 3, 11), CFrame.new(0, 1.5, 0), COL.NavyDark)
-	part(statue, "PedestalTrim", V(12, 0.8, 12), CFrame.new(0, 3.2, 0), COL.Gold)
-	part(statue, "PedestalFoot", V(13, 0.8, 13), CFrame.new(0, 0.4, 0), COL.Gold)
-	local ballCenter = V(0, 9.8, 0)
-	ball(statue, "Ball", 13, ballCenter, COL.White, Enum.Material.SmoothPlastic)
-	for _, d in ipairs({ V(0, 1, 0), V(1, 0.3, 0), V(-1, 0.3, 0), V(0, 0.3, 1), V(0, 0.3, -1), V(0.7, -0.5, 0.7), V(-0.7, -0.5, -0.7) }) do
-		ball(statue, "Patch", 4.4, ballCenter + d.Unit * 5.2, rgb(25, 28, 40), Enum.Material.SmoothPlastic)
+	-- an arch over every exit, all alike: two pillars in the exit's colour
+	-- and a beam with its name on both sides (instead of signs on posts)
+	for _, exit in ipairs(EXITS) do
+		if exit.Angle ~= -90 then -- the big title board is the north exit's sign
+			local color = exit.Stat and STAT_COLOR[exit.Stat] or exit.Color
+			local pos = dir(exit.Angle) * (PLAZA_RADIUS - 1)
+			local cf = CFrame.lookAt(pos, V(0, 0, 0))
+			local arch = Instance.new("Model")
+			arch.Name = "ExitArch"
+			arch.Parent = plaza
+			for _, sx in ipairs({ -1, 1 }) do
+				part(arch, "Pillar", V(2.2, 12, 2.2), cf * CFrame.new(sx * 8.6, 6, 0), color)
+				part(arch, "PillarFoot", V(3, 1, 3), cf * CFrame.new(sx * 8.6, 0.5, 0), COL.NavyDark)
+			end
+			local beam = part(arch, "Beam", V(21, 3.4, 1.6), cf * CFrame.new(0, 13.4, 0), COL.NavyDark)
+			part(arch, "BeamTop", V(21.6, 0.7, 2), cf * CFrame.new(0, 15.4, 0), color)
+			local label = exit.Label
+			for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+				local gui = MapKit.surface(beam, face, 18, COL.NavyDark, 260)
+				-- one big line: easy to read from across the plaza
+				MapKit.uiText(gui, label, 3, COL.White, { Size = UDim2.fromScale(0.92, 0.7), Position = UDim2.fromScale(0.04, 0.15) })
+			end
+		end
 	end
+
+	-- the golden fountain in the middle, with a real football spinning over it
+	-- (the spin is done by each player's own screen: ClientMain)
+	local fountain = Instance.new("Model")
+	fountain.Name = "Fountain"
+	fountain.Parent = plaza
+	local gold, goldDark = rgb(255, 204, 50), rgb(226, 150, 30)
+	local water = rgb(90, 190, 255)
+	disc(fountain, "BasinFoot", V(0, 0, 0), 25, goldDark, 0.8, Enum.Material.SmoothPlastic)
+	disc(fountain, "Basin", V(0, 0, 0), 23, gold, 2.2, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
+	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	cylinder(fountain, "Column", 5, 4, V(0, 2, 0), gold, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
+	disc(fountain, "Bowl", V(0, 6.6, 0), 10, gold, 1, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
+	disc(fountain, "BowlRim", V(0, 6.2, 0), 10.8, goldDark, 0.5, Enum.Material.SmoothPlastic)
+	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	local spout = cylinder(fountain, "Spout", 1.6, 1.6, V(0, 7.6, 0), gold, Enum.Material.SmoothPlastic)
+	-- water: one emitter up from the spout, one splash round the basin
+	local jet = Instance.new("ParticleEmitter")
+	jet.Name = "Water"
+	jet.Color = ColorSequence.new(rgb(200, 240, 255), water)
+	jet.LightEmission = 0.4
+	jet.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0.15) })
+	jet.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	jet.Lifetime = NumberRange.new(0.9, 1.2)
+	jet.Rate = 28
+	jet.Speed = NumberRange.new(11, 13)
+	jet.SpreadAngle = Vector2.new(22, 22)
+	jet.Acceleration = V(0, -32, 0)
+	jet.EmissionDirection = Enum.NormalId.Top
+	jet.Parent = spout
+	-- the ball: white with the 12 black pentagons of a real football (at the
+	-- 12 corners of an icosahedron), made of 13 spheres
+	local football = Instance.new("Model")
+	football.Name = "Football"
+	football.Parent = plaza
+	local r = 4.2
+	local center = V(0, 15.5, 0)
+	local core = ball(football, "Core", r * 2, center, COL.White, Enum.Material.SmoothPlastic, { CanCollide = false })
+	local phi = (1 + math.sqrt(5)) / 2
+	for _, v in ipairs({
+		V(0, 1, phi), V(0, 1, -phi), V(0, -1, phi), V(0, -1, -phi),
+		V(1, phi, 0), V(1, -phi, 0), V(-1, phi, 0), V(-1, -phi, 0),
+		V(phi, 0, 1), V(phi, 0, -1), V(-phi, 0, 1), V(-phi, 0, -1),
+	}) do
+		-- a black sphere sunk into the ball shows just a round patch
+		ball(football, "Pentagon", r * 1.436, center + v.Unit * r * 0.3, rgb(22, 24, 34), Enum.Material.SmoothPlastic, { CanCollide = false })
+	end
+	football.PrimaryPart = core
+	football:SetAttribute("Spin", true)
+	local glow = Instance.new("PointLight")
+	glow.Color = rgb(255, 220, 120)
+	glow.Brightness = 1.5
+	glow.Range = 16
+	glow.Shadows = false
+	glow.Parent = core
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Name = "Sparkle"
+	sparkle.Color = ColorSequence.new(rgb(255, 230, 120))
+	sparkle.LightEmission = 1
+	sparkle.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+	sparkle.Lifetime = NumberRange.new(1, 1.6)
+	sparkle.Rate = 6
+	sparkle.Speed = NumberRange.new(1, 2)
+	sparkle.SpreadAngle = Vector2.new(180, 180)
+	sparkle.Parent = core
+
+	-- four real football kits on dummies round the fountain
+	for i, kit in ipairs(Config.LobbyKits) do
+		local a = 45 + (i - 1) * 90
+		local at = dir(a) * 34
+		disc(plaza, "KitStandRim", at, 7.4, gold, 0.9, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStand", at, 6.4, COL.NavyDark, 1.3, Enum.Material.SmoothPlastic)
+		task.spawn(function()
+			local desc = Instance.new("HumanoidDescription")
+			desc.Shirt = kit.Shirt
+			desc.Pants = kit.Pants
+			for _, k in ipairs({ "HeadColor", "LeftArmColor", "RightArmColor", "TorsoColor", "LeftLegColor", "RightLegColor" }) do
+				desc[k] = kit.Skin
+			end
+			local ok, rig = pcall(function()
+				return game:GetService("Players"):CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+			end)
+			if not ok or not rig then
+				warn("[Football] could not dress a kit dummy:", rig)
+				return
+			end
+			rig.Name = "KitDummy"
+			local humanoid = rig:FindFirstChildOfClass("Humanoid")
+			local root = rig:FindFirstChild("HumanoidRootPart")
+			if not (humanoid and root) then rig:Destroy() return end
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+			humanoid.EvaluateStateMachine = false
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("BaseScript") then d:Destroy()
+				elseif d:IsA("BasePart") then
+					d.Anchored = d == root
+					d.CanCollide = d == root
+					d.CanTouch = false
+				end
+			end
+			rig.PrimaryPart = root
+			local feet = at + V(0, 1.3, 0)
+			local rootAt = feet + V(0, humanoid.HipHeight + root.Size.Y / 2, 0)
+			rig:PivotTo(CFrame.lookAt(rootAt, V(0, rootAt.Y, 0)))
+			rig.Parent = plaza
+			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+			local anim = Instance.new("Animation")
+			anim.AnimationId = Config.Figures.IdleAnimation
+			pcall(function()
+				local track = animator:LoadAnimation(anim)
+				track.Looped = true
+				track:Play()
+			end)
+		end)
+	end
+
 	-- two small goals on the centre circle, facing each other
 	for _, sx in ipairs({ -1, 1 }) do
-		StationBuilder.Goal(plaza, CFrame.lookAt(V(sx * 21, 0.5, 0), V(0, 0.5, 0)), 10, 4, 3)
+		StationBuilder.Goal(plaza, CFrame.lookAt(V(sx * 23, 0.5, 0), V(0, 0.5, 0)), 10, 4, 3)
 	end
 	-- corner flags round the edge, between the exits
 	for i, a in ipairs({ -75, -45, -15, 15, 60, 120, 165, 195, 240 }) do
@@ -798,17 +905,17 @@ function MapBuilder.Build()
 	local records = {}
 	buildPlaza(map)
 	local boards = {}
-	boards.HighestOVR = leaderboard(map, "Board_HighestOVR", "HIGHEST OVR", "THE BEST CARDS", CFrame.lookAt(dir(60) * 60, V(0, 0, 0)), rgb(255, 196, 30))
-	boards.MostSeasons = leaderboard(map, "Board_MostSeasons", "MOST SEASONS", "NEW SEASONS STARTED", CFrame.lookAt(dir(120) * 60, V(0, 0, 0)), rgb(190, 110, 255))
-	boards.FastestSpeed = leaderboard(map, "Board_FastestSpeed", "FASTEST SPEED COURSE", "BEST LAP TIME", CFrame.lookAt(dir(-120) * 60, V(0, 0, 0)), rgb(40, 220, 255))
+	boards.HighestOVR = leaderboard(map, "Board_HighestOVR", "HIGHEST OVR", "THE BEST CARDS", CFrame.lookAt(dir(60) * 88, V(0, 0, 0)), rgb(255, 196, 30))
+	boards.MostSeasons = leaderboard(map, "Board_MostSeasons", "MOST SEASONS", "NEW SEASONS STARTED", CFrame.lookAt(dir(120) * 88, V(0, 0, 0)), rgb(190, 110, 255))
+	boards.FastestSpeed = leaderboard(map, "Board_FastestSpeed", "FASTEST SPEED COURSE", "BEST LAP TIME", CFrame.lookAt(dir(-120) * 88, V(0, 0, 0)), rgb(40, 220, 255))
 
 	-- the Position Board (opens the positions menu)
-	local posModel = MapKit.sign(map, "PositionBoard", 18, 9, CFrame.lookAt(dir(-12) * 44, V(0, 0, 0)), {
+	local posModel = MapKit.sign(map, "PositionBoard", 18, 9, CFrame.lookAt(dir(-45) * 88, V(0, 0, 0)), {
 		{ "POSITION BOARD", COL.White, 2, 5 },
 		{ "ST \u{2022} W \u{2022} CAM \u{2022} CM \u{2022} CB \u{2022} GK", rgb(255, 210, 60), 1.4, 4 },
 		{ ("UNLOCKS AT %d OVR"):format(Config.PositionsUnlockOVR), rgb(160, 220, 255), 1, 3 },
-	}, { COL.NavyDark, rgb(255, 210, 60) }, 2)
-	local positionPrompt = MapKit.prompt(posModel, "Prompt", (CFrame.lookAt(dir(-12) * 44, V(0, 0, 0)) * CFrame.new(0, 2.5, -2.5)).Position,
+	}, { COL.NavyDark, rgb(255, 210, 60) }, 6)
+	local positionPrompt = MapKit.prompt(posModel, "Prompt", (CFrame.lookAt(dir(-45) * 88, V(0, 0, 0)) * CFrame.new(0, 2.5, -2.5)).Position,
 		"Choose", "Position Board", 10)
 
 	-- a big title board over the north stand

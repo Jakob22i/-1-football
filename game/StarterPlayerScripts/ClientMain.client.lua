@@ -162,6 +162,25 @@ TrainingClient.Init(ctx)
 MenusUI.Init(ctx)
 require(ReplicatedStorage:WaitForChild("Icons")).Report()
 
+-- The football over the lobby fountain spins slowly and bobs. Done here, on
+-- each player's own screen, so it is smooth and costs the server nothing;
+-- it stops when you are far away.
+task.spawn(function()
+	local map = workspace:WaitForChild("Map", 60)
+	local ball = map and map:WaitForChild("Plaza", 30)
+	ball = ball and ball:WaitForChild("Football", 30)
+	if not ball then return end
+	local base = ball:GetPivot()
+	local angle = 0
+	game:GetService("RunService").RenderStepped:Connect(function(dt)
+		local cam = workspace.CurrentCamera
+		if not cam or (cam.CFrame.Position - base.Position).Magnitude > 260 then return end
+		angle += dt * 0.6
+		local bob = math.sin(os.clock() * 1.3) * 0.5
+		ball:PivotTo(CFrame.new(base.Position + Vector3.new(0, bob, 0)) * CFrame.Angles(math.rad(18), 0, 0) * CFrame.Angles(0, angle, 0))
+	end)
+end)
+
 ctx.Remotes.Progress.OnClientEvent:Connect(function(kind, data)
 	data = data or {}
 	if kind == "xp" then
