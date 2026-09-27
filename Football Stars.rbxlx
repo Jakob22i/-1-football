@@ -24,7 +24,7 @@
 			</Properties>
 		</Item>
 	</Item>
-	<Item class="Lighting" referent="BASE3"><Properties><string name="Name">Lighting</string></Properties></Item>
+	<Item class="Lighting" referent="BASE3"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
 	<Item class="ReplicatedStorage" referent="BASE4"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="ModuleScript" referent="FOOTBALL1"><Properties><string name="Name">CardView</string><ProtectedString name="Source">-- The player card: our own design, drawn in UI frames so it scales to any
 -- size. Used for the small card in the corner, the big card in the upgrade
 -- moment, the "My Card" window and (compact) the cards over players' heads.
@@ -650,6 +650,10 @@ local TweenService = game:GetService("TweenService")
 
 local FKit = {}
 
+-- the Pet Simulator look: bold black outlines and a light gradient on text
+local petSim = require(script.Parent:WaitForChild("FootballConfig")).Look == "PetSim"
+FKit.PetSim = petSim
+
 FKit.Font = Enum.Font.FredokaOne
 FKit.Body = Enum.Font.GothamBold
 
@@ -743,11 +747,16 @@ function FKit.text(parent, text, size, color, props)
 	for k, v in pairs(props or {}) do l[k] = v end
 	new("UIStroke", {
 		Name = "TextStroke",
-		Thickness = math.clamp(size / 8, 1.5, 5),
-		Color = C.Ink,
+		-- thick on big words, thin on small ones (fat outlines make small text blobby)
+		Thickness = petSim and (size &gt;= 26 and math.clamp(size / 7, 3, 6) or math.clamp(size / 11, 1, 2.5)) or math.clamp(size / 8, 1.5, 5),
+		Color = petSim and Color3.fromRGB(8, 8, 16) or C.Ink,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Parent = l,
 	})
+	if petSim and (color == nil or color == C.White) then
+		-- white on top, a hint of cool blue at the bottom
+		new("UIGradient", { Name = "TextShade", Rotation = 90, Color = ColorSequence.new(C.White, Color3.fromRGB(214, 228, 255)), Parent = l })
+	end
 	return l
 end
 
@@ -844,7 +853,17 @@ function FKit.button(parent, text, palette, props)
 		Parent = b,
 	})
 	FKit.corner(face, UDim.new(0.22, 0))
-	FKit.studs(face, 16, 1, b.ZIndex)
+	if petSim then
+		-- Pet Simulator buttons: a glossy top instead of studs
+		local gloss = new("Frame", {
+			Name = "Gloss", BackgroundColor3 = C.White, BackgroundTransparency = 0.55, BorderSizePixel = 0,
+			Position = UDim2.new(0, 5, 0, 4), Size = UDim2.new(1, -10, 0.42, 0), ZIndex = b.ZIndex, Parent = face,
+		})
+		FKit.corner(gloss, UDim.new(0.3, 0))
+		new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(0.1, 0.85), Parent = gloss })
+	else
+		FKit.studs(face, 16, 1, b.ZIndex)
+	end
 	-- the light inner edge
 	local rim = new("Frame", {
 		Name = "Rim",
@@ -906,10 +925,10 @@ function FKit.fallingBlocks(frame, opts)
 		ClipsDescendants = true, ZIndex = opts.ZIndex or frame.ZIndex, Parent = frame,
 	})
 	if opts.Corner then FKit.corner(layer, opts.Corner) end
-	local every = opts.Every or 0.55
+	local every = opts.Every or 0.9
 	task.spawn(function()
 		while layer.Parent do
-			if shown(layer) and #layer:GetChildren() &lt; (opts.Max or 9) then
+			if shown(layer) and #layer:GetChildren() &lt; (opts.Max or 6) then
 				local size = math.random(12, 24)
 				local color = BLOCK_COLORS[math.random(1, #BLOCK_COLORS)]
 				local block = new("Frame", {
@@ -989,7 +1008,7 @@ function FKit.panel(parent, props, radius)
 	})
 	FKit.corner(rim, math.max(2, (radius or 18) - 3))
 	FKit.stroke(rim, 2, C.White, true, 0.8)
-	FKit.studs(f, 28, 0.4, f.ZIndex)
+	if not petSim then FKit.studs(f, 28, 0.4, f.ZIndex) end
 	return f
 end
 
@@ -1136,7 +1155,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v16"
+Config.Version = "v17"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -1267,7 +1286,16 @@ end
 -- The light (from the "lighting settings for new devs" video): soft, warm
 -- and a little purple, with atmosphere, colour correction and sun rays.
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
-Config.Lighting = {
+
+-- The look of the whole game:
+--   "PetSim": smooth, glossy-bright surfaces in saturated colours, soft
+--             bright light with bloom and a blue haze, bold outlined text
+--             (the Pet Simulator style)
+--   "Studs":  Roblox studs on everything and the purple video lighting
+Config.Look = "PetSim"
+
+Config.LightingPresets = {}
+Config.LightingPresets.Studs = {
 	Lighting = {
 		Ambient = rgb(130, 130, 130),
 		Brightness = 3,
@@ -1287,6 +1315,28 @@ Config.Lighting = {
 	ColorCorrection = { Brightness = 0.1, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(221, 210, 255) },
 	SunRays = { Intensity = 0.25, Spread = 0.2 },
 }
+Config.LightingPresets.PetSim = {
+	Lighting = {
+		Ambient = rgb(150, 150, 170),
+		Brightness = 2.6,
+		ColorShift_Bottom = rgb(0, 0, 0),
+		ColorShift_Top = rgb(255, 244, 222),
+		EnvironmentDiffuseScale = 1,
+		EnvironmentSpecularScale = 0.7,
+		GlobalShadows = true,
+		OutdoorAmbient = rgb(178, 178, 200),
+		ShadowSoftness = 0.3,
+		ExposureCompensation = 0.2,
+		ClockTime = 13.6,
+		GeographicLatitude = 22,
+	},
+	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
+	Atmosphere = { Density = 0.28, Offset = 0.12, Color = rgb(206, 228, 255), Decay = rgb(120, 170, 235), Glare = 0, Haze = 1.2 },
+	ColorCorrection = { Brightness = 0.03, Contrast = 0.1, Saturation = 0.22, TintColor = rgb(255, 252, 246) },
+	SunRays = { Intensity = 0.05, Spread = 0.6 },
+	Bloom = { Intensity = 0.55, Size = 30, Threshold = 1.35 },
+}
+Config.Lighting = Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
 
 -- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
 -- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).
@@ -1309,7 +1359,16 @@ Config.Texture = {
 	-- see-through parts (glass, nets, glows) stay plain
 	MaxTransparency = 0.25,
 	-- people, not things: the crowd, the drill players, the dummies
-	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true },
+	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true, Football = true, KitDummy = true },
+}
+
+-- Real football kits from the Roblox catalogue on the four dummies round
+-- the lobby fountain (plain stripes, no club badges).
+Config.LobbyKits = {
+	{ Shirt = 14293294743, Pants = 9468319359, Skin = Color3.fromRGB(234, 184, 146) }, -- red and black
+	{ Shirt = 11451507627, Pants = 13842975371, Skin = Color3.fromRGB(150, 98, 64) },  -- blue
+	{ Shirt = 14320687825, Pants = 9468319359, Skin = Color3.fromRGB(255, 214, 170) }, -- green and black
+	{ Shirt = 11659670285, Pants = 13842975371, Skin = Color3.fromRGB(198, 140, 100) }, -- sky blue
 }
 
 -- The people in the drills are real Roblox characters (PlayerFigure,
@@ -1553,21 +1612,21 @@ Config.CosmeticKinds = { "Border", "Background", "Celebration" }
 -- test. Price is only what the button says; set the real price on the pass
 -- or product itself.
 Config.Gamepasses = {
-	DoubleXP = { Id = 0, Price = 199, Name = "2x Training XP", Line = "Every drill gives double XP. Forever." },
-	VIP = { Id = 0, Price = 249, Name = "VIP Training", Line = "The VIP lounge: better XP and a gold name." },
-	AutoTrain = { Id = 0, Price = 149, Name = "Auto-Train", Line = "Earn XP while you stand in the lobby." },
-	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations." },
-	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", WalkBonus = 0.2 },
+	DoubleXP = { Id = 0, Price = 199, Name = "2x Training XP", Line = "Every drill gives double XP. Forever.", Short = "2x XP in every drill" },
+	VIP = { Id = 0, Price = 249, Name = "VIP Training", Line = "The VIP lounge: better XP and a gold name.", Short = "VIP lounge + gold name" },
+	AutoTrain = { Id = 0, Price = 149, Name = "Auto-Train", Line = "Earn XP while you stand in the lobby.", Short = "XP while you stand still" },
+	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations.", Short = "New borders &amp; effects" },
+	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", Short = "Run 20% faster", WalkBonus = 0.2 },
 }
 Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "SpeedBoots", "Cosmetics" }
 
 Config.Products = {
 	Boost15 = { ProductId = 0, Price = 29, Name = "2x XP Boost", Line = "15 minutes. They add up.", Minutes = 15 },
 	StatPoint = { ProductId = 0, Price = 15, Name = "+1 Stat Point", Line = "+1 to a stat of your choice (up to 84).", MaxLevel = 84 },
-	Boost60 = { ProductId = 0, Price = 79, Name = "2x XP Hour", Line = "A full hour of 2x XP.", Minutes = 60, Tag = "HOT" },
-	StatPoint3 = { ProductId = 0, Price = 39, Name = "+3 Stat Points", Line = "+1 to your three lowest stats (up to 84).", Points = 3, MaxLevel = 84 },
-	TrainingPack = { ProductId = 0, Price = 49, Name = "Training Pack", Line = "A level's worth of XP for every stat (up to 90).", Levels = 1, MaxLevel = 90 },
-	MegaPack = { ProductId = 0, Price = 149, Name = "Mega Pack", Line = "Three levels' worth of XP for every stat (up to 90).", Levels = 3, MaxLevel = 90, Tag = "BEST VALUE" },
+	Boost60 = { ProductId = 0, Price = 79, Name = "2x XP Hour", Line = "A full hour of 2x XP.", Short = "1 hour of 2x XP", Minutes = 60, Tag = "HOT" },
+	StatPoint3 = { ProductId = 0, Price = 39, Name = "+3 Stat Points", Line = "+1 to your three lowest stats (up to 84).", Short = "+1 to 3 stats", Points = 3, MaxLevel = 84 },
+	TrainingPack = { ProductId = 0, Price = 49, Name = "Training Pack", Line = "A level's worth of XP for every stat (up to 90).", Short = "XP for every stat", Levels = 1, MaxLevel = 90 },
+	MegaPack = { ProductId = 0, Price = 149, Name = "Mega Pack", Line = "Three levels' worth of XP for every stat (up to 90).", Short = "3x XP for every stat", Levels = 3, MaxLevel = 90, Tag = "BEST VALUE" },
 }
 Config.ProductOrder = { "Boost15", "StatPoint", "Boost60", "StatPoint3", "TrainingPack", "MegaPack" }
 -- the XP packs row in the shop
@@ -2426,9 +2485,13 @@ local function fromRig(parent, template, kit, opts)
 		animator = Instance.new("Animator")
 		animator.Parent = humanoid
 	end
-	state.Run = loadTrack(animator, Config.Figures.RunAnimation)
-	state.Idle = loadTrack(animator, Config.Figures.IdleAnimation)
-	if state.Idle then state.Idle:Play(0) end
+	-- Still = true: no animations at all (the passing dummies; many rigs
+	-- animating at once cost a lot)
+	if not opts.Still then
+		state.Run = loadTrack(animator, Config.Figures.RunAnimation)
+		state.Idle = loadTrack(animator, Config.Figures.IdleAnimation)
+		if state.Idle then state.Idle:Play(0) end
+	end
 	rigs[rig] = state
 	return rig
 end
@@ -2531,9 +2594,23 @@ local function wants(part)
 	return not isCharacter(part)
 end
 
+-- The Pet Simulator look: smooth and a little brighter and more colourful.
+local function petSim(part)
+	part.Material = Enum.Material.SmoothPlastic
+	for _, face in ipairs(SURFACES) do
+		part[face] = Enum.SurfaceType.Smooth
+	end
+	local h, sat, v = part.Color:ToHSV()
+	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.12 + 0.03), math.min(1, v * 1.07 + 0.02))
+end
+
 function StudTexture.Apply(part)
 	if not wants(part) then return end
 	part:SetAttribute("Studs", true)
+	if Config.Look == "PetSim" then
+		petSim(part)
+		return
+	end
 	-- Roblox only shows surfaces on Plastic (not SmoothPlastic, Grass, Wood ...)
 	part.Material = Enum.Material.Plastic
 	for _, face in ipairs(SURFACES) do
@@ -2966,7 +3043,7 @@ end
 do
 	local Lighting = game:GetService("Lighting")
 	local L = Config.Lighting
-	for k, v in pairs(L.Lighting) do Lighting[k] = v end
+	for k, v in pairs(L.Lighting) do pcall(function() Lighting[k] = v end) end
 	for k, v in pairs(L.Newer) do
 		pcall(function()
 			if k == "LightingStyle" then Lighting[k] = Enum.LightingStyle[v] else Lighting[k] = v end
@@ -2982,6 +3059,7 @@ do
 	effect("Atmosphere", "Atmosphere", L.Atmosphere)
 	effect("ColorCorrectionEffect", "ColorCorrection", L.ColorCorrection)
 	effect("SunRaysEffect", "SunRays", L.SunRays)
+	if L.Bloom then effect("BloomEffect", "Bloom", L.Bloom) end
 end
 
 -- the sky (Config.Sky), when its six images are filled in
@@ -3231,7 +3309,7 @@ end
 
 -- A leaderboard: a big board on legs with a title and ten rows.
 local function leaderboard(parent, name, title, subtitle, cf, color)
-	local model, _, gui = MapKit.sign(parent, name, 22, 26, cf, {}, { COL.NavyDark, color }, 4)
+	local model, _, gui = MapKit.sign(parent, name, 22, 26, cf, {}, { COL.NavyDark, color }, 9)
 	local header = Instance.new("Frame")
 	header.Size = UDim2.fromScale(1, 0.16)
 	header.BackgroundColor3 = color
@@ -3288,48 +3366,155 @@ local function buildPlaza(parent)
 		buildStands(plaza, a + EXIT_HALF, b - EXIT_HALF, (i % 2 == 0) and { rgb(40, 120, 255), COL.White } or { rgb(255, 70, 80), COL.White })
 	end
 
-	-- floodlights and signposts at the exits
-	local kits = { { COL.Red, "7" }, { COL.Blue, "10" }, { COL.Gold, "9" }, { rgb(60, 200, 90), "11" } }
-	for i, a in ipairs({ -135, -45, 45, 135 }) do
-		local at = dir(a) * (PLAZA_RADIUS + 20)
-		floodlight(plaza, at)
-		-- a giant shirt hanging on the pole, facing the plaza
-		local cf = CFrame.lookAt(at + V(0, 24, 0), V(0, 24, 0)) * CFrame.new(0, 0, -1.4)
-		local kit = kits[i]
-		local shirt = part(plaza, "Jersey", V(7, 7.5, 0.8), cf, kit[1], Enum.Material.SmoothPlastic)
-		for _, sx in ipairs({ -1, 1 }) do
-			part(plaza, "Sleeve", V(3, 3.2, 0.8), cf * CFrame.new(sx * 4.4, 2, 0) * CFrame.Angles(0, 0, math.rad(-sx * 30)), kit[1], Enum.Material.SmoothPlastic)
-		end
-		part(plaza, "Collar", V(3, 0.8, 0.9), cf * CFrame.new(0, 3.6, 0), COL.White, Enum.Material.SmoothPlastic)
-		local gui = MapKit.surface(shirt, Enum.NormalId.Front, 20, kit[1], 300)
-		MapKit.uiText(gui, kit[2], 4, COL.White, { Size = UDim2.fromScale(0.7, 0.7), Position = UDim2.fromScale(0.15, 0.2) })
-	end
-	for _, exit in ipairs(EXITS) do
-		local color = exit.Stat and STAT_COLOR[exit.Stat] or exit.Color
-		local pos = dir(exit.Angle) * (PLAZA_RADIUS - 6)
-		local cf = CFrame.lookAt(pos, V(0, 0, 0))
-		local text = exit.Stat and (Config.Stats[exit.Stat].Icon .. " " .. exit.Label) or exit.Label
-		MapKit.sign(plaza, "Signpost", 11, 3.2, cf, {
-			{ text, COL.White, 2, 3 },
-			{ exit.Stat and ("+ " .. exit.Stat) or "\u{2192}", color, 1.2, 3 },
-		}, { COL.NavyDark, color }, 5)
+	-- floodlights on the four corners
+	for _, a in ipairs({ -135, -45, 45, 135 }) do
+		floodlight(plaza, dir(a) * (PLAZA_RADIUS + 20))
 	end
 
-	-- a giant football on a pedestal in the middle
-	local statue = Instance.new("Model")
-	statue.Name = "BallStatue"
-	statue.Parent = plaza
-	part(statue, "Pedestal", V(11, 3, 11), CFrame.new(0, 1.5, 0), COL.NavyDark)
-	part(statue, "PedestalTrim", V(12, 0.8, 12), CFrame.new(0, 3.2, 0), COL.Gold)
-	part(statue, "PedestalFoot", V(13, 0.8, 13), CFrame.new(0, 0.4, 0), COL.Gold)
-	local ballCenter = V(0, 9.8, 0)
-	ball(statue, "Ball", 13, ballCenter, COL.White, Enum.Material.SmoothPlastic)
-	for _, d in ipairs({ V(0, 1, 0), V(1, 0.3, 0), V(-1, 0.3, 0), V(0, 0.3, 1), V(0, 0.3, -1), V(0.7, -0.5, 0.7), V(-0.7, -0.5, -0.7) }) do
-		ball(statue, "Patch", 4.4, ballCenter + d.Unit * 5.2, rgb(25, 28, 40), Enum.Material.SmoothPlastic)
+	-- an arch over every exit, all alike: two pillars in the exit's colour
+	-- and a beam with its name on both sides (instead of signs on posts)
+	for _, exit in ipairs(EXITS) do
+		if exit.Angle ~= -90 then -- the big title board is the north exit's sign
+			local color = exit.Stat and STAT_COLOR[exit.Stat] or exit.Color
+			local pos = dir(exit.Angle) * (PLAZA_RADIUS - 1)
+			local cf = CFrame.lookAt(pos, V(0, 0, 0))
+			local arch = Instance.new("Model")
+			arch.Name = "ExitArch"
+			arch.Parent = plaza
+			for _, sx in ipairs({ -1, 1 }) do
+				part(arch, "Pillar", V(2.2, 12, 2.2), cf * CFrame.new(sx * 8.6, 6, 0), color)
+				part(arch, "PillarFoot", V(3, 1, 3), cf * CFrame.new(sx * 8.6, 0.5, 0), COL.NavyDark)
+			end
+			local beam = part(arch, "Beam", V(21, 3.4, 1.6), cf * CFrame.new(0, 13.4, 0), COL.NavyDark)
+			part(arch, "BeamTop", V(21.6, 0.7, 2), cf * CFrame.new(0, 15.4, 0), color)
+			local label = exit.Label
+			for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+				local gui = MapKit.surface(beam, face, 18, COL.NavyDark, 260)
+				-- one big line: easy to read from across the plaza
+				MapKit.uiText(gui, label, 3, COL.White, { Size = UDim2.fromScale(0.92, 0.7), Position = UDim2.fromScale(0.04, 0.15) })
+			end
+		end
 	end
+
+	-- the golden fountain in the middle, with a real football spinning over it
+	-- (the spin is done by each player's own screen: ClientMain)
+	local fountain = Instance.new("Model")
+	fountain.Name = "Fountain"
+	fountain.Parent = plaza
+	local gold, goldDark = rgb(255, 204, 50), rgb(226, 150, 30)
+	local water = rgb(90, 190, 255)
+	disc(fountain, "BasinFoot", V(0, 0, 0), 25, goldDark, 0.8, Enum.Material.SmoothPlastic)
+	disc(fountain, "Basin", V(0, 0, 0), 23, gold, 2.2, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
+	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	cylinder(fountain, "Column", 5, 4, V(0, 2, 0), gold, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
+	disc(fountain, "Bowl", V(0, 6.6, 0), 10, gold, 1, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
+	disc(fountain, "BowlRim", V(0, 6.2, 0), 10.8, goldDark, 0.5, Enum.Material.SmoothPlastic)
+	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	local spout = cylinder(fountain, "Spout", 1.6, 1.6, V(0, 7.6, 0), gold, Enum.Material.SmoothPlastic)
+	-- water: one emitter up from the spout, one splash round the basin
+	local jet = Instance.new("ParticleEmitter")
+	jet.Name = "Water"
+	jet.Color = ColorSequence.new(rgb(200, 240, 255), water)
+	jet.LightEmission = 0.4
+	jet.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0.15) })
+	jet.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	jet.Lifetime = NumberRange.new(0.9, 1.2)
+	jet.Rate = 28
+	jet.Speed = NumberRange.new(11, 13)
+	jet.SpreadAngle = Vector2.new(22, 22)
+	jet.Acceleration = V(0, -32, 0)
+	jet.EmissionDirection = Enum.NormalId.Top
+	jet.Parent = spout
+	-- the ball: white with the 12 black pentagons of a real football (at the
+	-- 12 corners of an icosahedron), made of 13 spheres
+	local football = Instance.new("Model")
+	football.Name = "Football"
+	football.Parent = plaza
+	local r = 4.2
+	local center = V(0, 15.5, 0)
+	local core = ball(football, "Core", r * 2, center, COL.White, Enum.Material.SmoothPlastic, { CanCollide = false })
+	local phi = (1 + math.sqrt(5)) / 2
+	for _, v in ipairs({
+		V(0, 1, phi), V(0, 1, -phi), V(0, -1, phi), V(0, -1, -phi),
+		V(1, phi, 0), V(1, -phi, 0), V(-1, phi, 0), V(-1, -phi, 0),
+		V(phi, 0, 1), V(phi, 0, -1), V(-phi, 0, 1), V(-phi, 0, -1),
+	}) do
+		-- a black sphere sunk into the ball shows just a round patch
+		ball(football, "Pentagon", r * 1.436, center + v.Unit * r * 0.3, rgb(22, 24, 34), Enum.Material.SmoothPlastic, { CanCollide = false })
+	end
+	football.PrimaryPart = core
+	football:SetAttribute("Spin", true)
+	local glow = Instance.new("PointLight")
+	glow.Color = rgb(255, 220, 120)
+	glow.Brightness = 1.5
+	glow.Range = 16
+	glow.Shadows = false
+	glow.Parent = core
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Name = "Sparkle"
+	sparkle.Color = ColorSequence.new(rgb(255, 230, 120))
+	sparkle.LightEmission = 1
+	sparkle.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+	sparkle.Lifetime = NumberRange.new(1, 1.6)
+	sparkle.Rate = 6
+	sparkle.Speed = NumberRange.new(1, 2)
+	sparkle.SpreadAngle = Vector2.new(180, 180)
+	sparkle.Parent = core
+
+	-- four real football kits on dummies round the fountain
+	for i, kit in ipairs(Config.LobbyKits) do
+		local a = 45 + (i - 1) * 90
+		local at = dir(a) * 34
+		disc(plaza, "KitStandRim", at, 7.4, gold, 0.9, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStand", at, 6.4, COL.NavyDark, 1.3, Enum.Material.SmoothPlastic)
+		task.spawn(function()
+			local desc = Instance.new("HumanoidDescription")
+			desc.Shirt = kit.Shirt
+			desc.Pants = kit.Pants
+			for _, k in ipairs({ "HeadColor", "LeftArmColor", "RightArmColor", "TorsoColor", "LeftLegColor", "RightLegColor" }) do
+				desc[k] = kit.Skin
+			end
+			local ok, rig = pcall(function()
+				return game:GetService("Players"):CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+			end)
+			if not ok or not rig then
+				warn("[Football] could not dress a kit dummy:", rig)
+				return
+			end
+			rig.Name = "KitDummy"
+			local humanoid = rig:FindFirstChildOfClass("Humanoid")
+			local root = rig:FindFirstChild("HumanoidRootPart")
+			if not (humanoid and root) then rig:Destroy() return end
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+			humanoid.EvaluateStateMachine = false
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("BaseScript") then d:Destroy()
+				elseif d:IsA("BasePart") then
+					d.Anchored = d == root
+					d.CanCollide = d == root
+					d.CanTouch = false
+				end
+			end
+			rig.PrimaryPart = root
+			local feet = at + V(0, 1.3, 0)
+			local rootAt = feet + V(0, humanoid.HipHeight + root.Size.Y / 2, 0)
+			rig:PivotTo(CFrame.lookAt(rootAt, V(0, rootAt.Y, 0)))
+			rig.Parent = plaza
+			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+			local anim = Instance.new("Animation")
+			anim.AnimationId = Config.Figures.IdleAnimation
+			pcall(function()
+				local track = animator:LoadAnimation(anim)
+				track.Looped = true
+				track:Play()
+			end)
+		end)
+	end
+
 	-- two small goals on the centre circle, facing each other
 	for _, sx in ipairs({ -1, 1 }) do
-		StationBuilder.Goal(plaza, CFrame.lookAt(V(sx * 21, 0.5, 0), V(0, 0.5, 0)), 10, 4, 3)
+		StationBuilder.Goal(plaza, CFrame.lookAt(V(sx * 23, 0.5, 0), V(0, 0.5, 0)), 10, 4, 3)
 	end
 	-- corner flags round the edge, between the exits
 	for i, a in ipairs({ -75, -45, -15, 15, 60, 120, 165, 195, 240 }) do
@@ -3742,6 +3927,10 @@ local function mountain(parent, at, width, height, rnd)
 		local h = height / tiers
 		local color = t &lt; 0.25 and rgb(86, 170, 74) or (t &lt; 0.7 and rgb(130, 132, 140):Lerp(rgb(160, 162, 170), rnd()) or rgb(236, 242, 250))
 		if t &gt;= 0.7 and height &lt; 60 then color = rgb(150, 152, 160) end
+		if Config.Look == "PetSim" then
+			-- soft green hills with light rock and bright snow
+			color = t &lt; 0.4 and rgb(96, 200, 90):Lerp(rgb(120, 214, 100), rnd()) or (t &lt; 0.7 and rgb(186, 196, 214) or rgb(248, 252, 255))
+		end
 		local off = V((rnd() - 0.5) * w * 0.12, 0, (rnd() - 0.5) * w * 0.12)
 		part(m, "Rock", V(w, h + 0.5, w * (0.8 + rnd() * 0.3)), CFrame.new(at + off + V(0, y + h / 2, 0)) * yaw, color, Enum.Material.Rock,
 			{ CastShadow = false, CanQuery = false })
@@ -3916,17 +4105,17 @@ function MapBuilder.Build()
 	local records = {}
 	buildPlaza(map)
 	local boards = {}
-	boards.HighestOVR = leaderboard(map, "Board_HighestOVR", "HIGHEST OVR", "THE BEST CARDS", CFrame.lookAt(dir(60) * 60, V(0, 0, 0)), rgb(255, 196, 30))
-	boards.MostSeasons = leaderboard(map, "Board_MostSeasons", "MOST SEASONS", "NEW SEASONS STARTED", CFrame.lookAt(dir(120) * 60, V(0, 0, 0)), rgb(190, 110, 255))
-	boards.FastestSpeed = leaderboard(map, "Board_FastestSpeed", "FASTEST SPEED COURSE", "BEST LAP TIME", CFrame.lookAt(dir(-120) * 60, V(0, 0, 0)), rgb(40, 220, 255))
+	boards.HighestOVR = leaderboard(map, "Board_HighestOVR", "HIGHEST OVR", "THE BEST CARDS", CFrame.lookAt(dir(60) * 88, V(0, 0, 0)), rgb(255, 196, 30))
+	boards.MostSeasons = leaderboard(map, "Board_MostSeasons", "MOST SEASONS", "NEW SEASONS STARTED", CFrame.lookAt(dir(120) * 88, V(0, 0, 0)), rgb(190, 110, 255))
+	boards.FastestSpeed = leaderboard(map, "Board_FastestSpeed", "FASTEST SPEED COURSE", "BEST LAP TIME", CFrame.lookAt(dir(-120) * 88, V(0, 0, 0)), rgb(40, 220, 255))
 
 	-- the Position Board (opens the positions menu)
-	local posModel = MapKit.sign(map, "PositionBoard", 18, 9, CFrame.lookAt(dir(-12) * 44, V(0, 0, 0)), {
+	local posModel = MapKit.sign(map, "PositionBoard", 18, 9, CFrame.lookAt(dir(-45) * 88, V(0, 0, 0)), {
 		{ "POSITION BOARD", COL.White, 2, 5 },
 		{ "ST \u{2022} W \u{2022} CAM \u{2022} CM \u{2022} CB \u{2022} GK", rgb(255, 210, 60), 1.4, 4 },
 		{ ("UNLOCKS AT %d OVR"):format(Config.PositionsUnlockOVR), rgb(160, 220, 255), 1, 3 },
-	}, { COL.NavyDark, rgb(255, 210, 60) }, 2)
-	local positionPrompt = MapKit.prompt(posModel, "Prompt", (CFrame.lookAt(dir(-12) * 44, V(0, 0, 0)) * CFrame.new(0, 2.5, -2.5)).Position,
+	}, { COL.NavyDark, rgb(255, 210, 60) }, 6)
+	local positionPrompt = MapKit.prompt(posModel, "Prompt", (CFrame.lookAt(dir(-45) * 88, V(0, 0, 0)) * CFrame.new(0, 2.5, -2.5)).Position,
 		"Choose", "Position Board", 10)
 
 	-- a big title board over the north stand
@@ -3964,6 +4153,8 @@ return MapBuilder
 -- painted lines, signs with text, glowing gates.
 
 local MapKit = {}
+
+local PETSIM = require(game:GetService("ReplicatedStorage"):WaitForChild("FootballConfig")).Look == "PetSim"
 
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
 MapKit.rgb = rgb
@@ -4087,9 +4278,15 @@ local function uiText(parent, text, size, color, props)
 	for k, v in pairs(props or {}) do l[k] = v end
 	local s = Instance.new("UIStroke")
 	s.Thickness = size or 4
-	s.Color = COL.NavyDark
+	s.Color = PETSIM and Color3.fromRGB(8, 8, 16) or COL.NavyDark
 	s.LineJoinMode = Enum.LineJoinMode.Round
 	s.Parent = l
+	if PETSIM and (color == nil or color == COL.White) then
+		local g = Instance.new("UIGradient")
+		g.Rotation = 90
+		g.Color = ColorSequence.new(COL.White, Color3.fromRGB(214, 228, 255))
+		g.Parent = l
+	end
 	l.Parent = parent
 	return l
 end
@@ -5435,7 +5632,7 @@ local function dummy(parent, at, lookAt, seed)
 	task.spawn(function()
 		RigService.WaitReady(60)
 		if not m.Parent then return end
-		local fig = PlayerFigure.Build(m, "Dummy", { Seed = seed, Avatars = false, Name = "Character" })
+		local fig = PlayerFigure.Build(m, "Dummy", { Seed = seed, Avatars = false, Name = "Character", Still = true })
 		PlayerFigure.Pose(fig, CFrame.lookAt(middle, middle + facing.Unit))
 	end)
 	return m
@@ -6954,6 +7151,25 @@ TrainingClient.Init(ctx)
 MenusUI.Init(ctx)
 require(ReplicatedStorage:WaitForChild("Icons")).Report()
 
+-- The football over the lobby fountain spins slowly and bobs. Done here, on
+-- each player's own screen, so it is smooth and costs the server nothing;
+-- it stops when you are far away.
+task.spawn(function()
+	local map = workspace:WaitForChild("Map", 60)
+	local ball = map and map:WaitForChild("Plaza", 30)
+	ball = ball and ball:WaitForChild("Football", 30)
+	if not ball then return end
+	local base = ball:GetPivot()
+	local angle = 0
+	game:GetService("RunService").RenderStepped:Connect(function(dt)
+		local cam = workspace.CurrentCamera
+		if not cam or (cam.CFrame.Position - base.Position).Magnitude &gt; 260 then return end
+		angle += dt * 0.6
+		local bob = math.sin(os.clock() * 1.3) * 0.5
+		ball:PivotTo(CFrame.new(base.Position + Vector3.new(0, bob, 0)) * CFrame.Angles(math.rad(18), 0, 0) * CFrame.Angles(0, angle, 0))
+	end)
+end)
+
 ctx.Remotes.Progress.OnClientEvent:Connect(function(kind, data)
 	data = data or {}
 	if kind == "xp" then
@@ -7099,7 +7315,7 @@ end
 local function bodyText(parent, text, size, color, props)
 	local l = FKit.text(parent, text, size or 18, color or C.White, props)
 	l.TextWrapped = true
-	l.TextStroke.Thickness = math.max(1.5, (size or 18) / 9)
+	l.TextStroke.Thickness = math.max(1, (size or 18) / 12)
 	return l
 end
 
@@ -7680,12 +7896,12 @@ function WINDOWS.Shop.Build(page)
 		local tile = box(passes, { Size = UDim2.new(1 / #Config.PassOrder, -7, 1, 0), LayoutOrder = i }, look[2], 16)
 		Icons.new(tile, Icons.FromEmoji(look[1]), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(44, 44), ZIndex = tile.ZIndex })
 		FKit.fit(tile, pass.Name, 19, C.White, { Position = UDim2.fromOffset(6, 50), Size = UDim2.new(1, -12, 0, 24) })
-		bodyText(tile, pass.Line, 15, C.White, { Position = UDim2.fromOffset(6, 76), Size = UDim2.new(1, -12, 0, 68), TextYAlignment = Enum.TextYAlignment.Top })
+		bodyText(tile, pass.Short or pass.Line, 16, C.White, { Position = UDim2.fromOffset(6, 78), Size = UDim2.new(1, -12, 0, 60), TextYAlignment = Enum.TextYAlignment.Top })
 		local b, priceLabel = candy(tile, ownedPass and "OWNED" or tostring(pass.Price), ownedPass and "grey" or "green", {
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
 		withIcon(b, priceLabel, ownedPass and "check" or "coin")
-		if not ownedPass then FKit.shine(b, 2 + i * 0.4) end
+		if not ownedPass and i == 1 then FKit.shine(b, 3) end
 		if ownedPass then
 			b.Active = false
 		else
@@ -7780,11 +7996,10 @@ function WINDOWS.Shop.Build(page)
 		local product = Config.Products[key]
 		local look = PACK_LOOK[key]
 		local tile = box(packs, { Size = UDim2.new(1 / #Config.PackOrder, -6, 1, 0), LayoutOrder = i }, look[2], 16)
-		FKit.fallingBlocks(tile, { Max = 3, Every = 1.1, Transparency = 0.6, Corner = 16, ZIndex = tile.ZIndex })
 		local icon = Icons.new(tile, look[1], { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(40, 40), ZIndex = tile.ZIndex + 1 })
 		FKit.pulse(icon, 0.08, 0.8 + i * 0.1)
 		FKit.fit(tile, product.Name, 18, C.White, { Position = UDim2.fromOffset(6, 48), Size = UDim2.new(1, -12, 0, 22), ZIndex = tile.ZIndex + 1 })
-		bodyText(tile, product.Line, 13, C.White, { Position = UDim2.fromOffset(6, 72), Size = UDim2.new(1, -12, 0, 48), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = tile.ZIndex + 1 })
+		bodyText(tile, product.Short or product.Line, 16, C.White, { Position = UDim2.fromOffset(6, 72), Size = UDim2.new(1, -12, 0, 48), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = tile.ZIndex + 1 })
 		local b, priceLabel = candy(tile, tostring(product.Price), "green", {
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 40), ZIndex = tile.ZIndex + 2,
 		})

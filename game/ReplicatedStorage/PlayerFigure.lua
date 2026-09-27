@@ -273,9 +273,13 @@ local function fromRig(parent, template, kit, opts)
 		animator = Instance.new("Animator")
 		animator.Parent = humanoid
 	end
-	state.Run = loadTrack(animator, Config.Figures.RunAnimation)
-	state.Idle = loadTrack(animator, Config.Figures.IdleAnimation)
-	if state.Idle then state.Idle:Play(0) end
+	-- Still = true: no animations at all (the passing dummies; many rigs
+	-- animating at once cost a lot)
+	if not opts.Still then
+		state.Run = loadTrack(animator, Config.Figures.RunAnimation)
+		state.Idle = loadTrack(animator, Config.Figures.IdleAnimation)
+		if state.Idle then state.Idle:Play(0) end
+	end
 	rigs[rig] = state
 	return rig
 end

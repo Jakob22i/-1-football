@@ -103,7 +103,8 @@ function FKit.text(parent, text, size, color, props)
 	for k, v in pairs(props or {}) do l[k] = v end
 	new("UIStroke", {
 		Name = "TextStroke",
-		Thickness = petSim and math.clamp(size / 6.5, 2, 6) or math.clamp(size / 8, 1.5, 5),
+		-- thick on big words, thin on small ones (fat outlines make small text blobby)
+		Thickness = petSim and (size >= 26 and math.clamp(size / 7, 3, 6) or math.clamp(size / 11, 1, 2.5)) or math.clamp(size / 8, 1.5, 5),
 		Color = petSim and Color3.fromRGB(8, 8, 16) or C.Ink,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Parent = l,
@@ -280,10 +281,10 @@ function FKit.fallingBlocks(frame, opts)
 		ClipsDescendants = true, ZIndex = opts.ZIndex or frame.ZIndex, Parent = frame,
 	})
 	if opts.Corner then FKit.corner(layer, opts.Corner) end
-	local every = opts.Every or 0.55
+	local every = opts.Every or 0.9
 	task.spawn(function()
 		while layer.Parent do
-			if shown(layer) and #layer:GetChildren() < (opts.Max or 9) then
+			if shown(layer) and #layer:GetChildren() < (opts.Max or 6) then
 				local size = math.random(12, 24)
 				local color = BLOCK_COLORS[math.random(1, #BLOCK_COLORS)]
 				local block = new("Frame", {

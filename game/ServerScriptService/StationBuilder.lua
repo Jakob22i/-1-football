@@ -100,7 +100,7 @@ local function dummy(parent, at, lookAt, seed)
 	task.spawn(function()
 		RigService.WaitReady(60)
 		if not m.Parent then return end
-		local fig = PlayerFigure.Build(m, "Dummy", { Seed = seed, Avatars = false, Name = "Character" })
+		local fig = PlayerFigure.Build(m, "Dummy", { Seed = seed, Avatars = false, Name = "Character", Still = true })
 		PlayerFigure.Pose(fig, CFrame.lookAt(middle, middle + facing.Unit))
 	end)
 	return m

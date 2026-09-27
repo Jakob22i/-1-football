@@ -1,0 +1,37 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+	<External>null</External>
+	<External>nil</External>
+	<Item class="Workspace" referent="BASE1">
+		<Properties>
+			<string name="Name">Workspace</string>
+			<float name="Gravity">196.199997</float>
+		</Properties>
+		<Item class="Part" referent="BASE2">
+			<Properties>
+				<string name="Name">Baseplate</string>
+				<bool name="Anchored">true</bool>
+				<bool name="Locked">true</bool>
+				<Color3uint8 name="Color3uint8">4284702562</Color3uint8>
+				<token name="Material">256</token>
+				<Vector3 name="size"><X>2048</X><Y>16</Y><Z>2048</Z></Vector3>
+				<CoordinateFrame name="CFrame">
+					<X>0</X><Y>-8</Y><Z>0</Z>
+					<R00>1</R00><R01>0</R01><R02>0</R02>
+					<R10>0</R10><R11>1</R11><R12>0</R12>
+					<R20>0</R20><R21>0</R21><R22>1</R22>
+				</CoordinateFrame>
+			</Properties>
+		</Item>
+	</Item>
+	<Item class="Lighting" referent="BASE3"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
+	<Item class="ReplicatedStorage" referent="BASE4"><Properties><string name="Name">ReplicatedStorage</string></Properties></Item>
+	<Item class="ServerScriptService" referent="BASE5"><Properties><string name="Name">ServerScriptService</string></Properties></Item>
+	<Item class="StarterPlayer" referent="BASE6">
+		<Properties><string name="Name">StarterPlayer</string></Properties>
+		<Item class="StarterPlayerScripts" referent="BASE7"><Properties><string name="Name">StarterPlayerScripts</string></Properties></Item>
+		<Item class="StarterCharacterScripts" referent="BASE8"><Properties><string name="Name">StarterCharacterScripts</string></Properties></Item>
+	</Item>
+	<Item class="Players" referent="BASE9"><Properties><string name="Name">Players</string></Properties></Item>
+	<Item class="StarterGui" referent="BASE10"><Properties><string name="Name">StarterGui</string></Properties></Item>
+	<Item class="SoundService" referent="BASE11"><Properties><string name="Name">SoundService</string></Properties></Item>
+</roblox>

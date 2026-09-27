@@ -108,7 +108,7 @@ end
 local function bodyText(parent, text, size, color, props)
 	local l = FKit.text(parent, text, size or 18, color or C.White, props)
 	l.TextWrapped = true
-	l.TextStroke.Thickness = math.max(1.5, (size or 18) / 9)
+	l.TextStroke.Thickness = math.max(1, (size or 18) / 12)
 	return l
 end
 
@@ -689,12 +689,12 @@ function WINDOWS.Shop.Build(page)
 		local tile = box(passes, { Size = UDim2.new(1 / #Config.PassOrder, -7, 1, 0), LayoutOrder = i }, look[2], 16)
 		Icons.new(tile, Icons.FromEmoji(look[1]), { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.fromOffset(44, 44), ZIndex = tile.ZIndex })
 		FKit.fit(tile, pass.Name, 19, C.White, { Position = UDim2.fromOffset(6, 50), Size = UDim2.new(1, -12, 0, 24) })
-		bodyText(tile, pass.Line, 15, C.White, { Position = UDim2.fromOffset(6, 76), Size = UDim2.new(1, -12, 0, 68), TextYAlignment = Enum.TextYAlignment.Top })
+		bodyText(tile, pass.Short or pass.Line, 16, C.White, { Position = UDim2.fromOffset(6, 78), Size = UDim2.new(1, -12, 0, 60), TextYAlignment = Enum.TextYAlignment.Top })
 		local b, priceLabel = candy(tile, ownedPass and "OWNED" or tostring(pass.Price), ownedPass and "grey" or "green", {
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
 		withIcon(b, priceLabel, ownedPass and "check" or "coin")
-		if not ownedPass then FKit.shine(b, 2 + i * 0.4) end
+		if not ownedPass and i == 1 then FKit.shine(b, 3) end
 		if ownedPass then
 			b.Active = false
 		else
@@ -789,11 +789,10 @@ function WINDOWS.Shop.Build(page)
 		local product = Config.Products[key]
 		local look = PACK_LOOK[key]
 		local tile = box(packs, { Size = UDim2.new(1 / #Config.PackOrder, -6, 1, 0), LayoutOrder = i }, look[2], 16)
-		FKit.fallingBlocks(tile, { Max = 3, Every = 1.1, Transparency = 0.6, Corner = 16, ZIndex = tile.ZIndex })
 		local icon = Icons.new(tile, look[1], { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(40, 40), ZIndex = tile.ZIndex + 1 })
 		FKit.pulse(icon, 0.08, 0.8 + i * 0.1)
 		FKit.fit(tile, product.Name, 18, C.White, { Position = UDim2.fromOffset(6, 48), Size = UDim2.new(1, -12, 0, 22), ZIndex = tile.ZIndex + 1 })
-		bodyText(tile, product.Line, 13, C.White, { Position = UDim2.fromOffset(6, 72), Size = UDim2.new(1, -12, 0, 48), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = tile.ZIndex + 1 })
+		bodyText(tile, product.Short or product.Line, 16, C.White, { Position = UDim2.fromOffset(6, 72), Size = UDim2.new(1, -12, 0, 48), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = tile.ZIndex + 1 })
 		local b, priceLabel = candy(tile, tostring(product.Price), "green", {
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 40), ZIndex = tile.ZIndex + 2,
 		})
