@@ -68,9 +68,12 @@ def surface_texture(sf):
         else:
             roots.append(n)
     img = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
-    for root in roots:
-        gui_render.layout(root, 0, 0, tw, th, 1)
-        gui_render.draw(img, root)
+    # the SurfaceGui itself: a full-size frame holding the top-level items,
+    # so each one keeps its own position and size
+    gui = gui_render.Node(["G", "0", "-1", "Frame", "SurfaceGui", "true", "0,0,0,0", "1,0,1,0", "0,0", "0,0,0", "1"])
+    gui.children = roots
+    gui_render.layout(gui, 0, 0, tw, th, 1)
+    gui_render.draw(img, gui)
     return np.asarray(img).astype(float) / 255.0
 
 

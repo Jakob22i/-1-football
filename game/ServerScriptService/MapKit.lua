@@ -125,12 +125,15 @@ local function uiText(parent, text, size, color, props)
 	l.TextColor3 = color or COL.White
 	l.Size = UDim2.fromScale(1, 1)
 	for k, v in pairs(props or {}) do l[k] = v end
+	-- small text gets a thin outline and no gradient: thick outlines on small
+	-- letters look like blocky noise from far away
+	local small = (size or 4) <= 3
 	local s = Instance.new("UIStroke")
-	s.Thickness = size or 4
+	s.Thickness = small and 1.5 or (size or 4)
 	s.Color = PETSIM and Color3.fromRGB(8, 8, 16) or COL.NavyDark
 	s.LineJoinMode = Enum.LineJoinMode.Round
 	s.Parent = l
-	if PETSIM and (color == nil or color == COL.White) then
+	if PETSIM and not small and (color == nil or color == COL.White) then
 		local g = Instance.new("UIGradient")
 		g.Rotation = 90
 		g.Color = ColorSequence.new(COL.White, Color3.fromRGB(214, 228, 255))
@@ -179,9 +182,14 @@ function MapKit.sign(parent, name, width, height, cf, lines, colors, raise)
 		MapKit.cylinder(folder, "Post", raise + height, 1, foot.Position, COL.Metal, Enum.Material.Metal)
 	end
 	local board = part(folder, "Board", Vector3.new(width, height, 0.8), cf * CFrame.new(0, raise + height / 2, 0), colors[1], Enum.Material.SmoothPlastic)
-	part(folder, "Trim", Vector3.new(width + 0.6, height + 0.6, 0.6), cf * CFrame.new(0, raise + height / 2, 0.25), colors[2], Enum.Material.SmoothPlastic)
-	-- a clean background; big boards stay readable further away
-	local gui = MapKit.surface(board, Enum.NormalId.Front, 24, colors[1], math.clamp(width * 14, 150, 450))
+	-- a thick frame round the board: a thin rim is only a pixel or two wide
+	-- from far away and turns into a jagged, broken line
+	local rim = math.clamp(math.min(width, height) * 0.06, 0.6, 1.2)
+	part(folder, "Trim", Vector3.new(width + rim * 2, height + rim * 2, 0.6), cf * CFrame.new(0, raise + height / 2, 0.3), colors[2], Enum.Material.SmoothPlastic)
+	part(folder, "TrimEdge", Vector3.new(width + rim * 2 + 0.5, height + rim * 2 + 0.5, 0.4), cf * CFrame.new(0, raise + height / 2, 0.5), COL.NavyDark, Enum.Material.SmoothPlastic)
+	-- a clean background, sharp text up close, and gone before it is so far
+	-- away that the letters break up into blocks
+	local gui = MapKit.surface(board, Enum.NormalId.Front, 32, colors[1], math.clamp(width * 12, 150, 320))
 	local y = 0.06
 	local share = 0
 	for _, entry in ipairs(lines) do share += entry[3] or 1 end
