@@ -133,14 +133,26 @@ local function uiText(parent, text, size, color, props)
 end
 MapKit.uiText = uiText
 
-function MapKit.surface(target, face, pps)
+-- Text on a part's face. With `bg` the text sits on a plain background, so
+-- the studs of the part never show through the letters (that is what made
+-- signs look noisy and weird from far away).
+function MapKit.surface(target, face, pps, bg, maxDistance)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face or Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = pps or 30
 	gui.LightInfluence = 0
-	gui.MaxDistance = 400
+	gui.MaxDistance = maxDistance or 400
 	gui.Adornee = target
+	if bg then
+		local back = Instance.new("Frame")
+		back.Name = "Background"
+		back.Size = UDim2.fromScale(1, 1)
+		back.BackgroundColor3 = bg
+		back.BorderSizePixel = 0
+		back.ZIndex = 0
+		back.Parent = gui
+	end
 	gui.Parent = target
 	return gui
 end
@@ -160,13 +172,14 @@ function MapKit.sign(parent, name, width, height, cf, lines, colors, raise)
 	end
 	local board = part(folder, "Board", Vector3.new(width, height, 0.8), cf * CFrame.new(0, raise + height / 2, 0), colors[1], Enum.Material.SmoothPlastic)
 	part(folder, "Trim", Vector3.new(width + 0.6, height + 0.6, 0.6), cf * CFrame.new(0, raise + height / 2, 0.25), colors[2], Enum.Material.SmoothPlastic)
-	local gui = MapKit.surface(board, Enum.NormalId.Front, 28)
+	-- a clean background; big boards stay readable further away
+	local gui = MapKit.surface(board, Enum.NormalId.Front, 24, colors[1], math.clamp(width * 14, 150, 450))
 	local y = 0.06
 	local share = 0
 	for _, entry in ipairs(lines) do share += entry[3] or 1 end
 	for _, entry in ipairs(lines) do
 		local h = (entry[3] or 1) / share * 0.88
-		uiText(gui, entry[1], entry[4] or 5, entry[2] or COL.White, {
+		uiText(gui, entry[1], math.min(entry[4] or 5, 4), entry[2] or COL.White, {
 			Position = UDim2.fromScale(0.04, y),
 			Size = UDim2.fromScale(0.92, h),
 		})

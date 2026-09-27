@@ -148,6 +148,11 @@ without Studio, so flat colours and emoji as words) are in `images/`.
 - **Map**: small and walled in by blocky mountains (grass, rock, snow). The
   three academies sit side by side east of the plaza, the stadium west.
   Buildings have bases, corner pillars, windows, roof rims and canopies.
+- **Lobby**: the plaza is a striped pitch with a giant football on a pedestal,
+  two small goals on the centre circle, corner flags and giant shirts on the
+  floodlights.
+- **Readable signs**: sign text sits on a plain background (the studs never
+  show through the letters) and small signs fade out far away.
 - **Trees**: blocky trees and pines, kept clear of every stand, pitch and path.
 - **Smooth**: about a third fewer parts than before (start pads, plaza
   circles and passing hoops are a few big parts, a smaller crowd), no shadows

@@ -142,7 +142,14 @@ local function buildPlaza(parent)
 	local plaza = Instance.new("Folder")
 	plaza.Name = "Plaza"
 	plaza.Parent = parent
-	disc(plaza, "Floor", V(0, 0, 0), PLAZA_RADIUS * 2 + 6, COL.Concrete, 0.3, Enum.Material.Concrete)
+	-- the plaza is a pitch: a white rim, grass, and mown stripes across it
+	local floorR = PLAZA_RADIUS + 3
+	disc(plaza, "Rim", V(0, 0, 0), floorR * 2 + 3, COL.Line, 0.26, Enum.Material.SmoothPlastic)
+	disc(plaza, "Floor", V(0, 0, 0), floorR * 2, COL.GrassDark, 0.3, Enum.Material.Grass)
+	for x = -floorR + 4, floorR - 4, 16 do
+		local len = 2 * math.sqrt(math.max(0, floorR * floorR - (math.abs(x) + 4) ^ 2)) - 2
+		if len > 4 then patch(plaza, "Stripe", 8, len, CFrame.new(V(x, 0, 0)), COL.GrassLight, Enum.Material.Grass, 0.32) end
+	end
 	-- the centre circle of a pitch in the middle
 	-- white rims under green discs (a few parts instead of rings of 50)
 	disc(plaza, "Edge", V(0, 0, 0), 47.8, COL.Line, 0.34, Enum.Material.SmoothPlastic)
@@ -164,8 +171,20 @@ local function buildPlaza(parent)
 	end
 
 	-- floodlights and signposts at the exits
-	for _, a in ipairs({ -135, -45, 45, 135 }) do
-		floodlight(plaza, dir(a) * (PLAZA_RADIUS + 20))
+	local kits = { { COL.Red, "7" }, { COL.Blue, "10" }, { COL.Gold, "9" }, { rgb(60, 200, 90), "11" } }
+	for i, a in ipairs({ -135, -45, 45, 135 }) do
+		local at = dir(a) * (PLAZA_RADIUS + 20)
+		floodlight(plaza, at)
+		-- a giant shirt hanging on the pole, facing the plaza
+		local cf = CFrame.lookAt(at + V(0, 24, 0), V(0, 24, 0)) * CFrame.new(0, 0, -1.4)
+		local kit = kits[i]
+		local shirt = part(plaza, "Jersey", V(7, 7.5, 0.8), cf, kit[1], Enum.Material.SmoothPlastic)
+		for _, sx in ipairs({ -1, 1 }) do
+			part(plaza, "Sleeve", V(3, 3.2, 0.8), cf * CFrame.new(sx * 4.4, 2, 0) * CFrame.Angles(0, 0, math.rad(-sx * 30)), kit[1], Enum.Material.SmoothPlastic)
+		end
+		part(plaza, "Collar", V(3, 0.8, 0.9), cf * CFrame.new(0, 3.6, 0), COL.White, Enum.Material.SmoothPlastic)
+		local gui = MapKit.surface(shirt, Enum.NormalId.Front, 20, kit[1], 300)
+		MapKit.uiText(gui, kit[2], 4, COL.White, { Size = UDim2.fromScale(0.7, 0.7), Position = UDim2.fromScale(0.15, 0.2) })
 	end
 	for _, exit in ipairs(EXITS) do
 		local color = exit.Stat and STAT_COLOR[exit.Stat] or exit.Color
@@ -178,12 +197,36 @@ local function buildPlaza(parent)
 		}, { COL.NavyDark, color }, 5)
 	end
 
-	-- the spawn on the centre spot
+	-- a giant football on a pedestal in the middle
+	local statue = Instance.new("Model")
+	statue.Name = "BallStatue"
+	statue.Parent = plaza
+	part(statue, "Pedestal", V(11, 3, 11), CFrame.new(0, 1.5, 0), COL.NavyDark)
+	part(statue, "PedestalTrim", V(12, 0.8, 12), CFrame.new(0, 3.2, 0), COL.Gold)
+	part(statue, "PedestalFoot", V(13, 0.8, 13), CFrame.new(0, 0.4, 0), COL.Gold)
+	local ballCenter = V(0, 9.8, 0)
+	ball(statue, "Ball", 13, ballCenter, COL.White, Enum.Material.SmoothPlastic)
+	for _, d in ipairs({ V(0, 1, 0), V(1, 0.3, 0), V(-1, 0.3, 0), V(0, 0.3, 1), V(0, 0.3, -1), V(0.7, -0.5, 0.7), V(-0.7, -0.5, -0.7) }) do
+		ball(statue, "Patch", 4.4, ballCenter + d.Unit * 5.2, rgb(25, 28, 40), Enum.Material.SmoothPlastic)
+	end
+	-- two small goals on the centre circle, facing each other
+	for _, sx in ipairs({ -1, 1 }) do
+		StationBuilder.Goal(plaza, CFrame.lookAt(V(sx * 21, 0.5, 0), V(0, 0.5, 0)), 10, 4, 3)
+	end
+	-- corner flags round the edge, between the exits
+	for i, a in ipairs({ -75, -45, -15, 15, 60, 120, 165, 195, 240 }) do
+		local at = dir(a) * (PLAZA_RADIUS - 4)
+		cylinder(plaza, "FlagPole", 8, 0.5, at, COL.White, Enum.Material.SmoothPlastic)
+		part(plaza, "Flag", V(0.3, 2.4, 3.4), CFrame.lookAt(at, at + dir(a + 90)) * CFrame.new(0, 6.8, -1.8) * CFrame.Angles(0, math.rad(90), 0),
+			(i % 2 == 0) and COL.Gold or COL.Red, Enum.Material.SmoothPlastic, { CanCollide = false })
+	end
+
+	-- the spawn in front of the ball
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "Spawn"
 	spawn.Anchored = true
 	spawn.Size = V(10, 0.4, 10)
-	spawn.CFrame = CFrame.new(0, 0.2, 0)
+	spawn.CFrame = CFrame.new(0, 0.2, 30)
 	spawn.Transparency = 1
 	spawn.CanCollide = false
 	spawn.Neutral = true
@@ -221,7 +264,7 @@ local function gate(parent, name, cf, width, need, title, color, vip)
 	barrier.Transparency = 0.15
 	local text = vip and "VIP ONLY" or (need .. " OVR")
 	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
-		local gui = MapKit.surface(m:FindFirstChild("Beam"), face, 20)
+		local gui = MapKit.surface(m:FindFirstChild("Beam"), face, 20, COL.NavyDark, 300)
 		MapKit.uiText(gui, title .. "  \u{2022}  " .. text, 3, COL.White, { Size = UDim2.fromScale(0.96, 0.8), Position = UDim2.fromScale(0.02, 0.1) })
 	end
 	local label = part(m, "Label", V(width - 2, 4, 0.2), cf * CFrame.new(0, 11, 0), COL.White, Enum.Material.SmoothPlastic,
@@ -572,7 +615,7 @@ local function mountain(parent, at, width, height, rnd)
 	local m = Instance.new("Model")
 	m.Name = "Mountain"
 	m.Parent = parent
-	local tiers = math.max(3, math.floor(height / 16))
+	local tiers = 3 -- few big blocks: mountains are far away, they need no detail
 	local yaw = CFrame.Angles(0, math.rad(rnd() * 90), 0)
 	local y = 0
 	for i = 1, tiers do
@@ -583,7 +626,7 @@ local function mountain(parent, at, width, height, rnd)
 		if t >= 0.7 and height < 60 then color = rgb(150, 152, 160) end
 		local off = V((rnd() - 0.5) * w * 0.12, 0, (rnd() - 0.5) * w * 0.12)
 		part(m, "Rock", V(w, h + 0.5, w * (0.8 + rnd() * 0.3)), CFrame.new(at + off + V(0, y + h / 2, 0)) * yaw, color, Enum.Material.Rock,
-			{ CastShadow = i <= 2 })
+			{ CastShadow = false, CanQuery = false })
 		y += h
 	end
 	return m
@@ -600,16 +643,15 @@ local function buildMountains(parent, rnd)
 		for d = 0, length, step do
 			local pos = a + (b - a).Unit * d
 			local out = (pos * V(1, 0, 1)).Unit
-			-- one row on the edge, a bigger one behind it
-			mountain(folder, pos + out * (rnd() * 12), 60 + rnd() * 40, 40 + rnd() * 50, rnd)
-			if rnd() < 0.7 then mountain(folder, pos + out * (70 + rnd() * 30), 90 + rnd() * 50, 80 + rnd() * 70, rnd) end
+			-- one row of big mountains (a second row cost a lot and was hardly seen)
+			mountain(folder, pos + out * (20 + rnd() * 16), 100 + rnd() * 40, 60 + rnd() * 60, rnd)
 		end
 	end
 	local x0, x1, z0, z1 = MAP_MIN.X - 30, MAP_MAX.X + 30, MAP_MIN.Z - 30, MAP_MAX.Z + 30
-	edge(V(x0, 0, z0), V(x1, 0, z0), 62)
-	edge(V(x1, 0, z0), V(x1, 0, z1), 62)
-	edge(V(x1, 0, z1), V(x0, 0, z1), 62)
-	edge(V(x0, 0, z1), V(x0, 0, z0), 62)
+	edge(V(x0, 0, z0), V(x1, 0, z0), 85)
+	edge(V(x1, 0, z0), V(x1, 0, z1), 85)
+	edge(V(x1, 0, z1), V(x0, 0, z1), 85)
+	edge(V(x0, 0, z1), V(x0, 0, z0), 85)
 end
 
 -- Where everything else stands, seen from above (x0, z0, x1, z1), so no tree
