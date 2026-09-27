@@ -235,3 +235,37 @@ task.spawn(function()
 	task.wait(1)
 	refreshGates()
 end)
+
+-- The star players by the fountain: "Buy" and the price until you own one,
+-- then "Wear" (or "Take off") and OWNED.
+local function refreshStars()
+	local plaza = workspace:FindFirstChild("Plaza", true)
+	if not plaza then return end
+	for _, d in ipairs(plaza:GetDescendants()) do
+		local key = d:GetAttribute("Star")
+		local star = key and Config.Stars[key]
+		if star then
+			local owned = player:GetAttribute("Pass_" .. star.Pass) == true
+			if d:IsA("ProximityPrompt") then
+				d.ActionText = not owned and ("Buy  R$ " .. Config.Gamepasses[star.Pass].Price)
+					or (player:GetAttribute("Star") == key and "Take off" or "Wear")
+			elseif d:IsA("Model") then
+				local price = d:FindFirstChild("Price", true)
+				if price and price:IsA("TextLabel") then
+					price.Text = owned and "OWNED \u{2713}" or ("R$ " .. Config.Gamepasses[star.Pass].Price)
+				end
+			end
+		end
+	end
+end
+player:GetAttributeChangedSignal("Star"):Connect(refreshStars)
+for _, key in ipairs(Config.StarOrder) do
+	player:GetAttributeChangedSignal("Pass_" .. Config.Stars[key].Pass):Connect(refreshStars)
+end
+task.spawn(function()
+	-- the statues are made in the background: look again as they appear
+	for _ = 1, 6 do
+		task.wait(2.5)
+		refreshStars()
+	end
+end)

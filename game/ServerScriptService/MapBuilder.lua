@@ -22,6 +22,8 @@ local V = Vector3.new
 
 local MapBuilder = {}
 
+local starPrompts = {} -- star key -> its ProximityPrompt (StarService)
+
 local PLAZA_RADIUS = 56
 local STAND_DEPTH = 13
 local ACADEMY_SCALE = 0.8
@@ -84,7 +86,21 @@ local function buildStands(parent, from, to, colors)
 		local am = (a0 + a1) / 2
 		local chord = 2 * wallRadius * math.sin((a1 - a0) / 2) + 0.4
 		local pos = V(math.cos(am) * wallRadius, 3.5, math.sin(am) * wallRadius)
-		part(parent, "Wall", V(chord, 7, 1.2), CFrame.lookAt(pos, V(0, 3.5, 0)), COL.Navy, Enum.Material.SmoothPlastic)
+		local wcf = CFrame.lookAt(pos, V(0, 3.5, 0))
+		part(parent, "Wall", V(chord, 7, 1.2), wcf, COL.Navy, Enum.Material.SmoothPlastic)
+		part(parent, "WallCap", V(chord, 0.8, 1.8), wcf * CFrame.new(0, 3.9, 0), colors[1], Enum.Material.SmoothPlastic)
+	end
+	-- pitch-side ad boards in front of the first row, in bright colours
+	local adRadius = PLAZA_RADIUS + 1.4
+	local adColors = { rgb(255, 196, 30), colors[1], rgb(60, 200, 255), rgb(90, 220, 110) }
+	for k = 0, steps - 1 do
+		local a0 = math.rad(from + span * k / steps)
+		local a1 = math.rad(from + span * (k + 1) / steps)
+		local am = (a0 + a1) / 2
+		local chord = 2 * adRadius * math.sin((a1 - a0) / 2) - 0.2
+		local pos = V(math.cos(am) * adRadius, 0.9, math.sin(am) * adRadius)
+		local acf = CFrame.lookAt(pos, V(0, 0.9, 0))
+		part(parent, "AdBoard", V(chord, 1.8, 0.5), acf, adColors[k % #adColors + 1], Enum.Material.SmoothPlastic)
 	end
 end
 
@@ -265,27 +281,42 @@ local function buildPlaza(parent)
 	sparkle.SpreadAngle = Vector2.new(180, 180)
 	sparkle.Parent = core
 
-	-- four real football kits on dummies round the fountain
-	for i, kit in ipairs(Config.LobbyKits) do
+	-- the four star players round the fountain (StarService): each on a
+	-- gold stand with a name plaque, a name over the head, and a prompt to
+	-- buy the look (then wear it)
+	for i, key in ipairs(Config.StarOrder) do
+		local star = Config.Stars[key]
 		local a = 45 + (i - 1) * 90
 		local at = dir(a) * 34
+		local toCentre = CFrame.lookAt(at, V(0, 0, 0))
 		disc(plaza, "KitStandRim", at, 7.4, gold, 0.9, Enum.Material.SmoothPlastic)
 		disc(plaza, "KitStand", at, 6.4, COL.NavyDark, 1.3, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStandTop", at, 5.6, gold, 1.36, Enum.Material.SmoothPlastic)
+		-- the name plaque on the stand's front, and its number in gold
+		local plaque = part(plaza, "StarPlaque", V(5.4, 1.5, 0.4), toCentre * CFrame.new(0, 0.9, -3.95) * CFrame.Angles(math.rad(-12), 0, 0),
+			COL.NavyDark, Enum.Material.SmoothPlastic)
+		local pg = MapKit.surface(plaque, Enum.NormalId.Front, 40, COL.NavyDark, 90)
+		MapKit.uiText(pg, star.Name, 4, COL.White, { Size = UDim2.fromScale(0.94, 0.58), Position = UDim2.fromScale(0.03, 0.04) })
+		MapKit.uiText(pg, ("+10%% %s XP"):format(Config.Stats[star.Stat].Name:upper()), 2, STAT_COLOR[star.Stat],
+			{ Size = UDim2.fromScale(0.94, 0.34), Position = UDim2.fromScale(0.03, 0.62) })
+		part(plaza, "StarPlaqueTrim", V(5.9, 2, 0.3), toCentre * CFrame.new(0, 0.9, -3.75) * CFrame.Angles(math.rad(-12), 0, 0),
+			gold, Enum.Material.SmoothPlastic)
+		-- the prompt: "Buy" or "Wear" (each player's screen sets the words)
+		local prompt = MapKit.prompt(plaza, "StarPrompt", at + V(0, 3, 0) + (V(0, 0, 0) - at).Unit * 2, "Buy", star.Name, 9)
+		prompt:SetAttribute("Star", key)
+		prompt.Name = "StarPrompt_" .. key
+		starPrompts[key] = prompt
 		task.spawn(function()
-			local desc = Instance.new("HumanoidDescription")
-			desc.Shirt = kit.Shirt
-			desc.Pants = kit.Pants
-			for _, k in ipairs({ "HeadColor", "LeftArmColor", "RightArmColor", "TorsoColor", "LeftLegColor", "RightLegColor" }) do
-				desc[k] = kit.Skin
-			end
+			local StarService = require(script.Parent:WaitForChild("StarService"))
 			local ok, rig = pcall(function()
-				return game:GetService("Players"):CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+				return game:GetService("Players"):CreateHumanoidModelFromDescription(StarService.Describe(star), Enum.HumanoidRigType.R15)
 			end)
 			if not ok or not rig then
-				warn("[Football] could not dress a kit dummy:", rig)
+				warn("[Football] could not make the star " .. key .. ":", rig)
 				return
 			end
-			rig.Name = "KitDummy"
+			rig.Name = "StarPlayer"
+			rig:SetAttribute("Star", key)
 			local humanoid = rig:FindFirstChildOfClass("Humanoid")
 			local root = rig:FindFirstChild("HumanoidRootPart")
 			if not (humanoid and root) then rig:Destroy() return end
@@ -301,9 +332,32 @@ local function buildPlaza(parent)
 				end
 			end
 			rig.PrimaryPart = root
-			local feet = at + V(0, 1.3, 0)
+			-- a bit bigger than life, like statues
+			pcall(function() rig:ScaleTo(1.4) end)
+			local feet = at + V(0, 1.36, 0)
 			local rootAt = feet + V(0, humanoid.HipHeight + root.Size.Y / 2, 0)
 			rig:PivotTo(CFrame.lookAt(rootAt, V(0, rootAt.Y, 0)))
+			-- stand exactly on the stand, whatever the scale did to the hips
+			local low = math.huge
+			for _, d in ipairs(rig:GetDescendants()) do
+				if d:IsA("BasePart") and d ~= root and not d:FindFirstAncestorOfClass("Accessory") then
+					low = math.min(low, d.Position.Y - d.Size.Y / 2)
+				end
+			end
+			if low < math.huge then rig:PivotTo(rig:GetPivot() + V(0, feet.Y - low, 0)) end
+			-- the name over the head (each player's screen adds "OWNED" or the price)
+			local head = rig:FindFirstChild("Head") or root
+			local tag = Instance.new("BillboardGui")
+			tag.Name = "StarTag"
+			tag.Size = UDim2.fromScale(7, 2.2)
+			tag.StudsOffsetWorldSpace = V(0, 2.6, 0)
+			tag.MaxDistance = 80
+			tag.LightInfluence = 0
+			tag.Adornee = head
+			MapKit.uiText(tag, star.Name, 4, COL.White, { Name = "Title", Size = UDim2.fromScale(1, 0.58) })
+			MapKit.uiText(tag, ("R$ %d"):format(Config.Gamepasses[star.Pass].Price), 3, rgb(120, 255, 140),
+				{ Name = "Price", Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.6) })
+			tag.Parent = head
 			rig.Parent = plaza
 			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
 			local anim = Instance.new("Animation")
@@ -328,6 +382,25 @@ local function buildPlaza(parent)
 			(i % 2 == 0) and COL.Gold or COL.Red, Enum.Material.SmoothPlastic, { CanCollide = false })
 	end
 
+	-- lamp posts and benches round the pitch, between the exits
+	for _, a in ipairs({ -75, -45, -15, 15, 60, 120, 165, 195, 240 }) do
+		local at = dir(a) * 45
+		local cf = CFrame.lookAt(at, V(0, 0, 0))
+		part(plaza, "LampBase", V(1.6, 1, 1.6), cf * CFrame.new(0, 0.8, 0), COL.NavyDark)
+		part(plaza, "LampPost", V(0.7, 9, 0.7), cf * CFrame.new(0, 5.5, 0), COL.NavyDark)
+		part(plaza, "LampArm", V(0.5, 0.5, 2.4), cf * CFrame.new(0, 9.6, -0.9), COL.NavyDark)
+		part(plaza, "Lantern", V(1.3, 1.3, 1.3), cf * CFrame.new(0, 9.1, -1.9), rgb(255, 236, 170), Enum.Material.Neon,
+			{ CastShadow = false })
+		part(plaza, "LanternCap", V(1.8, 0.4, 1.8), cf * CFrame.new(0, 9.9, -1.9), gold)
+		-- a bench beside it, facing the fountain
+		local bench = CFrame.lookAt(dir(a + 6) * 45, V(0, 0, 0))
+		part(plaza, "BenchSeat", V(5, 0.4, 1.6), bench * CFrame.new(0, 1.4, 0), rgb(176, 112, 60), Enum.Material.Wood)
+		part(plaza, "BenchBack", V(5, 1.4, 0.35), bench * CFrame.new(0, 2.3, 0.7), rgb(176, 112, 60), Enum.Material.Wood)
+		for _, sx in ipairs({ -1, 1 }) do
+			part(plaza, "BenchLeg", V(0.4, 1.2, 1.4), bench * CFrame.new(sx * 2.1, 0.6, 0), COL.NavyDark)
+		end
+	end
+
 	-- the spawn in front of the ball
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "Spawn"
@@ -347,9 +420,14 @@ end
 --------------------------------------------------------------------------------
 
 local function path(parent, a, b, width)
+	width = width or 12
 	local mid = (a + b) / 2
 	local length = (b - a).Magnitude
-	return part(parent, "Path", V(width or 12, 0.24, length), CFrame.lookAt(V(mid.X, 0.12, mid.Z), V(b.X, 0.12, b.Z)), COL.Path, Enum.Material.Concrete)
+	local cf = CFrame.lookAt(V(mid.X, 0.12, mid.Z), V(b.X, 0.12, b.Z))
+	-- a darker edge showing either side (under the path, so where two paths
+	-- cross the edge hides under the other path)
+	part(parent, "PathEdge", V(width + 2, 0.18, length + 2), cf * CFrame.new(0, -0.03, 0), COL.ConcreteDark, Enum.Material.Concrete)
+	return part(parent, "Path", V(width, 0.24, length), cf, COL.Path, Enum.Material.Concrete)
 end
 
 --------------------------------------------------------------------------------
@@ -424,7 +502,19 @@ local function building(parent, cf, w, d, h, wall, accent, trim)
 		for z = -d / 2 + 6, d / 2 - 6, 8 do
 			part(m, "Window", V(2, h * 0.34, 4.6), at(sx * w / 2, h * 0.58, z), rgb(130, 210, 255), Enum.Material.Glass, { Transparency = 0.15 })
 			part(m, "Sill", V(2.4, 0.6, 5.4), at(sx * w / 2, h * 0.39, z), trim)
+			-- a frame: a lintel over it and a bar down the middle
+			part(m, "Lintel", V(2.3, 0.5, 5.4), at(sx * w / 2, h * 0.77, z), trim)
+			part(m, "Mullion", V(2.2, h * 0.34, 0.4), at(sx * w / 2, h * 0.58, z), COL.White)
 		end
+		-- a band along the top of the wall
+		part(m, "Cornice", V(2.2, 0.9, d + 0.8), at(sx * w / 2, h - 0.8, 0), trim)
+	end
+	part(m, "Cornice", V(w + 0.8, 0.9, 2.2), at(0, h - 0.8, d / 2), trim)
+	-- windows on the back wall too
+	for x = -w / 2 + 8, w / 2 - 8, 10 do
+		part(m, "Window", V(5, h * 0.34, 2), at(x, h * 0.58, d / 2), rgb(130, 210, 255), Enum.Material.Glass, { Transparency = 0.15 })
+		part(m, "Sill", V(5.8, 0.6, 2.4), at(x, h * 0.39, d / 2), trim)
+		part(m, "Mullion", V(0.4, h * 0.34, 2.2), at(x, h * 0.58, d / 2), COL.White)
 	end
 	-- corner pillars
 	for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
@@ -436,11 +526,18 @@ local function building(parent, cf, w, d, h, wall, accent, trim)
 	part(m, "RoofRim", V(w + 6.4, 0.8, d + 6.4), at(0, h + 0.2, 0), accent)
 	part(m, "RoofTop", V(w * 0.6, 2.4, d * 0.5), at(0, h + 2.6, 0), wall)
 	part(m, "RoofTopRim", V(w * 0.6 + 0.6, 0.7, d * 0.5 + 0.6), at(0, h + 3.8, 0), trim)
+	-- air units on the roof, each with a dark grille
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "RoofUnit", V(4, 2.2, 3.4), at(sx * w * 0.38, h + 2.5, d * 0.2), COL.Concrete)
+		part(m, "Grille", V(3.2, 1.4, 0.3), at(sx * w * 0.38, h + 2.5, d * 0.2 - 1.75), COL.Rubber)
+	end
 	-- entrance: two pillars and a canopy over the open front
 	for _, sx in ipairs({ -1, 1 }) do
 		part(m, "FrontPillar", V(2.4, h, 2.4), at(sx * w * 0.22, h / 2, -d / 2 - 3), trim)
 	end
 	part(m, "Canopy", V(w * 0.55, 1.2, 7), at(0, h - 1.5, -d / 2 - 2.5), accent)
+	part(m, "CanopyRim", V(w * 0.55 + 0.6, 0.5, 7.6), at(0, h - 2.2, -d / 2 - 2.5), trim)
+	part(m, "Step", V(w * 0.5, 0.5, 4), at(0, 0.25, -d / 2 - 3), COL.Concrete, Enum.Material.Concrete)
 	return m
 end
 
@@ -697,6 +794,13 @@ local function blockyTree(parent, at, size, rnd)
 	local top = at + V(0, trunkH, 0)
 	part(m, "Leaves", V(10, 6, 10) * size, CFrame.new(top + V(0, 2 * size, 0)) * yaw, g, Enum.Material.Grass)
 	part(m, "Leaves", V(7, 4, 7) * size, CFrame.new(top + V(0, 6.5 * size, 0)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
+	-- clumps sticking out of the crown, a shade darker
+	for i = 0, 2 do
+		local side = CFrame.new(top) * yaw * CFrame.Angles(0, math.rad(i * 120 + rnd() * 30), 0)
+		part(m, "Leaves", V(4.4, 4, 4.4) * size, side * CFrame.new(0, (1 + rnd() * 2) * size, -5 * size), g:Lerp(COL.NavyDark, 0.1), Enum.Material.Grass)
+	end
+	-- roots
+	part(m, "Root", V(4, 1, 1.4) * size, CFrame.new(at + V(0, 0.5 * size, 0)) * yaw, bark, Enum.Material.Wood)
 	return m
 end
 
@@ -713,6 +817,7 @@ local function blockyPine(parent, at, size)
 		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)), greens[i], Enum.Material.Grass)
 		y += h * 0.8
 	end
+	part(m, "Needles", V(2.4, 2.4, 2.4) * size, CFrame.new(at + V(0, y + 1.2 * size, 0)), greens[3], Enum.Material.Grass)
 	return m
 end
 
@@ -837,6 +942,40 @@ local function scatterTrees(parent)
 			count += 1
 		end
 	end
+	-- bushes and flower patches in the grass between everything
+	local petals = { rgb(255, 90, 120), rgb(255, 220, 60), rgb(250, 250, 255), rgb(180, 120, 255), rgb(255, 150, 60) }
+	local extras = 0
+	for _ = 1, 3000 do
+		if extras >= 110 then break end
+		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
+		local ok = clearOf(boxes, pos, 4) and (pos - V(0, 0, 0)).Magnitude > PLAZA_RADIUS + STAND_DEPTH + 4
+		if ok then
+			for _, other in ipairs(planted) do
+				if (other - pos).Magnitude < 7 then
+					ok = false
+					break
+				end
+			end
+		end
+		if ok then
+			local yaw = CFrame.Angles(0, rnd() * math.pi, 0)
+			if extras % 3 == 0 then
+				-- a bush: two blocks
+				local g = rgb(64, 168, 70):Lerp(rgb(96, 196, 84), rnd())
+				part(folder, "Bush", V(4.4, 2.6, 3.6), CFrame.new(pos + V(0, 1.3, 0)) * yaw, g, Enum.Material.Grass)
+				part(folder, "Bush", V(2.8, 1.6, 2.6), CFrame.new(pos + V(0.6, 3, 0.2)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
+			else
+				-- a flower patch: three little flowers of one colour
+				local c = petals[math.floor(rnd() * #petals) + 1]
+				for k = 0, 2 do
+					local off = CFrame.new(pos) * yaw * CFrame.new((k - 1) * 1.3, 0, (k % 2) * 0.9)
+					part(folder, "Flower", V(1, 0.9, 1), off * CFrame.new(0, 0.45, 0), c, Enum.Material.SmoothPlastic, { CastShadow = false, CanCollide = false })
+				end
+			end
+			table.insert(planted, pos)
+			extras += 1
+		end
+	end
 end
 
 -- Flat pieces lying on each other at the same height flicker (the two
@@ -949,7 +1088,7 @@ function MapBuilder.Build()
 	scatterTrees(map)
 	fixOverlaps(map)
 
-	return records, boards, { PositionPrompt = positionPrompt }
+	return records, boards, { PositionPrompt = positionPrompt, StarPrompts = starPrompts }
 end
 
 return MapBuilder

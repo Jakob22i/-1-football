@@ -13,6 +13,7 @@ local HttpService = game:GetService("HttpService")
 local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 local CardView = require(ReplicatedStorage:WaitForChild("CardView"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
+local StarService = function() return require(script.Parent:WaitForChild("StarService")) end
 
 local StatService = {}
 
@@ -41,8 +42,10 @@ function StatService.HasPass(player, key)
 end
 
 -- Everything that multiplies XP, with a line for each (for the screen).
-function StatService.Multiplier(player, data, areaMult)
+-- With `stat`, the star players' bonus for that stat counts too.
+function StatService.Multiplier(player, data, areaMult, stat)
 	local mult = areaMult or 1
+	if stat then mult *= StarService().Bonus(player, stat) end
 	mult *= 1 + Config.Season.BonusPer * data.Season
 	if StatService.HasPass(player, "DoubleXP") then mult *= 2 end
 	if data.Boost > os.time() then mult *= Config.Boost.Multiplier end
@@ -163,7 +166,7 @@ function StatService.AddXP(player, stat, amount, areaMult, plain)
 	end
 	if not data.Stats[stat] then return 0 end
 
-	local gained = plain and amount or amount * StatService.Multiplier(player, data, areaMult)
+	local gained = plain and amount or amount * StatService.Multiplier(player, data, areaMult, stat)
 	gained = math.max(1, math.floor(gained + 0.5))
 	if not plain and touchStreak(data) and data.TrainStreak.Days >= 2 then
 		Notify:FireClient(player, ("\u{1F525} %d-day training streak! +%d%% XP"):format(data.TrainStreak.Days,

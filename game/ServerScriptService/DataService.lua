@@ -60,6 +60,7 @@ local function blank()
 		Receipts = {},
 		RobuxSpent = 0,
 		Settings = { Music = true, SFX = true },
+		Star = "",            -- the star player look worn (Config.Stars), "" = own
 	}
 end
 

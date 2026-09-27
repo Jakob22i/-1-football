@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v19"
+Config.Version = "v20"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -169,26 +169,28 @@ Config.LightingPresets.Studs = {
 	ColorCorrection = { Brightness = 0.1, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(221, 210, 255) },
 	SunRays = { Intensity = 0.25, Spread = 0.2 },
 }
+-- Bright and clear: no haze (far things keep their colours), light bloom
+-- only on the brightest spots, soft shadows that stay light enough to see in.
 Config.LightingPresets.PetSim = {
 	Lighting = {
-		Ambient = rgb(150, 150, 170),
-		Brightness = 2.6,
+		Ambient = rgb(140, 140, 150),
+		Brightness = 2.4,
 		ColorShift_Bottom = rgb(0, 0, 0),
-		ColorShift_Top = rgb(255, 244, 222),
+		ColorShift_Top = rgb(255, 248, 232),
 		EnvironmentDiffuseScale = 1,
-		EnvironmentSpecularScale = 0.7,
+		EnvironmentSpecularScale = 0.5,
 		GlobalShadows = true,
-		OutdoorAmbient = rgb(178, 178, 200),
-		ShadowSoftness = 0.3,
-		ExposureCompensation = 0.2,
-		ClockTime = 13.6,
-		GeographicLatitude = 22,
+		OutdoorAmbient = rgb(160, 160, 172),
+		ShadowSoftness = 0.25,
+		ExposureCompensation = 0,
+		ClockTime = 14,
+		GeographicLatitude = 20,
 	},
 	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
-	Atmosphere = { Density = 0.28, Offset = 0.12, Color = rgb(206, 228, 255), Decay = rgb(120, 170, 235), Glare = 0, Haze = 1.2 },
-	ColorCorrection = { Brightness = 0.03, Contrast = 0.1, Saturation = 0.22, TintColor = rgb(255, 252, 246) },
-	SunRays = { Intensity = 0.05, Spread = 0.6 },
-	Bloom = { Intensity = 0.55, Size = 30, Threshold = 1.35 },
+	Atmosphere = { Density = 0.18, Offset = 0, Color = rgb(214, 232, 255), Decay = rgb(150, 190, 240), Glare = 0, Haze = 0 },
+	ColorCorrection = { Brightness = 0, Contrast = 0.08, Saturation = 0.15, TintColor = rgb(255, 255, 255) },
+	SunRays = { Intensity = 0.02, Spread = 0.4 },
+	Bloom = { Intensity = 0.25, Size = 16, Threshold = 2 },
 }
 Config.Lighting = Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
 
@@ -213,17 +215,36 @@ Config.Texture = {
 	-- see-through parts (glass, nets, glows) stay plain
 	MaxTransparency = 0.25,
 	-- people, not things: the crowd, the drill players, the dummies
-	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true, Football = true, KitDummy = true },
+	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true, Football = true, KitDummy = true, StarPlayer = true },
 }
 
--- Real football kits from the Roblox catalogue on the four dummies round
--- the lobby fountain (plain stripes, no club badges).
-Config.LobbyKits = {
-	{ Shirt = 14293294743, Pants = 9468319359, Skin = Color3.fromRGB(234, 184, 146) }, -- red and black
-	{ Shirt = 11451507627, Pants = 13842975371, Skin = Color3.fromRGB(150, 98, 64) },  -- blue
-	{ Shirt = 14320687825, Pants = 9468319359, Skin = Color3.fromRGB(255, 214, 170) }, -- green and black
-	{ Shirt = 11659670285, Pants = 13842975371, Skin = Color3.fromRGB(198, 140, 100) }, -- sky blue
+-- The four star players round the lobby fountain, dressed in real kits,
+-- hair and beards from the Roblox catalogue. Each is a gamepass (Stars.Pass
+-- in Config.Gamepasses): walk up and buy it, then wear the look whenever
+-- you like, and get more XP in that player's best stat for good.
+Config.Stars = {
+	Ronaldo = {
+		Name = "RONALDO", Number = 7, Stat = "SHO", Bonus = 0.1, Pass = "Star_Ronaldo",
+		Shirt = 12671727804, Pants = 13957328362,    -- red and green, #7
+		Hair = { 135555885443323 }, Skin = Color3.fromRGB(214, 160, 118),
+	},
+	Messi = {
+		Name = "MESSI", Number = 10, Stat = "DRI", Bonus = 0.1, Pass = "Star_Messi",
+		Shirt = 13037685109, Pants = 15864727387,    -- sky blue and white stripes, #10
+		Hair = { 103592509359330 }, Face = { 119423740610031 }, Skin = Color3.fromRGB(234, 190, 152),
+	},
+	Bellingham = {
+		Name = "BELLINGHAM", Number = 10, Stat = "PAS", Bonus = 0.1, Pass = "Star_Bellingham",
+		Shirt = 122350971207999, Pants = 17126960776, -- white and navy, #10
+		Hair = { 126200440326529 }, Skin = Color3.fromRGB(124, 82, 56),
+	},
+	Neymar = {
+		Name = "NEYMAR JR", Number = 10, Stat = "PAC", Bonus = 0.1, Pass = "Star_Neymar",
+		Shirt = 91285212995098, Pants = 14483484956,  -- yellow and blue, #10
+		Hair = { 111937344447115 }, Skin = Color3.fromRGB(196, 140, 98),
+	},
 }
+Config.StarOrder = { "Ronaldo", "Messi", "Bellingham", "Neymar" }
 
 -- The people in the drills are real Roblox characters (PlayerFigure,
 -- RigService): your friends' avatars and the other players' in the server,
@@ -471,6 +492,11 @@ Config.Gamepasses = {
 	AutoTrain = { Id = 0, Price = 149, Name = "Auto-Train", Line = "Earn XP while you stand in the lobby.", Short = "XP while you stand still" },
 	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations.", Short = "New borders & effects" },
 	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", Short = "Run 20% faster", WalkBonus = 0.2 },
+	-- the star players by the fountain (Config.Stars)
+	Star_Ronaldo = { Id = 0, Price = 99, Name = "Ronaldo", Line = "Wear Ronaldo's look. +10% Shooting XP.", Short = "Ronaldo look + SHO XP" },
+	Star_Messi = { Id = 0, Price = 99, Name = "Messi", Line = "Wear Messi's look. +10% Dribbling XP.", Short = "Messi look + DRI XP" },
+	Star_Bellingham = { Id = 0, Price = 99, Name = "Bellingham", Line = "Wear Bellingham's look. +10% Passing XP.", Short = "Bellingham look + PAS XP" },
+	Star_Neymar = { Id = 0, Price = 99, Name = "Neymar Jr", Line = "Wear Neymar's look. +10% Pace XP.", Short = "Neymar look + PAC XP" },
 }
 Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "SpeedBoots", "Cosmetics" }
 

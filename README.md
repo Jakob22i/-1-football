@@ -94,6 +94,7 @@ challenge. All of it is decided on the server; the client only draws it.
 | +3 Stat Points (three lowest stats, up to 84) | product | 39 |
 | Training Pack (a level of XP for every stat, up to 90) | product | 49 |
 | Mega Pack (three levels of XP for every stat, up to 90) | product | 149 |
+| Ronaldo, Messi, Bellingham, Neymar Jr (the star players by the fountain: wear the look, +10% XP in one stat) | gamepass each | 99 |
 
 LEGEND cards and seasons can never be bought.
 
@@ -129,8 +130,8 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   avatars in the team's colours. A glowing ring under their feet shows the
   side: red attackers, green keeper, blue teammates, yellow dummies
   (`PlayerFigure.lua`, `RigService.lua`, `Config.Figures`).
-- **Light and sky**: soft, warm light with a purple atmosphere, colour
-  correction and sun rays (`Config.Lighting`). The sky is "Obby Sky" from
+- **Light and sky**: bright, clear daylight with no haze, light bloom and soft
+  shadows (`Config.Lighting`). The sky is "Obby Sky" from
   the Toolbox, loaded at start when Lighting has no Sky (`Config.Sky`).
 - **Buttons** are stud style: a bright-to-light gradient, studs, a light
   inner edge, a dark outer edge and round corners (`FKit.button`,
@@ -148,9 +149,18 @@ without Studio, so flat colours and emoji as words) are in `images/`.
 - **Map**: small and walled in by blocky mountains (grass, rock, snow). The
   three academies sit side by side east of the plaza, the stadium west.
   Buildings have bases, corner pillars, windows, roof rims and canopies.
-- **Lobby**: the plaza is a striped pitch with a giant football on a pedestal,
-  two small goals on the centre circle, corner flags and giant shirts on the
-  floodlights.
+- **Lobby**: the plaza is a striped pitch with a giant football over a golden
+  fountain, two small goals on the centre circle, corner flags, lamp posts
+  and benches, and ad boards in front of the stands.
+- **Star players**: Ronaldo, Messi, Bellingham and Neymar Jr stand round the
+  fountain in real catalogue kits, hair and beard (`Config.Stars`). Each is a
+  gamepass: press E to buy, then E to wear the look on your own avatar (kept
+  when you respawn and rejoin) or take it off. Owning one gives +10% XP in
+  that player's best stat. Set each pass id in `Config.Gamepasses`
+  (`Star_Ronaldo` ...); with id 0 they are free in Studio (`StarService.lua`).
+- **Detail**: buildings have window frames, cornices, back windows, roof
+  units and a front step; trees have leaf clumps and roots; paths have a
+  darker edge; bushes and flower patches fill the grass.
 - **Readable signs**: sign text sits on a plain background (the studs never
   show through the letters) and small signs fade out far away.
 - **Trees**: blocky trees and pines, kept clear of every stand, pitch and path.
@@ -185,6 +195,7 @@ game/ServerScriptService    Main            remotes, map, services, players
                             MatchService    the stadium match
                             RewardService   daily, quests, cosmetics
                             ShopService     gamepasses and products
+                            StarService     the star players: buy, wear, XP bonus
                             RigService      the real Roblox characters for the drills
                             LeaderboardService, MapBuilder, StationBuilder, MapKit
 game/StarterPlayerScripts   ClientMain      starts the client

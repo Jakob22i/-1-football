@@ -17,6 +17,7 @@ local TrainingService = require(script.Parent:WaitForChild("TrainingService"))
 local MatchService = require(script.Parent:WaitForChild("MatchService"))
 local RewardService = require(script.Parent:WaitForChild("RewardService"))
 local ShopService = require(script.Parent:WaitForChild("ShopService"))
+local StarService = require(script.Parent:WaitForChild("StarService"))
 local LeaderboardService = require(script.Parent:WaitForChild("LeaderboardService"))
 
 --------------------------------------------------------------------------------
@@ -151,6 +152,7 @@ TrainingService.Init(remotes, records)
 MatchService.Init()
 RewardService.Init(remotes)
 ShopService.Init(remotes)
+StarService.Init(remotes, extra.StarPrompts)
 LeaderboardService.Init(boards)
 
 StatService.OnChanged = function(player)
@@ -203,6 +205,7 @@ local function onCharacter(player)
 	character:WaitForChild("HumanoidRootPart", 5)
 	TrainingService.CharacterAdded(player)
 	StatService.CharacterAdded(player)
+	task.spawn(StarService.CharacterAdded, player)
 end
 
 local function onJoin(player)
