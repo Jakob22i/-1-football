@@ -11,7 +11,7 @@ local petSim = require(script.Parent:WaitForChild("FootballConfig")).Look == "Pe
 FKit.PetSim = petSim
 
 FKit.Font = Enum.Font.FredokaOne
-FKit.Body = Enum.Font.GothamBold
+FKit.Body = Enum.Font.FredokaOne
 
 FKit.Color = {
 	White = Color3.new(1, 1, 1),

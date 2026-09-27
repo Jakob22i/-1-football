@@ -116,7 +116,7 @@ local function buildBlocky(parent, kit, opts)
 	label.Size = UDim2.fromScale(1, 1)
 	label.Text = tostring(number)
 	label.TextScaled = true
-	label.Font = Enum.Font.GothamBlack
+	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = accent
 	label.Parent = numberGui
 	numberGui.Parent = torso

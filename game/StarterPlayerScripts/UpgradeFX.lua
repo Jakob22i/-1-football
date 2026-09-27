@@ -105,7 +105,7 @@ local function burst(center, colors, count, style, speed)
 	if style == "Hearts" then
 		for i = 1, math.floor(count * 0.6) do
 			local l = new("TextLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1,
-				Text = "\u{2764}", TextScaled = true, TextColor3 = colors[i % #colors + 1], Font = Enum.Font.GothamBold, ZIndex = 60, Parent = ctx.Overlay })
+				Text = "\u{2764}", TextScaled = true, TextColor3 = colors[i % #colors + 1], Font = Enum.Font.FredokaOne, ZIndex = 60, Parent = ctx.Overlay })
 			particle(l, center + Vector2.new(math.random(-160, 160), math.random(-40, 60)), Vector2.new(math.random(-80, 80), -math.random(200, 420)) * speed,
 				1.6, 120, math.random(-60, 60))
 		end

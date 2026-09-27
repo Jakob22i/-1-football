@@ -615,7 +615,7 @@ function WINDOWS.Style.Build(page)
 			FKit.stroke(swatch, 2, C.Ink, true)
 			if kind == "Celebration" then
 				swatch.BackgroundColor3 = Color3.fromRGB(20, 30, 80)
-				FKit.fit(swatch, CELEBRATION_ICON[id] or "\u{2728}", 28, C.White, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.GothamBold })
+				FKit.fit(swatch, CELEBRATION_ICON[id] or "\u{2728}", 28, C.White, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.FredokaOne })
 			else
 				local colors = item.Colors or { Color3.fromRGB(196, 120, 60), Color3.fromRGB(92, 48, 18) }
 				FKit.gradient(swatch, colors, kind == "Border" and 0 or 90)

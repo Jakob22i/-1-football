@@ -25,6 +25,25 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local new = FKit.new
 local C = FKit.Color
 
+-- Fredoka One everywhere: the chat, and any text that turns up on the
+-- screen without it
+task.spawn(pcall, function()
+	local chat = game:GetService("TextChatService")
+	local fredoka = Font.fromEnum(Enum.Font.FredokaOne)
+	for _, name in ipairs({ "ChatWindowConfiguration", "ChatInputBarConfiguration", "BubbleChatConfiguration" }) do
+		local conf = chat:FindFirstChild(name) or chat:WaitForChild(name, 5)
+		if conf then conf.FontFace = fredoka end
+	end
+end)
+local function fredoka(d)
+	if (d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox")) and d.Font ~= Enum.Font.FredokaOne then
+		d.Font = Enum.Font.FredokaOne
+	end
+end
+local playerGui = player:WaitForChild("PlayerGui")
+for _, d in ipairs(playerGui:GetDescendants()) do fredoka(d) end
+playerGui.DescendantAdded:Connect(fredoka)
+
 local ctx = { Player = player, Config = Config, Sounds = Sounds }
 ctx.Remotes = {
 	Train = remotes:WaitForChild("Train"),

@@ -655,7 +655,7 @@ local petSim = require(script.Parent:WaitForChild("FootballConfig")).Look == "Pe
 FKit.PetSim = petSim
 
 FKit.Font = Enum.Font.FredokaOne
-FKit.Body = Enum.Font.GothamBold
+FKit.Body = Enum.Font.FredokaOne
 
 FKit.Color = {
 	White = Color3.new(1, 1, 1),
@@ -1155,7 +1155,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v18"
+Config.Version = "v19"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -2328,7 +2328,7 @@ local function buildBlocky(parent, kit, opts)
 	label.Size = UDim2.fromScale(1, 1)
 	label.Text = tostring(number)
 	label.TextScaled = true
-	label.Font = Enum.Font.GothamBlack
+	label.Font = Enum.Font.FredokaOne
 	label.TextColor3 = accent
 	label.Parent = numberGui
 	numberGui.Parent = torso
@@ -7022,6 +7022,25 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local new = FKit.new
 local C = FKit.Color
 
+-- Fredoka One everywhere: the chat, and any text that turns up on the
+-- screen without it
+task.spawn(pcall, function()
+	local chat = game:GetService("TextChatService")
+	local fredoka = Font.fromEnum(Enum.Font.FredokaOne)
+	for _, name in ipairs({ "ChatWindowConfiguration", "ChatInputBarConfiguration", "BubbleChatConfiguration" }) do
+		local conf = chat:FindFirstChild(name) or chat:WaitForChild(name, 5)
+		if conf then conf.FontFace = fredoka end
+	end
+end)
+local function fredoka(d)
+	if (d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox")) and d.Font ~= Enum.Font.FredokaOne then
+		d.Font = Enum.Font.FredokaOne
+	end
+end
+local playerGui = player:WaitForChild("PlayerGui")
+for _, d in ipairs(playerGui:GetDescendants()) do fredoka(d) end
+playerGui.DescendantAdded:Connect(fredoka)
+
 local ctx = { Player = player, Config = Config, Sounds = Sounds }
 ctx.Remotes = {
 	Train = remotes:WaitForChild("Train"),
@@ -7830,7 +7849,7 @@ function WINDOWS.Style.Build(page)
 			FKit.stroke(swatch, 2, C.Ink, true)
 			if kind == "Celebration" then
 				swatch.BackgroundColor3 = Color3.fromRGB(20, 30, 80)
-				FKit.fit(swatch, CELEBRATION_ICON[id] or "\u{2728}", 28, C.White, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.GothamBold })
+				FKit.fit(swatch, CELEBRATION_ICON[id] or "\u{2728}", 28, C.White, { Size = UDim2.fromScale(1, 1), Font = Enum.Font.FredokaOne })
 			else
 				local colors = item.Colors or { Color3.fromRGB(196, 120, 60), Color3.fromRGB(92, 48, 18) }
 				FKit.gradient(swatch, colors, kind == "Border" and 0 or 90)
@@ -9730,7 +9749,7 @@ local function burst(center, colors, count, style, speed)
 	if style == "Hearts" then
 		for i = 1, math.floor(count * 0.6) do
 			local l = new("TextLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1,
-				Text = "\u{2764}", TextScaled = true, TextColor3 = colors[i % #colors + 1], Font = Enum.Font.GothamBold, ZIndex = 60, Parent = ctx.Overlay })
+				Text = "\u{2764}", TextScaled = true, TextColor3 = colors[i % #colors + 1], Font = Enum.Font.FredokaOne, ZIndex = 60, Parent = ctx.Overlay })
 			particle(l, center + Vector2.new(math.random(-160, 160), math.random(-40, 60)), Vector2.new(math.random(-80, 80), -math.random(200, 420)) * speed,
 				1.6, 120, math.random(-60, 60))
 		end
