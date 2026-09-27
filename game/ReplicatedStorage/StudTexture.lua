@@ -41,9 +41,23 @@ local function wants(part)
 	return not isCharacter(part)
 end
 
+-- The Pet Simulator look: smooth and a little brighter and more colourful.
+local function petSim(part)
+	part.Material = Enum.Material.SmoothPlastic
+	for _, face in ipairs(SURFACES) do
+		part[face] = Enum.SurfaceType.Smooth
+	end
+	local h, sat, v = part.Color:ToHSV()
+	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.12 + 0.03), math.min(1, v * 1.07 + 0.02))
+end
+
 function StudTexture.Apply(part)
 	if not wants(part) then return end
 	part:SetAttribute("Studs", true)
+	if Config.Look == "PetSim" then
+		petSim(part)
+		return
+	end
 	-- Roblox only shows surfaces on Plastic (not SmoothPlastic, Grass, Wood ...)
 	part.Material = Enum.Material.Plastic
 	for _, face in ipairs(SURFACES) do

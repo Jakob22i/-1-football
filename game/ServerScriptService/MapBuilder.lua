@@ -731,6 +731,10 @@ local function mountain(parent, at, width, height, rnd)
 		local h = height / tiers
 		local color = t < 0.25 and rgb(86, 170, 74) or (t < 0.7 and rgb(130, 132, 140):Lerp(rgb(160, 162, 170), rnd()) or rgb(236, 242, 250))
 		if t >= 0.7 and height < 60 then color = rgb(150, 152, 160) end
+		if Config.Look == "PetSim" then
+			-- soft green hills with light rock and bright snow
+			color = t < 0.4 and rgb(96, 200, 90):Lerp(rgb(120, 214, 100), rnd()) or (t < 0.7 and rgb(186, 196, 214) or rgb(248, 252, 255))
+		end
 		local off = V((rnd() - 0.5) * w * 0.12, 0, (rnd() - 0.5) * w * 0.12)
 		part(m, "Rock", V(w, h + 0.5, w * (0.8 + rnd() * 0.3)), CFrame.new(at + off + V(0, y + h / 2, 0)) * yaw, color, Enum.Material.Rock,
 			{ CastShadow = false, CanQuery = false })

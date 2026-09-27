@@ -3,6 +3,8 @@
 
 local MapKit = {}
 
+local PETSIM = require(game:GetService("ReplicatedStorage"):WaitForChild("FootballConfig")).Look == "PetSim"
+
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
 MapKit.rgb = rgb
 
@@ -125,9 +127,15 @@ local function uiText(parent, text, size, color, props)
 	for k, v in pairs(props or {}) do l[k] = v end
 	local s = Instance.new("UIStroke")
 	s.Thickness = size or 4
-	s.Color = COL.NavyDark
+	s.Color = PETSIM and Color3.fromRGB(8, 8, 16) or COL.NavyDark
 	s.LineJoinMode = Enum.LineJoinMode.Round
 	s.Parent = l
+	if PETSIM and (color == nil or color == COL.White) then
+		local g = Instance.new("UIGradient")
+		g.Rotation = 90
+		g.Color = ColorSequence.new(COL.White, Color3.fromRGB(214, 228, 255))
+		g.Parent = l
+	end
 	l.Parent = parent
 	return l
 end

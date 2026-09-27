@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v16"
+Config.Version = "v17"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -140,7 +140,16 @@ end
 -- The light (from the "lighting settings for new devs" video): soft, warm
 -- and a little purple, with atmosphere, colour correction and sun rays.
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
-Config.Lighting = {
+
+-- The look of the whole game:
+--   "PetSim": smooth, glossy-bright surfaces in saturated colours, soft
+--             bright light with bloom and a blue haze, bold outlined text
+--             (the Pet Simulator style)
+--   "Studs":  Roblox studs on everything and the purple video lighting
+Config.Look = "PetSim"
+
+Config.LightingPresets = {}
+Config.LightingPresets.Studs = {
 	Lighting = {
 		Ambient = rgb(130, 130, 130),
 		Brightness = 3,
@@ -160,6 +169,28 @@ Config.Lighting = {
 	ColorCorrection = { Brightness = 0.1, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(221, 210, 255) },
 	SunRays = { Intensity = 0.25, Spread = 0.2 },
 }
+Config.LightingPresets.PetSim = {
+	Lighting = {
+		Ambient = rgb(150, 150, 170),
+		Brightness = 2.6,
+		ColorShift_Bottom = rgb(0, 0, 0),
+		ColorShift_Top = rgb(255, 244, 222),
+		EnvironmentDiffuseScale = 1,
+		EnvironmentSpecularScale = 0.7,
+		GlobalShadows = true,
+		OutdoorAmbient = rgb(178, 178, 200),
+		ShadowSoftness = 0.3,
+		ExposureCompensation = 0.2,
+		ClockTime = 13.6,
+		GeographicLatitude = 22,
+	},
+	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
+	Atmosphere = { Density = 0.28, Offset = 0.12, Color = rgb(206, 228, 255), Decay = rgb(120, 170, 235), Glare = 0, Haze = 1.2 },
+	ColorCorrection = { Brightness = 0.03, Contrast = 0.1, Saturation = 0.22, TintColor = rgb(255, 252, 246) },
+	SunRays = { Intensity = 0.05, Spread = 0.6 },
+	Bloom = { Intensity = 0.55, Size = 30, Threshold = 1.35 },
+}
+Config.Lighting = Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
 
 -- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
 -- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).

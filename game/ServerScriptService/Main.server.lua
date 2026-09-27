@@ -79,7 +79,7 @@ end
 do
 	local Lighting = game:GetService("Lighting")
 	local L = Config.Lighting
-	for k, v in pairs(L.Lighting) do Lighting[k] = v end
+	for k, v in pairs(L.Lighting) do pcall(function() Lighting[k] = v end) end
 	for k, v in pairs(L.Newer) do
 		pcall(function()
 			if k == "LightingStyle" then Lighting[k] = Enum.LightingStyle[v] else Lighting[k] = v end
@@ -95,6 +95,7 @@ do
 	effect("Atmosphere", "Atmosphere", L.Atmosphere)
 	effect("ColorCorrectionEffect", "ColorCorrection", L.ColorCorrection)
 	effect("SunRaysEffect", "SunRays", L.SunRays)
+	if L.Bloom then effect("BloomEffect", "Bloom", L.Bloom) end
 end
 
 -- the sky (Config.Sky), when its six images are filled in

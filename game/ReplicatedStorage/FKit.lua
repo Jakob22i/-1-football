@@ -6,6 +6,10 @@ local TweenService = game:GetService("TweenService")
 
 local FKit = {}
 
+-- the Pet Simulator look: bold black outlines and a light gradient on text
+local petSim = require(script.Parent:WaitForChild("FootballConfig")).Look == "PetSim"
+FKit.PetSim = petSim
+
 FKit.Font = Enum.Font.FredokaOne
 FKit.Body = Enum.Font.GothamBold
 
@@ -99,11 +103,15 @@ function FKit.text(parent, text, size, color, props)
 	for k, v in pairs(props or {}) do l[k] = v end
 	new("UIStroke", {
 		Name = "TextStroke",
-		Thickness = math.clamp(size / 8, 1.5, 5),
-		Color = C.Ink,
+		Thickness = petSim and math.clamp(size / 6.5, 2, 6) or math.clamp(size / 8, 1.5, 5),
+		Color = petSim and Color3.fromRGB(8, 8, 16) or C.Ink,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Parent = l,
 	})
+	if petSim and (color == nil or color == C.White) then
+		-- white on top, a hint of cool blue at the bottom
+		new("UIGradient", { Name = "TextShade", Rotation = 90, Color = ColorSequence.new(C.White, Color3.fromRGB(214, 228, 255)), Parent = l })
+	end
 	return l
 end
 
@@ -200,7 +208,17 @@ function FKit.button(parent, text, palette, props)
 		Parent = b,
 	})
 	FKit.corner(face, UDim.new(0.22, 0))
-	FKit.studs(face, 16, 1, b.ZIndex)
+	if petSim then
+		-- Pet Simulator buttons: a glossy top instead of studs
+		local gloss = new("Frame", {
+			Name = "Gloss", BackgroundColor3 = C.White, BackgroundTransparency = 0.55, BorderSizePixel = 0,
+			Position = UDim2.new(0, 5, 0, 4), Size = UDim2.new(1, -10, 0.42, 0), ZIndex = b.ZIndex, Parent = face,
+		})
+		FKit.corner(gloss, UDim.new(0.3, 0))
+		new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(0.1, 0.85), Parent = gloss })
+	else
+		FKit.studs(face, 16, 1, b.ZIndex)
+	end
 	-- the light inner edge
 	local rim = new("Frame", {
 		Name = "Rim",
@@ -345,7 +363,7 @@ function FKit.panel(parent, props, radius)
 	})
 	FKit.corner(rim, math.max(2, (radius or 18) - 3))
 	FKit.stroke(rim, 2, C.White, true, 0.8)
-	FKit.studs(f, 28, 0.4, f.ZIndex)
+	if not petSim then FKit.studs(f, 28, 0.4, f.ZIndex) end
 	return f
 end
 
