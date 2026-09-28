@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 local MapKit = require(script.Parent:WaitForChild("MapKit"))
 local StationBuilder = require(script.Parent:WaitForChild("StationBuilder"))
+local Decor = require(script.Parent:WaitForChild("Decor"))
 
 local part, patch, line, cylinder, ring, disc, ball = MapKit.part, MapKit.patch, MapKit.line, MapKit.cylinder, MapKit.ring, MapKit.disc, MapKit.ball
 local COL = MapKit.Colors
@@ -30,6 +31,14 @@ local ACADEMY_SCALE = 0.8
 
 local STAT_COLOR = {}
 for stat, def in pairs(Config.Stats) do STAT_COLOR[stat] = def.Color end
+
+-- a repeatable random number generator (the same map every time)
+local function seeded(seed)
+	return function()
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return seed / 2147483648
+	end
+end
 
 local function dir(deg)
 	local a = math.rad(deg)
@@ -158,18 +167,19 @@ local function buildPlaza(parent)
 	local plaza = Instance.new("Folder")
 	plaza.Name = "Plaza"
 	plaza.Parent = parent
-	-- the plaza is a pitch: a white rim, grass, and mown stripes across it
+	-- the plaza: pale paving round a small round pitch in the middle
 	local floorR = PLAZA_RADIUS + 3
-	disc(plaza, "Rim", V(0, 0, 0), floorR * 2 + 3, COL.Line, 0.26, Enum.Material.SmoothPlastic)
-	disc(plaza, "Floor", V(0, 0, 0), floorR * 2, COL.GrassDark, 0.3, Enum.Material.Grass)
-	for x = -floorR + 4, floorR - 4, 16 do
-		local len = 2 * math.sqrt(math.max(0, floorR * floorR - (math.abs(x) + 4) ^ 2)) - 2
-		if len > 4 then patch(plaza, "Stripe", 8, len, CFrame.new(V(x, 0, 0)), COL.GrassLight, Enum.Material.Grass, 0.32) end
-	end
+	disc(plaza, "Rim", V(0, 0, 0), floorR * 2 + 3, Decor.Colors.PavingDark, 0.26, Enum.Material.SmoothPlastic)
+	disc(plaza, "Floor", V(0, 0, 0), floorR * 2, Decor.Colors.Paving, 0.3, Enum.Material.SmoothPlastic)
 	-- the centre circle of a pitch in the middle
 	-- white rims under green discs (a few parts instead of rings of 50)
 	disc(plaza, "Edge", V(0, 0, 0), 47.8, COL.Line, 0.34, Enum.Material.SmoothPlastic)
 	disc(plaza, "CentreGrass", V(0, 0, 0), 46, COL.Grass, 0.38, Enum.Material.Grass)
+	-- mown stripes on the pitch (under the centre circle)
+	for x = -20, 20, 8 do
+		local len = 2 * math.sqrt(math.max(0, 22.6 ^ 2 - (math.abs(x) + 2) ^ 2))
+		if len > 4 then patch(plaza, "Stripe", 4, len, CFrame.new(V(x, 0, 0)), COL.GrassLight, Enum.Material.Grass, 0.4) end
+	end
 	disc(plaza, "CentreLine", V(0, 0, 0), 31.4, COL.Line, 0.42, Enum.Material.SmoothPlastic)
 	disc(plaza, "CentreGrass", V(0, 0, 0), 30, COL.Grass, 0.46, Enum.Material.Grass)
 	disc(plaza, "CentreSpot", V(0, 0, 0), 2.2, COL.Line, 0.52, Enum.Material.SmoothPlastic)
@@ -222,14 +232,14 @@ local function buildPlaza(parent)
 	fountain.Name = "Fountain"
 	fountain.Parent = plaza
 	local gold, goldDark = rgb(255, 204, 50), rgb(226, 150, 30)
-	local water = rgb(90, 190, 255)
+	local water = rgb(110, 214, 255)
 	disc(fountain, "BasinFoot", V(0, 0, 0), 25, goldDark, 0.8, Enum.Material.SmoothPlastic)
 	disc(fountain, "Basin", V(0, 0, 0), 23, gold, 2.2, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
-	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Neon, { Transparency = 0.3, CanCollide = false, CastShadow = false })
 	cylinder(fountain, "Column", 5, 4, V(0, 2, 0), gold, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
 	disc(fountain, "Bowl", V(0, 6.6, 0), 10, gold, 1, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
 	disc(fountain, "BowlRim", V(0, 6.2, 0), 10.8, goldDark, 0.5, Enum.Material.SmoothPlastic)
-	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Neon, { Transparency = 0.3, CanCollide = false, CastShadow = false })
 	local spout = cylinder(fountain, "Spout", 1.6, 1.6, V(0, 7.6, 0), gold, Enum.Material.SmoothPlastic)
 	-- water: one emitter up from the spout, one splash round the basin
 	local jet = Instance.new("ParticleEmitter")
@@ -289,17 +299,30 @@ local function buildPlaza(parent)
 		local a = 45 + (i - 1) * 90
 		local at = dir(a) * 34
 		local toCentre = CFrame.lookAt(at, V(0, 0, 0))
-		disc(plaza, "KitStandRim", at, 7.4, gold, 0.9, Enum.Material.SmoothPlastic)
-		disc(plaza, "KitStand", at, 6.4, COL.NavyDark, 1.3, Enum.Material.SmoothPlastic)
-		disc(plaza, "KitStandTop", at, 5.6, gold, 1.36, Enum.Material.SmoothPlastic)
+		-- a raised garden bed round the stand, with a tree, a rock, grass,
+		-- gold coins and a trophy on it
+		local _, bedTop = Decor.bed(plaza, toCentre, 13, 13, 3.2, 0.9)
+		local function onBed(x, z) return (toCentre * CFrame.new(x, bedTop, z)).Position end
+		local rnd = seeded(i * 7)
+		Decor.tree(plaza, onBed(4.3, 4.3), 0.62, rnd)
+		Decor.rock(plaza, onBed(-4.4, 4), 0.55, rnd)
+		Decor.coins(plaza, onBed(-4.6, -3.2), rnd)
+		Decor.trophy(plaza, onBed(4.6, -3.4), 0.8, rnd)
+		Decor.tuft(plaza, onBed(-5.2, 0.6), 0.8, rnd)
+		Decor.tuft(plaza, onBed(5.3, 0.2), 0.7, rnd)
+		Decor.tuft(plaza, onBed(0.8, 5.4), 0.7, rnd)
+		local stand = at + V(0, bedTop, 0)
+		disc(plaza, "KitStandRim", stand, 7.4, gold, 0.5, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStand", stand, 6.4, COL.NavyDark, 0.9, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStandTop", stand, 5.6, gold, 0.96, Enum.Material.SmoothPlastic)
 		-- the name plaque on the stand's front, and its number in gold
-		local plaque = part(plaza, "StarPlaque", V(5.4, 1.5, 0.4), toCentre * CFrame.new(0, 0.9, -3.95) * CFrame.Angles(math.rad(-12), 0, 0),
+		local plaque = part(plaza, "StarPlaque", V(5.4, 1.5, 0.4), toCentre * CFrame.new(0, 1.8, -4.3) * CFrame.Angles(math.rad(-12), 0, 0),
 			COL.NavyDark, Enum.Material.SmoothPlastic)
 		local pg = MapKit.surface(plaque, Enum.NormalId.Front, 40, COL.NavyDark, 90)
 		MapKit.uiText(pg, star.Name, 4, COL.White, { Size = UDim2.fromScale(0.94, 0.58), Position = UDim2.fromScale(0.03, 0.04) })
 		MapKit.uiText(pg, ("+10%% %s XP"):format(Config.Stats[star.Stat].Name:upper()), 2, STAT_COLOR[star.Stat],
 			{ Size = UDim2.fromScale(0.94, 0.34), Position = UDim2.fromScale(0.03, 0.62) })
-		part(plaza, "StarPlaqueTrim", V(5.9, 2, 0.3), toCentre * CFrame.new(0, 0.9, -3.75) * CFrame.Angles(math.rad(-12), 0, 0),
+		part(plaza, "StarPlaqueTrim", V(5.9, 2, 0.3), toCentre * CFrame.new(0, 1.8, -4.1) * CFrame.Angles(math.rad(-12), 0, 0),
 			gold, Enum.Material.SmoothPlastic)
 		-- the prompt: "Buy" or "Wear" (each player's screen sets the words)
 		local prompt = MapKit.prompt(plaza, "StarPrompt", at + V(0, 3, 0) + (V(0, 0, 0) - at).Unit * 2, "Buy", star.Name, 9)
@@ -336,7 +359,7 @@ local function buildPlaza(parent)
 			rig.PrimaryPart = root
 			-- a bit bigger than life, like statues
 			pcall(function() rig:ScaleTo(1.4) end)
-			local feet = at + V(0, 1.36, 0)
+			local feet = stand + V(0, 0.96, 0)
 			local rootAt = feet + V(0, humanoid.HipHeight + root.Size.Y / 2, 0)
 			rig:PivotTo(CFrame.lookAt(rootAt, V(0, rootAt.Y, 0)))
 			-- stand exactly on the stand, whatever the scale did to the hips
@@ -407,22 +430,38 @@ local function buildPlaza(parent)
 			(i % 2 == 0) and COL.Gold or COL.Red, Enum.Material.SmoothPlastic, { CanCollide = false })
 	end
 
-	-- lamp posts and benches round the pitch, between the exits
-	for _, a in ipairs({ -75, -45, -15, 15, 60, 120, 165, 195, 240 }) do
+	-- lamp posts with glowing orbs, plank benches, and string lights with
+	-- glowing bulbs hanging from lamp to lamp round the plaza
+	local lampAngles = { -75, -45, -15, 15, 60, 120, 165, 195, 240 }
+	local orbs = {}
+	for _, a in ipairs(lampAngles) do
 		local at = dir(a) * 45
 		local cf = CFrame.lookAt(at, V(0, 0, 0))
-		part(plaza, "LampBase", V(1.6, 1, 1.6), cf * CFrame.new(0, 0.8, 0), COL.NavyDark)
-		part(plaza, "LampPost", V(0.7, 9, 0.7), cf * CFrame.new(0, 5.5, 0), COL.NavyDark)
-		part(plaza, "LampArm", V(0.5, 0.5, 2.4), cf * CFrame.new(0, 9.6, -0.9), COL.NavyDark)
-		part(plaza, "Lantern", V(1.3, 1.3, 1.3), cf * CFrame.new(0, 9.1, -1.9), rgb(255, 236, 170), Enum.Material.Neon,
-			{ CastShadow = false })
-		part(plaza, "LanternCap", V(1.8, 0.4, 1.8), cf * CFrame.new(0, 9.9, -1.9), gold)
-		-- a bench beside it, facing the fountain
-		local bench = CFrame.lookAt(dir(a + 6) * 45, V(0, 0, 0))
-		part(plaza, "BenchSeat", V(5, 0.4, 1.6), bench * CFrame.new(0, 1.4, 0), rgb(176, 112, 60), Enum.Material.Wood)
-		part(plaza, "BenchBack", V(5, 1.4, 0.35), bench * CFrame.new(0, 2.3, 0.7), rgb(176, 112, 60), Enum.Material.Wood)
-		for _, sx in ipairs({ -1, 1 }) do
-			part(plaza, "BenchLeg", V(0.4, 1.2, 1.4), bench * CFrame.new(sx * 2.1, 0.6, 0), COL.NavyDark)
+		part(plaza, "LampBase", V(1.8, 1, 1.8), cf * CFrame.new(0, 0.8, 0), rgb(60, 64, 120))
+		part(plaza, "LampPost", V(0.7, 9, 0.7), cf * CFrame.new(0, 5.5, 0), rgb(60, 64, 120))
+		part(plaza, "LanternCap", V(1.4, 0.5, 1.4), cf * CFrame.new(0, 10.2, 0), gold)
+		ball(plaza, "Lantern", 2.2, (cf * CFrame.new(0, 11.4, 0)).Position, Decor.Colors.Bulb, Enum.Material.Neon, { CastShadow = false })
+		table.insert(orbs, (cf * CFrame.new(0, 10.4, 0)).Position)
+		Decor.bench(plaza, CFrame.lookAt(dir(a + 6) * 45, V(0, 0, 0)))
+	end
+	for i, from in ipairs(orbs) do
+		local to = orbs[i % #orbs + 1]
+		local span = (to - from).Magnitude
+		Decor.stringLights(plaza, from, to, math.min(3.2, span * 0.08), math.max(3, math.floor(span / 4)))
+	end
+	-- flat hexagon stones set in the paving
+	local rnd = seeded(5)
+	for _ = 1, 60 do
+		local a = rnd() * 360
+		local r = 27 + rnd() * 25
+		local at = dir(a) * r
+		local clear = true
+		for k = 0, 3 do
+			if (at - dir(45 + k * 90) * 34).Magnitude < 10.5 then clear = false end
+		end
+		if clear then
+			Decor.hexStone(plaza, at + V(0, 0.3, 0), 2.2 + rnd() * 1.4, rnd() * 60,
+				rnd() < 0.5 and Decor.Colors.PavingDark or Decor.Colors.Paving:Lerp(COL.White, 0.4), 0.1)
 		end
 	end
 
@@ -451,8 +490,8 @@ local function path(parent, a, b, width)
 	local cf = CFrame.lookAt(V(mid.X, 0.12, mid.Z), V(b.X, 0.12, b.Z))
 	-- a darker edge showing either side (under the path, so where two paths
 	-- cross the edge hides under the other path)
-	part(parent, "PathEdge", V(width + 2, 0.18, length + 2), cf * CFrame.new(0, -0.03, 0), COL.ConcreteDark, Enum.Material.Concrete)
-	return part(parent, "Path", V(width, 0.24, length), cf, COL.Path, Enum.Material.Concrete)
+	part(parent, "PathEdge", V(width + 2, 0.18, length + 2), cf * CFrame.new(0, -0.03, 0), Decor.Colors.PavingDark, Enum.Material.SmoothPlastic)
+	return part(parent, "Path", V(width, 0.24, length), cf, Decor.Colors.Paving, Enum.Material.SmoothPlastic)
 end
 
 --------------------------------------------------------------------------------
@@ -805,47 +844,6 @@ end
 -- Scenery
 --------------------------------------------------------------------------------
 
--- Blocky trees (all blocks, so they wear the studs like everything else).
-local function blockyTree(parent, at, size, rnd)
-	local m = Instance.new("Model")
-	m.Name = "Tree"
-	m.Parent = parent
-	local bark = rgb(120, 80, 48)
-	local greens = { rgb(60, 170, 70), rgb(80, 190, 80), rgb(50, 150, 64), rgb(100, 205, 90) }
-	local g = greens[math.floor(rnd() * #greens) + 1]
-	local trunkH = 7 * size
-	part(m, "Trunk", V(2.4 * size, trunkH, 2.4 * size), CFrame.new(at + V(0, trunkH / 2, 0)), bark, Enum.Material.Wood)
-	local yaw = CFrame.Angles(0, math.rad(math.floor(rnd() * 4) * 22.5), 0)
-	local top = at + V(0, trunkH, 0)
-	part(m, "Leaves", V(10, 6, 10) * size, CFrame.new(top + V(0, 2 * size, 0)) * yaw, g, Enum.Material.Grass)
-	part(m, "Leaves", V(7, 4, 7) * size, CFrame.new(top + V(0, 6.5 * size, 0)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
-	-- clumps sticking out of the crown, a shade darker
-	for i = 0, 2 do
-		local side = CFrame.new(top) * yaw * CFrame.Angles(0, math.rad(i * 120 + rnd() * 30), 0)
-		part(m, "Leaves", V(4.4, 4, 4.4) * size, side * CFrame.new(0, (1 + rnd() * 2) * size, -5 * size), g:Lerp(COL.NavyDark, 0.1), Enum.Material.Grass)
-	end
-	-- roots
-	part(m, "Root", V(4, 1, 1.4) * size, CFrame.new(at + V(0, 0.5 * size, 0)) * yaw, bark, Enum.Material.Wood)
-	return m
-end
-
-local function blockyPine(parent, at, size)
-	local m = Instance.new("Model")
-	m.Name = "Tree"
-	m.Parent = parent
-	part(m, "Trunk", V(2 * size, 4 * size, 2 * size), CFrame.new(at + V(0, 2 * size, 0)), rgb(110, 72, 44), Enum.Material.Wood)
-	local greens = { rgb(34, 120, 66), rgb(42, 138, 74), rgb(54, 156, 84) }
-	local y = 3.5 * size
-	for i = 1, 3 do
-		local w = (11 - i * 3) * size
-		local h = 3.4 * size
-		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)), greens[i], Enum.Material.Grass)
-		y += h * 0.8
-	end
-	part(m, "Needles", V(2.4, 2.4, 2.4) * size, CFrame.new(at + V(0, y + 1.2 * size, 0)), greens[3], Enum.Material.Grass)
-	return m
-end
-
 -- Blocky mountains round the edge of the map: stacked blocks, grass at the
 -- foot, rock above, snow on the high ones.
 local function mountain(parent, at, width, height, rnd)
@@ -941,8 +939,40 @@ local function scatterTrees(parent)
 	}
 	local planted = {}
 	local count = 0
+	-- raised garden beds out in the grass, each with a tree, rocks and grass
+	local beds = 0
 	for _ = 1, 1500 do
-		if count >= 55 then break end
+		if beds >= 12 then break end
+		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
+		local w, d = 12 + rnd() * 8, 10 + rnd() * 6
+		local ok = clearOf(boxes, pos, 13)
+		for _, zone in ipairs(keepClear) do
+			if (pos - zone[1]).Magnitude < zone[2] then
+				ok = false
+				break
+			end
+		end
+		for _, other in ipairs(planted) do
+			if (other - pos).Magnitude < 30 then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			local cf = CFrame.new(pos) * CFrame.Angles(0, math.rad(math.floor(rnd() * 4) * 45), 0)
+			local _, top = Decor.bed(folder, cf, w, d, 3, 0.9)
+			local function onBed(x, z) return (cf * CFrame.new(x * (w / 2 - 3), top, z * (d / 2 - 3))).Position end
+			if rnd() < 0.5 then Decor.tree(folder, onBed(0.4, 0.2), 0.8, rnd) else Decor.pine(folder, onBed(0.4, 0.2), 0.8, rnd) end
+			Decor.rock(folder, onBed(-0.6, 0.4), 0.7, rnd)
+			Decor.tuft(folder, onBed(-0.3, -0.6), 0.9, rnd)
+			Decor.tuft(folder, onBed(0.8, -0.5), 0.8, rnd)
+			if beds % 3 == 0 then Decor.coins(folder, onBed(-0.7, -0.4), rnd) end
+			table.insert(planted, pos)
+			beds += 1
+		end
+	end
+	for _ = 1, 1500 do
+		if count >= 70 then break end
 		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
 		local size = 0.8 + rnd() * 0.5
 		local pine = rnd() < 0.4
@@ -962,7 +992,7 @@ local function scatterTrees(parent)
 			end
 		end
 		if ok then
-			if pine then blockyPine(folder, pos, size) else blockyTree(folder, pos, size, rnd) end
+			if pine then Decor.pine(folder, pos, size, rnd) else Decor.tree(folder, pos, size, rnd) end
 			table.insert(planted, pos)
 			count += 1
 		end
@@ -985,17 +1015,17 @@ local function scatterTrees(parent)
 		if ok then
 			local yaw = CFrame.Angles(0, rnd() * math.pi, 0)
 			if extras % 3 == 0 then
-				-- a bush: two blocks
-				local g = rgb(64, 168, 70):Lerp(rgb(96, 196, 84), rnd())
-				part(folder, "Bush", V(4.4, 2.6, 3.6), CFrame.new(pos + V(0, 1.3, 0)) * yaw, g, Enum.Material.Grass)
-				part(folder, "Bush", V(2.8, 1.6, 2.6), CFrame.new(pos + V(0.6, 3, 0.2)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
-			else
+				Decor.rock(folder, pos, 0.8 + rnd() * 0.6, rnd)
+			elseif extras % 3 == 1 then
 				-- a flower patch: three little flowers of one colour
 				local c = petals[math.floor(rnd() * #petals) + 1]
 				for k = 0, 2 do
 					local off = CFrame.new(pos) * yaw * CFrame.new((k - 1) * 1.3, 0, (k % 2) * 0.9)
 					part(folder, "Flower", V(1, 0.9, 1), off * CFrame.new(0, 0.45, 0), c, Enum.Material.SmoothPlastic, { CastShadow = false, CanCollide = false })
 				end
+			else
+				Decor.tuft(folder, pos, 1, rnd)
+				Decor.tuft(folder, pos + V(1.8, 0, 0.8), 0.8, rnd)
 			end
 			table.insert(planted, pos)
 			extras += 1

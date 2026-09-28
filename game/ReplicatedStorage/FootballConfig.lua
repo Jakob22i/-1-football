@@ -188,7 +188,7 @@ Config.LightingPresets.PetSim = {
 	},
 	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
 	Atmosphere = { Density = 0.18, Offset = 0, Color = rgb(214, 232, 255), Decay = rgb(150, 190, 240), Glare = 0, Haze = 0 },
-	ColorCorrection = { Brightness = 0, Contrast = 0.08, Saturation = 0.15, TintColor = rgb(255, 255, 255) },
+	ColorCorrection = { Brightness = 0.02, Contrast = 0.1, Saturation = 0.28, TintColor = rgb(255, 252, 255) },
 	SunRays = { Intensity = 0.02, Spread = 0.4 },
 	Bloom = { Intensity = 0.25, Size = 16, Threshold = 2 },
 }

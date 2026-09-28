@@ -160,6 +160,12 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   when you respawn and rejoin) or take it off. Owning one gives +10% XP in
   that player's best stat. Set each pass id in `Config.Gamepasses`
   (`Star_Ronaldo` ...); with id 0 they are free in Studio (`StarService.lua`).
+- **Pet Sim style props** (`Decor.lua`): low-poly trees and pines of tilted
+  blocks, faceted rocks, grass tufts, gold coins, trophies, plank benches,
+  hexagon stones in pale paving, raised garden beds with a stone rim, and
+  string lights with glowing bulbs from lamp to lamp. The plaza is pale
+  paving round a small round pitch; each star player stands on a garden bed.
+  Colours are pushed a bit brighter (`StudTexture`, `Config.Lighting`).
 - **Detail**: buildings have window frames, cornices, back windows, roof
   units and a front step; trees have leaf clumps and roots; paths have a
   darker edge; bushes and flower patches fill the grass.
