@@ -677,10 +677,51 @@ local PACK_LOOK = {
 
 local pickedStat -- the stat the +1 Stat Point goes to
 
+-- Each part of the shop has its own colour: its panel, the blocks falling
+-- behind it, and the whole window's tint while you scroll past it.
+local SHOP_SECTIONS = {
+	{ Title = "GAMEPASSES (FOREVER)", Colors = { Color3.fromRGB(196, 110, 255), Color3.fromRGB(104, 40, 196) }, Tint = Color3.fromRGB(150, 70, 240) },
+	{ Title = "BOOSTS", Colors = { Color3.fromRGB(255, 186, 80), Color3.fromRGB(232, 96, 30) }, Tint = Color3.fromRGB(250, 140, 40) },
+	{ Title = "XP PACKS", Colors = { Color3.fromRGB(90, 214, 255), Color3.fromRGB(28, 104, 226) }, Tint = Color3.fromRGB(40, 160, 250) },
+}
+local RAINBOW_FROM = 149 -- the priciest things get the moving rainbow button
+
+local function shopSection(list, index, height)
+	local def = SHOP_SECTIONS[index]
+	local outer = new("Frame", {
+		Name = "Section" .. index, Size = UDim2.new(1, 0, 0, height + 60),
+		BackgroundColor3 = C.White, LayoutOrder = index, Parent = list,
+	})
+	FKit.corner(outer, 18)
+	FKit.gradient(outer, def.Colors, 90)
+	FKit.stroke(outer, 3, C.Ink, true)
+	-- blocks in the section's own colours, falling slowly all the way down
+	FKit.fallingBlocks(outer, {
+		Corner = 18, Every = 0.7, Max = 9, Duration = { 5.5, 8.5 }, MinSize = 14, MaxSize = 30, Transparency = 0.5,
+		Colors = { def.Colors[1]:Lerp(C.White, 0.5), def.Colors[1], def.Colors[2]:Lerp(C.White, 0.25), C.White },
+	})
+	local content = new("Frame", {
+		Name = "Content", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+		ZIndex = 2, Parent = outer,
+	})
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = content })
+	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 12), Parent = content })
+	FKit.text(content, def.Title, 24, C.White, {
+		Size = UDim2.new(1, 0, 0, 28), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 0,
+	})
+	return content, outer
+end
+
 function WINDOWS.Shop.Build(page)
-	local list = scroller(page, 8)
-	heading(list, "GAMEPASSES (FOREVER)", 1)
-	local passes = new("Frame", { Size = UDim2.new(1, 0, 0, 200), BackgroundTransparency = 1, LayoutOrder = 2, Parent = list })
+	-- the window's tint: the colour of the section you are looking at
+	local tint = new("Frame", {
+		Name = "Tint", Size = UDim2.fromScale(1, 1), BackgroundColor3 = SHOP_SECTIONS[1].Tint, BackgroundTransparency = 0.72,
+		BorderSizePixel = 0, ZIndex = 0, Parent = page,
+	})
+	FKit.corner(tint, 16)
+	local list = scroller(page, 12)
+	local passSection, passOuter = shopSection(list, 1, 200)
+	local passes = new("Frame", { Size = UDim2.new(1, 0, 0, 200), BackgroundTransparency = 1, LayoutOrder = 2, Parent = passSection })
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = passes })
 	for i, key in ipairs(Config.PassOrder) do
 		local pass = Config.Gamepasses[key]
@@ -694,7 +735,12 @@ function WINDOWS.Shop.Build(page)
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
 		withIcon(b, priceLabel, ownedPass and "check" or "coin")
-		if not ownedPass and i == 1 then FKit.shine(b, 3) end
+		if not ownedPass and pass.Price >= RAINBOW_FROM then
+			FKit.rainbow(b)
+			FKit.shine(b, 2.4 + i * 0.3)
+		elseif not ownedPass and i == 1 then
+			FKit.shine(b, 3)
+		end
 		if ownedPass then
 			b.Active = false
 		else
@@ -705,8 +751,8 @@ function WINDOWS.Shop.Build(page)
 		end
 	end
 
-	heading(list, "BOOSTS", 3)
-	local products = new("Frame", { Size = UDim2.new(1, 0, 0, 170), BackgroundTransparency = 1, LayoutOrder = 4, Parent = list })
+	local boostSection, boostOuter = shopSection(list, 2, 170)
+	local products = new("Frame", { Size = UDim2.new(1, 0, 0, 170), BackgroundTransparency = 1, LayoutOrder = 4, Parent = boostSection })
 	-- 2x XP boost
 	local boost = Config.Products.Boost15
 	local boostTile = box(products, { Size = UDim2.new(0.34, -4, 1, 0) }, PASS_LOOK.DoubleXP[2], 16)
@@ -782,8 +828,8 @@ function WINDOWS.Shop.Build(page)
 	end)
 
 	-- XP packs: four tiles with a tag on the best ones
-	heading(list, "XP PACKS", 5)
-	local packs = new("Frame", { Size = UDim2.new(1, 0, 0, 176), BackgroundTransparency = 1, LayoutOrder = 6, Parent = list })
+	local packSection, packOuter = shopSection(list, 3, 176)
+	local packs = new("Frame", { Size = UDim2.new(1, 0, 0, 176), BackgroundTransparency = 1, LayoutOrder = 6, Parent = packSection })
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = packs })
 	for i, key in ipairs(Config.PackOrder) do
 		local product = Config.Products[key]
@@ -797,6 +843,7 @@ function WINDOWS.Shop.Build(page)
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 40), ZIndex = tile.ZIndex + 2,
 		})
 		withIcon(b, priceLabel, "coin", 28)
+		if product.Price >= RAINBOW_FROM then FKit.rainbow(b) end
 		FKit.shine(b, 1.8 + i * 0.5)
 		b.Activated:Connect(function()
 			ctx.Sound("Click")
@@ -813,6 +860,21 @@ function WINDOWS.Shop.Build(page)
 	bodyText(list, "\u{1F6E1} Fair play: LEGEND cards and Seasons can never be bought. You earn them by training!", 16, Color3.fromRGB(200, 220, 255), {
 		Size = UDim2.new(1, 0, 0, 44), LayoutOrder = 7,
 	})
+
+	-- tint the window with the section nearest the top of the list
+	local outers = { passOuter, boostOuter, packOuter }
+	local shownTint = 1
+	list:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		local top = list.AbsolutePosition.Y + list.AbsoluteSize.Y * 0.35
+		local pick = 1
+		for i, o in ipairs(outers) do
+			if o.AbsolutePosition.Y <= top then pick = i end
+		end
+		if pick ~= shownTint then
+			shownTint = pick
+			tween(tint, 0.35, { BackgroundColor3 = SHOP_SECTIONS[pick].Tint })
+		end
+	end)
 
 	return function()
 		local left = attr("Boost", 0) - ctx.Now()
@@ -896,7 +958,7 @@ local function buildWindow()
 	})
 	MenusUI.Fit(holder, 740, 540)
 	panel = FKit.panel(holder, { Size = UDim2.fromScale(1, 1), ZIndex = 2 }, 22)
-	FKit.fallingBlocks(panel, { Corner = 22, ZIndex = 2 })
+	FKit.fallingBlocks(panel, { Corner = 22, ZIndex = 2, Duration = { 4.5, 7.5 }, Max = 8 })
 	local header = new("Frame", { Name = "Header", Position = UDim2.fromOffset(10, -22), Size = UDim2.new(0, 330, 0, 58), BackgroundColor3 = C.White, ZIndex = 3, Parent = panel })
 	FKit.corner(header, 16)
 	FKit.gradient(header, { C.Gold, C.GoldDark }, 90)

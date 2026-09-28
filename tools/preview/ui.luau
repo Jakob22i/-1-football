@@ -12,6 +12,8 @@
 --   STATUP="SHO"                a stat +1 on the corner card
 --   DRILL="Lobby_Shooting"      start a drill (its HUD)
 --   TOASTS=true                 a few messages at the top
+--   XPPOP="PHY"                 "+XP" pops in the middle of the screen
+--   SCROLL=400                  scroll the open window's list down
 
 local W, H = tonumber(VIEW_W) or 1280, tonumber(VIEW_H) or 720
 
@@ -178,6 +180,35 @@ if UPGRADE then
 	a, b = tonumber(a), tonumber(b)
 	fire(Remotes.Progress, "OnClientEvent", "ovrUp", { Old = a, New = b, OldTier = Config.TierFor(a), NewTier = Config.TierFor(b) })
 	RunScheduler(tonumber(STEPS) or 6)
+end
+
+if SCROLL then
+	for _, d in ipairs(pg:GetDescendants()) do
+		if d.Name == "List" and d:IsA("ScrollingFrame") then
+			d.CanvasPosition = Vector2.new(0, tonumber(SCROLL))
+			-- the picture does not scroll lists: hide the rows above instead
+			local rows = {}
+			for _, row in ipairs(d:GetChildren()) do
+				if row:IsA("GuiObject") then table.insert(rows, row) end
+			end
+			table.sort(rows, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
+			local hidden = 0
+			for _, row in ipairs(rows) do
+				if hidden + row.Size.Y.Offset <= tonumber(SCROLL) then
+					hidden += row.Size.Y.Offset
+					row.Visible = false
+				end
+			end
+		end
+	end
+	RunScheduler(2)
+end
+if XPPOP then
+	for _, amount in ipairs({ 12, 12, 16 }) do
+		fire(Remotes.Progress, "OnClientEvent", "xp", { Stat = XPPOP, Amount = amount, XP = 40, Need = 120, Level = data.Stats[XPPOP] })
+	end
+	-- (no scheduler step: the preview runs delays at once, which would
+	-- clear the pops before the picture)
 end
 
 if ICONS then

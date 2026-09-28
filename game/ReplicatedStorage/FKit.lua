@@ -285,8 +285,9 @@ function FKit.fallingBlocks(frame, opts)
 	task.spawn(function()
 		while layer.Parent do
 			if shown(layer) and #layer:GetChildren() < (opts.Max or 6) then
-				local size = math.random(12, 24)
-				local color = BLOCK_COLORS[math.random(1, #BLOCK_COLORS)]
+				local size = math.random(opts.MinSize or 12, opts.MaxSize or 24)
+				local colors = opts.Colors or BLOCK_COLORS
+				local color = colors[math.random(1, #colors)]
 				local block = new("Frame", {
 					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(math.random(), 0, 0, -size),
 					Size = UDim2.fromOffset(size, size), Rotation = math.random(-30, 30),
@@ -299,7 +300,8 @@ function FKit.fallingBlocks(frame, opts)
 					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0,
 					ZIndex = layer.ZIndex, Parent = block,
 				})
-				local time = 2.6 + math.random() * 2.2
+				local slow = opts.Duration or { 2.6, 4.8 }
+				local time = slow[1] + math.random() * (slow[2] - slow[1])
 				local t = TweenService:Create(block, TweenInfo.new(time, Enum.EasingStyle.Linear), {
 					Position = UDim2.new(block.Position.X.Scale + (math.random() - 0.5) * 0.15, 0, 1, size),
 					Rotation = block.Rotation + math.random(-160, 160),
@@ -311,6 +313,43 @@ function FKit.fallingBlocks(frame, opts)
 		end
 	end)
 	return layer
+end
+
+-- Rainbow colours that slide across a button (its "Fill" gradient) or any
+-- UIGradient, for the special stuff. One per-frame loop for all of them,
+-- and only while they are on screen.
+local rainbows = setmetatable({}, { __mode = "k" })
+local rainbowLoop
+local function rainbowAt(phase)
+	local keys = {}
+	for i = 0, 8 do
+		local t = i / 8
+		keys[i + 1] = ColorSequenceKeypoint.new(t, Color3.fromHSV((phase - t) % 1, 0.7, 1))
+	end
+	return ColorSequence.new(keys)
+end
+function FKit.rainbow(target)
+	local g = target:IsA("UIGradient") and target or target:FindFirstChild("Fill")
+	if not g then return end
+	g.Rotation = 0
+	g.Color = rainbowAt(os.clock() * 0.4 % 1)
+	rainbows[g] = true
+	local rim = target:FindFirstChild("Rim")
+	local inner = rim and rim:FindFirstChild("Inner")
+	if inner then inner.Color = C.White end
+	if not rainbowLoop then
+		rainbowLoop = game:GetService("RunService").RenderStepped:Connect(function()
+			local seq
+			for grad in pairs(rainbows) do
+				if grad.Parent and shown(grad.Parent) then
+					seq = seq or rainbowAt(os.clock() * 0.4 % 1)
+					grad.Color = seq
+				elseif not grad.Parent or not grad:IsDescendantOf(game) then
+					rainbows[grad] = nil
+				end
+			end
+		end)
+	end
 end
 
 -- A light that sweeps across a button now and then.

@@ -209,8 +209,18 @@ local function runCourse(id, weave)
 end
 
 drills.Speed = function()
-	print("-- Speed Course")
-	runCourse("Lobby_Speed", false)
+	print("-- Speed Course (auto run)")
+	print("  start", startAt("Lobby_Speed"))
+	local s = TrainingService.Get(plr)
+	local path = s.Station.Path
+	local i, t0 = 1, CLOCK
+	-- follow the path like the player's screen does
+	while CLOCK - t0 < SECONDS_EACH and TrainingService.Get(plr) == s do
+		if moveTo(path[i], 0.05) then i = i % #path + 1 end
+		advance(0.05)
+	end
+	print("  speed", s.Speed, "laps", s.Laps, "best lap", s.BestTime)
+	invoke("Leave")
 end
 
 drills.Dribbling = function()
@@ -248,24 +258,20 @@ drills.Defending = function()
 end
 
 drills.Gym = function()
-	print("-- Gym")
+	print("-- Gym (click to lift)")
 	print("  start", startAt("Lobby_Gym_Squat"))
 	local s = TrainingService.Get(plr)
 	local t0 = CLOCK
-	local good = 0
+	local clicks = 0
+	-- click for half the time, then rest (it lifts by itself)
 	while CLOCK - t0 < SECONDS_EACH do
-		local rep = s.RepData
-		if rep and not rep.Pressed and CLOCK >= rep.Start then
-			-- press when the marker is in the zone (a good player)
-			local m = DrillMath.Marker(rep, CLOCK)
-			if math.abs(m - rep.Center) < rep.Width * 0.3 then
-				local r = invoke("Lift", CLOCK)
-				if r and (r.Result == "good" or r.Result == "perfect") then good += 1 end
-			end
+		if CLOCK - t0 < SECONDS_EACH / 2 then
+			local r = invoke("Lift")
+			if r and r.Result == "lift" then clicks += 1 end
 		end
-		advance(0.02)
+		advance(0.1)
 	end
-	print("  good reps", good, "sets", s.Set - 1)
+	print("  clicked lifts", clicks, "all lifts", s.Lifts)
 	invoke("Leave")
 end
 

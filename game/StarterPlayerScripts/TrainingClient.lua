@@ -303,23 +303,41 @@ end
 TrainingClient.Shout = function(...) return shout(...) end
 
 -- "+12 XP" floating up off your head.
+-- "+12 XP" in the middle of the screen (like Muscle Legends): it pops in a
+-- little to the side, floats up and fades. Pops close together stack up.
+local popsLive = 0
 local function xpPop(amount, stat)
-	local character = player.Character
-	local head = character and character:FindFirstChild("Head")
-	if not head then return end
-	local gui = new("BillboardGui", {
-		Size = UDim2.fromOffset(180, 48), StudsOffset = Vector3.new((math.random() - 0.5) * 2.4, 2.6, 0), AlwaysOnTop = true,
-		LightInfluence = 0, Adornee = head, Parent = localFolder(),
+	local gui = ctx.Gui
+	if not gui then return end
+	popsLive += 1
+	local lift = math.min(popsLive - 1, 3) * 34
+	local holder = new("Frame", {
+		Name = "XPPop", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+		Position = UDim2.new(0.5 + (math.random() - 0.5) * 0.16, 0, 0.44, -lift), Size = UDim2.fromOffset(260, 64),
+		ZIndex = 40, Parent = gui,
 	})
-	local l = FKit.text(gui, "+" .. Config.Short(amount) .. " XP", 30, C.White, { Size = UDim2.fromScale(1, 1) })
-	FKit.gradient(l, { statColor(stat):Lerp(C.White, 0.6), statColor(stat) }, 90)
-	FKit.pop(l, 0.4, 0.25)
-	tween(gui, 1.1, { StudsOffset = gui.StudsOffset + Vector3.new(0, 3.2, 0) })
-	task.delay(0.7, function()
-		tween(l, 0.4, { TextTransparency = 1 })
-		tween(l.TextStroke, 0.4, { Transparency = 1 })
+	local color = statColor(stat)
+	local l = FKit.text(holder, "+" .. Config.Short(amount) .. " XP", 46, C.White, { Size = UDim2.new(1, 0, 0.72, 0), ZIndex = 41 })
+	local shade = l:FindFirstChild("TextShade")
+	if shade then shade:Destroy() end
+	FKit.gradient(l, { color:Lerp(C.White, 0.55), color }, 90)
+	local tag = Config.Stats[stat] and FKit.text(holder, Config.Stats[stat].Name:upper(), 20, color:Lerp(C.White, 0.3), {
+		Position = UDim2.fromScale(0, 0.7), Size = UDim2.new(1, 0, 0.3, 0), ZIndex = 41,
+	})
+	FKit.pop(holder, 0.3, 0.22)
+	tween(holder, 1.2, { Position = holder.Position - UDim2.fromOffset(0, 70) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	task.delay(0.8, function()
+		for _, t in ipairs({ l, tag }) do
+			if t then
+				tween(t, 0.4, { TextTransparency = 1 })
+				tween(t.TextStroke, 0.4, { Transparency = 1 })
+			end
+		end
 	end)
-	task.delay(1.2, function() gui:Destroy() end)
+	task.delay(1.25, function()
+		popsLive = math.max(0, popsLive - 1)
+		holder:Destroy()
+	end)
 end
 
 local function setXPBar(stat)
@@ -722,8 +740,6 @@ local function markNext(s)
 end
 
 local function courseStart(s, data)
-	s.Auto = data.Auto
-	if s.Auto then setControls(false) end
 	s.Checks = data.Checks
 	s.Cones = data.Cones
 	s.Next = 1
@@ -772,17 +788,8 @@ local function courseUpdate(s)
 				s.RunStart = s.GoAt
 			end
 			if s.Running then
-				hud.Info.Text = ("%sTIME <font color=\"#FFD84A\">%.1fs</font>%s"):format(s.Auto and "AUTO RUN  " or "", now - s.RunStart,
+				hud.Info.Text = ("TIME <font color=\"#FFD84A\">%.1fs</font>%s"):format(now - s.RunStart,
 					s.Penalty > 0 and ("  <font color=\"#FF6A6A\">+%ds</font>"):format(s.Penalty) or "")
-				-- auto: run to just past the next gate (again every few
-				-- seconds, as a walk order runs out after a while)
-				local check = s.Auto and s.Checks[s.Next]
-				local character = player.Character
-				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-				if check and humanoid and (s.MoveIndex ~= s.Next or os.clock() - (s.MoveAt or 0) > 2.5) then
-					s.MoveIndex, s.MoveAt = s.Next, os.clock()
-					humanoid:MoveTo(check.Pos + check.Dir * 5)
-				end
 			end
 		end
 	end
@@ -848,17 +855,90 @@ local function courseEvent(s, kind, data)
 	end
 end
 
-local function courseStop(s)
-	if s.Auto then
-		setControls(true)
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local root = rootOf()
-		if humanoid and root then humanoid:MoveTo(root.Position) end
+-- The Speed Course runs itself: your character runs round the track on
+-- its own, never stopping (the next point is set before it gets to the
+-- last one), and XP comes every second while you run.
+local function humanoidOf()
+	local character = player.Character
+	return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+local function autoStart(s, data)
+	s.Path, s.Loop, s.Dir = data.Path, data.Loop, 1
+	s.Speed = data.Speed or 20
+	s.Laps = 0
+	setControls(false)
+	-- start from the nearest point ahead
+	local root = rootOf()
+	local best, bestD = 1, math.huge
+	for i, p in ipairs(s.Path) do
+		local d = root and (DrillMath.Flat(p) - DrillMath.Flat(root.Position)).Magnitude or 0
+		if d < bestD then best, bestD = i, d end
+	end
+	s.I = s.Loop and (best % #s.Path + 1) or best
+	resetCamera()
+end
+
+local function autoUpdate(s)
+	local humanoid, root = humanoidOf(), rootOf()
+	if not (humanoid and root and s.Path) then return end
+	local target = s.Path[s.I]
+	local d = (DrillMath.Flat(target) - DrillMath.Flat(root.Position)).Magnitude
+	if d < math.max(3.5, humanoid.WalkSpeed * 0.32) then
+		if s.Loop then
+			s.I = s.I % #s.Path + 1
+		else
+			s.I += s.Dir
+			if s.I > #s.Path then s.Dir, s.I = -1, #s.Path - 1 end
+			if s.I < 1 then s.Dir, s.I = 1, 2 end
+		end
+		s.MoveAt = nil
+		target = s.Path[s.I]
+	end
+	if not s.MoveAt or os.clock() - s.MoveAt > 2 then
+		s.MoveAt = os.clock()
+		humanoid:MoveTo(target)
+	end
+	hud.Info.Text = ("AUTO RUN   SPEED <font color=\"#6BE4FF\">%d</font>%s"):format(math.floor(humanoid.WalkSpeed + 0.5),
+		s.Best and ("   BEST LAP <font color=\"#FFD84A\">%.1fs</font>"):format(s.Best) or "")
+end
+
+local function autoEvent(s, kind, data)
+	if kind == "lap" then
+		s.Laps, s.Best = data.Laps, data.Best
+		shout(("LAP %.1fs"):format(data.Time), C.Green, 44, 0.9)
+		ctx.Sound("Chime")
+	elseif kind == "speed" then
+		s.Speed = data.Speed
+		shout("FASTER!", Color3.fromRGB(90, 220, 255), 46, 0.8)
 	end
 end
 
-controllers.Speed = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent, Stop = courseStop }
+local function autoStop()
+	setControls(true)
+	local humanoid, root = humanoidOf(), rootOf()
+	if humanoid and root then humanoid:MoveTo(root.Position) end
+end
+
+controllers.Speed = {
+	Action = nil,
+	Start = function(s, data)
+		s.AutoRun = data.Auto and data.Path ~= nil
+		if s.AutoRun then return autoStart(s, data) end
+		return courseStart(s, data)
+	end,
+	Update = function(s, dt)
+		if s.AutoRun then return autoUpdate(s, dt) end
+		return courseUpdate(s, dt)
+	end,
+	Event = function(s, kind, data)
+		if s.AutoRun then return autoEvent(s, kind, data) end
+		return courseEvent(s, kind, data)
+	end,
+	Stop = function(s)
+		if s.AutoRun then autoStop() end
+	end,
+}
 controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent }
 
 --------------------------------------------------------------------------------
@@ -985,17 +1065,9 @@ controllers.Defending = {
 -- Gym
 --------------------------------------------------------------------------------
 
-local function showRep(s, rep)
-	s.Rep = rep
-	hud.TimingZone.Position = UDim2.fromScale(rep.Center - rep.Width / 2, 0)
-	hud.TimingZone.Size = UDim2.fromScale(rep.Width, 1)
-	hud.TimingPerfect.Position = UDim2.fromScale(rep.Center - rep.Perfect / 2, 0)
-	hud.TimingPerfect.Size = UDim2.fromScale(rep.Perfect, 1)
-end
-
 -- The body lifting: the joints of your own character bend with `p`
 -- (0 = the top of the lift, 1 = the bottom), and the bar or sled moves with
--- your hands. p sinks slowly while you wait and snaps back up when you lift.
+-- your hands. Each lift runs one rep (LIFT_TIME).
 local JOINTS = {
 	Root = "LowerTorso", Waist = "UpperTorso",
 	RightShoulder = "RightUpperArm", LeftShoulder = "LeftUpperArm",
@@ -1065,16 +1137,14 @@ local function liftStart(s)
 	s.PGoal = 0
 end
 
+local LIFT_TIME = 0.5 -- one lift: down and back up (the sled: a push and back)
+
 local function liftUpdate(s, dt)
 	if not s.Joints then return end
-	-- sink toward the bottom while waiting for the lift
-	local rep = s.Rep
-	if s.Snap then
-		s.P = math.max(0, s.P - dt / 0.18)
-		if s.P <= 0 then s.Snap = nil end
-	elseif rep and ctx.Now() >= rep.Start then
-		s.P = math.min(1, s.P + dt / math.max(0.6, rep.Period * 1.6))
-	end
+	local k = s.RepT and math.clamp((os.clock() - s.RepT) / LIFT_TIME, 0, 1) or 1
+	local wave = math.sin(k * math.pi)
+	-- squat and bench start at the top (0); the sled starts back (1)
+	s.P = s.Machine == "Sled" and 1 - wave or wave
 	local pose = POSES[s.Machine] or POSES.Squat
 	local offsets = pose(s.P, os.clock())
 	for name, j in pairs(s.Joints) do
@@ -1117,25 +1187,9 @@ local function liftStop(s)
 	s.Joints, s.Moving = nil, nil
 end
 
-local function liftBar(s, good)
-	if s.Joints then
-		-- up! (a miss only gets halfway)
-		if good then
-			s.Snap = true
-		else
-			s.P = math.max(0.5, s.P)
-		end
-		return
-	end
-	local bar = s.Bar
-	if not (bar and bar.Parent) then return end
-	s.BarHome = s.BarHome or bar.CFrame
-	local lift = s.Machine == "Sled" and CFrame.new(0, 0, -1.6) or CFrame.new(0, good and 1.6 or 0.5, 0)
-	local target = (s.Machine == "Sled") and (s.BarHome * lift) or (s.BarHome + lift.Position)
-	tween(bar, 0.15, { CFrame = target })
-	task.delay(0.25, function()
-		if bar.Parent and s.BarHome then tween(bar, 0.3, { CFrame = s.BarHome }) end
-	end)
+-- One lift on screen: the body goes through a rep and a little "+1" pops.
+local function liftBar(s)
+	s.RepT = os.clock()
 end
 
 controllers.Gym = {
@@ -1143,65 +1197,38 @@ controllers.Gym = {
 	Start = function(s, data)
 		s.Bar = data.Bar
 		s.Machine = data.Machine
-		s.Reps = data.Reps
-		s.Set = 1
-		hud.Timing.Visible = true
-		showRep(s, data.Rep)
+		s.PerXP = data.PerXP or 3
+		s.Lifts, s.Next = 0, s.PerXP
+		hud.Timing.Visible = false
 		if data.Camera then setCamera(CFrame.lookAt(data.Camera.Position, data.Spot + Vector3.new(0, 3, 0)), 55) end
 		-- the server has put you on the machine: start moving with it
 		task.delay(0.2, function()
 			if S == s then pcall(liftStart, s) end
 		end)
-		hud.Info.Text = touchOnly() and "Press LIFT when the marker is in the green!" or "Press (Space / click / LIFT) when the marker is in the green!"
 	end,
 	Update = function(s, dt)
-		local rep = s.Rep
-		if not rep then return end
 		liftUpdate(s, dt or 1 / 60)
-		local now = ctx.Now()
-		local m = DrillMath.Marker(rep, now)
-		hud.TimingMarker.Position = UDim2.fromScale(m, 0.5)
-		hud.TimingMarker.Visible = now >= rep.Start
-		hud.Info.Text = ("REP <font color=\"#FFD84A\">%d/%d</font>   SET %d"):format(rep.Index, s.Reps, s.Set)
+		local tip = touchOnly() and "Tap LIFT!" or "Click to lift!"
+		hud.Info.Text = ("%s   LIFTS <font color=\"#FFD84A\">%d</font>   XP in <font color=\"#6BFF7A\">%d</font>"):format(tip, s.Lifts, s.Next)
 	end,
 	PressBegan = function(s)
-		local rep = s.Rep
-		if not rep or rep.Sent or ctx.Now() < rep.Start then return end
-		rep.Sent = true
-		local t = ctx.Now()
 		task.spawn(function()
-			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Lift", t) end)
-			if not (ok and r) or S ~= s then return end
-			if r.Result == "perfect" then
-				shout("PERFECT!", C.Gold, 64, 0.6)
-				ctx.Sound("Perfect")
-				liftBar(s, true)
-			elseif r.Result == "good" then
-				shout("GOOD", C.Green, 54, 0.5)
-				ctx.Sound("Clank")
-				liftBar(s, true)
-			elseif r.Result == "miss" then
-				shout("MISS", C.Red, 46, 0.5)
-				ctx.Sound("Miss")
-				liftBar(s, false)
-			end
+			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Lift") end)
+			if not (ok and r) or S ~= s or r.Result ~= "lift" then return end
+			s.Lifts, s.Next = r.Lifts, r.Next
+			liftBar(s)
+			ctx.Sound(r.XP > 0 and "Chime" or "Clank", 0.6, 0.9 + math.random() * 0.25)
 		end)
 	end,
 	Event = function(s, kind, data)
-		if kind == "rep" then
-			if data.Rep.Index == 1 then s.Set = (s.Set or 1) + ((s.Rep and s.Rep.Index or 1) > 1 and 1 or 0) end
-			showRep(s, data.Rep)
-		elseif kind == "setDone" then
-			shout("SET COMPLETE!", C.Orange, 62, 1.2)
-			ctx.Sound("Chime")
-			s.Set = data.Set + 1
-		elseif kind == "repMissed" then
-			shout("TOO SLOW!", C.Red, 46, 0.6)
-			s.Snap = true
+		if kind == "lift" then
+			-- resting: it lifted by itself
+			s.Lifts, s.Next = data.Lifts, data.Next
+			liftBar(s)
+			ctx.Sound("Clank", 0.35)
 		end
 	end,
 	Stop = function(s)
-		hud.Timing.Visible = false
 		liftStop(s)
 		if s.Bar and s.BarHome then s.Bar.CFrame = s.BarHome end
 	end,

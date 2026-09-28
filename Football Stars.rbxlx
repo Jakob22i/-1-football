@@ -929,8 +929,9 @@ function FKit.fallingBlocks(frame, opts)
 	task.spawn(function()
 		while layer.Parent do
 			if shown(layer) and #layer:GetChildren() &lt; (opts.Max or 6) then
-				local size = math.random(12, 24)
-				local color = BLOCK_COLORS[math.random(1, #BLOCK_COLORS)]
+				local size = math.random(opts.MinSize or 12, opts.MaxSize or 24)
+				local colors = opts.Colors or BLOCK_COLORS
+				local color = colors[math.random(1, #colors)]
 				local block = new("Frame", {
 					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(math.random(), 0, 0, -size),
 					Size = UDim2.fromOffset(size, size), Rotation = math.random(-30, 30),
@@ -943,7 +944,8 @@ function FKit.fallingBlocks(frame, opts)
 					BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, BorderSizePixel = 0,
 					ZIndex = layer.ZIndex, Parent = block,
 				})
-				local time = 2.6 + math.random() * 2.2
+				local slow = opts.Duration or { 2.6, 4.8 }
+				local time = slow[1] + math.random() * (slow[2] - slow[1])
 				local t = TweenService:Create(block, TweenInfo.new(time, Enum.EasingStyle.Linear), {
 					Position = UDim2.new(block.Position.X.Scale + (math.random() - 0.5) * 0.15, 0, 1, size),
 					Rotation = block.Rotation + math.random(-160, 160),
@@ -955,6 +957,43 @@ function FKit.fallingBlocks(frame, opts)
 		end
 	end)
 	return layer
+end
+
+-- Rainbow colours that slide across a button (its "Fill" gradient) or any
+-- UIGradient, for the special stuff. One per-frame loop for all of them,
+-- and only while they are on screen.
+local rainbows = setmetatable({}, { __mode = "k" })
+local rainbowLoop
+local function rainbowAt(phase)
+	local keys = {}
+	for i = 0, 8 do
+		local t = i / 8
+		keys[i + 1] = ColorSequenceKeypoint.new(t, Color3.fromHSV((phase - t) % 1, 0.7, 1))
+	end
+	return ColorSequence.new(keys)
+end
+function FKit.rainbow(target)
+	local g = target:IsA("UIGradient") and target or target:FindFirstChild("Fill")
+	if not g then return end
+	g.Rotation = 0
+	g.Color = rainbowAt(os.clock() * 0.4 % 1)
+	rainbows[g] = true
+	local rim = target:FindFirstChild("Rim")
+	local inner = rim and rim:FindFirstChild("Inner")
+	if inner then inner.Color = C.White end
+	if not rainbowLoop then
+		rainbowLoop = game:GetService("RunService").RenderStepped:Connect(function()
+			local seq
+			for grad in pairs(rainbows) do
+				if grad.Parent and shown(grad.Parent) then
+					seq = seq or rainbowAt(os.clock() * 0.4 % 1)
+					grad.Color = seq
+				elseif not grad.Parent or not grad:IsDescendantOf(game) then
+					rainbows[grad] = nil
+				end
+			end
+		end)
+	end
 end
 
 -- A light that sweeps across a button now and then.
@@ -1155,7 +1194,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v23"
+Config.Version = "v24"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -1439,6 +1478,7 @@ Config.Drills = {
 		Title = "SPEED COURSE",
 		Line = "You run it by yourself: more Pace, faster laps!",
 		Auto = true,        -- the course runs itself, lap after lap (AFK friendly)
+		XPPerSecond = 5,    -- XP every second you run (x your track speed / 20)
 		BaseXP = 80,        -- for a run at par time
 		MaxFactor = 1.7,    -- the most a very fast run multiplies it by
 		Countdown = 3,
@@ -1518,16 +1558,11 @@ Config.Drills = {
 	Gym = {
 		Stat = "PHY",
 		Title = "GYM",
-		Line = "Press when the marker is in the green. Gold = perfect!",
-		GoodXP = 4,
-		PerfectXP = 6,
-		SetBonus = 1.5,       -- x good reps, at the end of a set
-		Reps = 10,
-		PeriodStart = 1.35, PeriodEnd = 0.85, -- seconds for the marker to cross the bar
-		ZoneEasy = 0.22, ZoneHard = 0.14,
-		Perfect = 0.05,
-		PressWindow = 0.14,   -- how far the client's press time may be from the server's guess
-		RestSeconds = 2,
+		Line = "Click to lift! XP every few lifts. Resting? It lifts by itself.",
+		LiftCooldown = 0.35,  -- the fastest you can lift by clicking
+		LiftsPerXP = 3,       -- XP comes every this many lifts
+		XPPerLift = 4,        -- so a set of 3 gives 12 XP (more with PHY and boosts)
+		AutoEvery = 1.6,      -- when you do not click, a lift by itself this often (AFK)
 	},
 	Match = {
 		Stat = "ALL",
@@ -1597,7 +1632,7 @@ Config.Quests = {
 	{ Id = "Perfect", Counter = "PerfectRuns", Stat = "DRI", Text = "Do %s PERFECT RUNS in the cones", Goals = { 1, 3, 10, 25, 60 } },
 	{ Id = "SpeedTime", Counter = "SpeedBest", Stat = "PAC", Lower = true, Text = "Finish the Speed Course under %ss", Goals = { 26, 24, 22, 20, 19, 18, 17, 16 } },
 	{ Id = "Tackles", Counter = "Tackles", Stat = "DEF", Text = "Stop %s attackers", Goals = { 10, 30, 75, 200, 500 } },
-	{ Id = "Reps", Counter = "PerfectReps", Stat = "PHY", Text = "Do %s perfect reps in the gym", Goals = { 10, 30, 75, 200, 500 } },
+	{ Id = "Reps", Counter = "PerfectReps", Stat = "PHY", Text = "Do %s sets of lifts in the gym", Goals = { 10, 30, 75, 200, 500 } },
 	{ Id = "OVR", Counter = "BestOVR", Stat = "ALL", Text = "Reach %s OVR", Goals = { 65, 70, 75, 80, 85, 90, 95, 99 } },
 	{ Id = "Matches", Counter = "MatchesWon", Stat = "ALL", Text = "Win %s Stadium Matches", Goals = { 1, 3, 10, 25, 60 } },
 }
@@ -6382,7 +6417,7 @@ function StationBuilder.Speed(parent, cf, opts)
 	local right = look:Cross(Vector3.yAxis)
 	local origin = flat(cf.Position)
 	local checks = {}
-	local length
+	local length, path
 	local startCF
 	local center
 	if opts.Compact then
@@ -6400,6 +6435,8 @@ function StationBuilder.Speed(parent, cf, opts)
 		end
 		startCF = CFrame.lookAt(origin - look * 3 + V(0, 3, 0), origin + look * 10 + V(0, 3, 0))
 		center = origin + look * (length / 2)
+		-- the auto run: up the lane and back, over and over
+		path = { origin + look * 4, origin + look * (length - 4) }
 	else
 		-- an oval: two straights and two bends; run anticlockwise seen from above
 		local straight, radius, width = 90, 28, 10
@@ -6467,9 +6504,24 @@ function StationBuilder.Speed(parent, cf, opts)
 		length = straight * 2 + 2 * math.pi * radius
 		startCF = CFrame.lookAt(at(-3, radius) + V(0, 3, 0), at(10, radius) + V(0, 3, 0))
 		center = origin
+		-- the auto run: round the middle of the track, lap after lap
+		path = { at(0, radius), at(straight / 2, radius) }
+		for k = 1, 7 do
+			local a = k / 8 * math.pi
+			table.insert(path, at(straight / 2 + math.sin(a) * radius, math.cos(a) * radius))
+		end
+		table.insert(path, at(straight / 2, -radius))
+		table.insert(path, at(0, -radius))
+		table.insert(path, at(-straight / 2, -radius))
+		for k = 7, 1, -1 do
+			local a = k / 8 * math.pi
+			table.insert(path, at(-straight / 2 - math.sin(a) * radius, math.cos(a) * radius))
+		end
+		table.insert(path, at(-straight / 2, radius))
 	end
 	local prompt = startPrompt(model, (startCF * CFrame.new(0, -3, 3)).Position, "SPEED", opts.Color)
-	return { Kind = "Speed", Model = model, Prompt = prompt, Start = startCF, Checks = checks, Length = length, Center = center, Extent = opts.Compact and 90 or 110 }
+	return { Kind = "Speed", Model = model, Prompt = prompt, Start = startCF, Checks = checks, Length = length, Center = center, Extent = opts.Compact and 90 or 110,
+		Path = path, Loop = not opts.Compact }
 end
 
 --------------------------------------------------------------------------------
@@ -6999,7 +7051,28 @@ local function startCourse(player, session)
 	})
 	beginRun(player, session)
 end
-starters.Speed = startCourse
+-- The Speed Course runs itself: no laps against the clock, just XP every
+-- second while you run round (and the lap times still count for the board).
+starters.Speed = function(player, session)
+	local rec = session.Station
+	local drill = Config.Drills.Speed
+	if not (drill.Auto and rec.Path) then return startCourse(player, session) end
+	freeze(player, true)
+	placeAt(player, rec.Start)
+	session.Speed = courseSpeed(player, session)
+	local _, humanoid = rootOf(player)
+	if humanoid then humanoid.WalkSpeed = session.Speed end
+	session.Auto = true
+	session.Laps, session.BestTime = 0, nil
+	session.LastTick = now()
+	session.LastPos = DrillMath.Flat(rec.Start.Position)
+	session.LapStart = now()
+	session.Summary = function(s) return { Runs = s.Laps, Best = s.BestTime } end
+	send(player, "start", {
+		Kind = "Speed", Station = rec.Id, Start = rec.Start, Path = rec.Path, Loop = rec.Loop, Length = rec.Length,
+		Stat = session.Stat, Area = rec.Area, Lobby = rec.Id == "Lobby_Speed", Auto = true, Speed = session.Speed,
+	})
+end
 starters.Dribbling = startCourse
 
 local function finishRun(player, session, t)
@@ -7115,7 +7188,63 @@ local function tickCourse(player, session, t)
 	session.Prev = nil
 	if session.Next &gt; #rec.Checks then finishRun(player, session, t) end
 end
-ticks.Speed = tickCourse
+local function tickAutoRun(player, session, t)
+	local rec = session.Station
+	local drill = Config.Drills.Speed
+	local root, humanoid = rootOf(player)
+	if not (root and humanoid) then return end
+	local pos = DrillMath.Flat(root.Position)
+	if (pos - DrillMath.Flat(rec.Center)).Magnitude &gt; rec.Extent then
+		TrainingService.End(player, "left")
+		return
+	end
+	-- a lap: past the finish line (the Pace board keeps the best lap)
+	local finish = rec.Loop and rec.Checks[#rec.Checks]
+	if finish then
+		local along = (pos - DrillMath.Flat(finish.Pos)):Dot(finish.Dir)
+		local side = math.abs((pos - DrillMath.Flat(finish.Pos)):Dot(DrillMath.Right(finish.Dir)))
+		if session.Prev and session.Prev &lt; 0 and along &gt;= 0 and side &lt; 10 then
+			local lap = t - session.LapStart
+			session.LapStart = t
+			-- a real lap takes at least the track length at full speed
+			if lap &gt;= rec.Length * 0.8 / (session.Speed * 1.1) then
+				session.Laps += 1
+				if not session.BestTime or lap &lt; session.BestTime then session.BestTime = lap end
+				if rec.Id == "Lobby_Speed" then
+					StatService.Count(player, "SpeedBest", math.floor(lap * 100 + 0.5) / 100, "min")
+					StatService.Count(player, "SpeedRuns", 1)
+					StatService.Sync(player)
+				end
+				send(player, "lap", { Time = lap, Best = session.BestTime, Laps = session.Laps })
+			end
+		end
+		session.Prev = along
+	end
+	if t - session.LastTick &lt; 1 then return end
+	local dt = t - session.LastTick
+	session.LastTick = t
+	-- keep up with Pace going up while you run
+	local speed = courseSpeed(player, session)
+	if speed ~= session.Speed then
+		session.Speed = speed
+		humanoid.WalkSpeed = speed
+		send(player, "speed", { Speed = speed })
+	end
+	local moved = (pos - session.LastPos).Magnitude
+	session.LastPos = pos
+	-- XP for running (not for standing still)
+	if moved &gt;= speed * dt * 0.35 and moved &lt;= speed * dt * 1.6 + 6 then
+		session.LastAction = t
+		reward(player, session, drill.XPPerSecond * dt * (speed / 20))
+	elseif t - session.LastAction &gt; 30 then
+		TrainingService.End(player, "idle")
+	end
+end
+
+ticks.Speed = function(player, session, t)
+	if session.Auto then return tickAutoRun(player, session, t) end
+	return tickCourse(player, session, t)
+end
 ticks.Dribbling = tickCourse
 actions.Speed = {}
 actions.Dribbling = {}
@@ -7251,16 +7380,17 @@ end
 
 local GYM = Config.Drills.Gym
 
-local function newRep(session, delay)
-	local p = progress(session.Player, session)
-	local index = session.Rep
-	local period = Config.Lerp(GYM.PeriodStart, GYM.PeriodEnd, (index - 1) / math.max(1, GYM.Reps - 1)) * (1 - 0.15 * p)
-	local width = Config.Lerp(GYM.ZoneEasy, GYM.ZoneHard, p)
-	local center = 0.3 + rng:NextNumber() * 0.5
-	session.RepData = {
-		Index = index, Start = now() + (delay or 0.5), Period = period, Center = center, Width = width, Perfect = GYM.Perfect, Pressed = false,
-	}
-	return session.RepData
+-- One lift (a click, or by itself while you rest): every few lifts gives XP.
+local function doLift(player, session, auto)
+	local t = now()
+	session.Lifts += 1
+	session.LastLift = t
+	local xp = 0
+	if session.Lifts % GYM.LiftsPerXP == 0 then
+		xp = reward(player, session, GYM.XPPerLift * GYM.LiftsPerXP)
+		StatService.Count(player, "PerfectReps", 1)
+	end
+	return { Lifts = session.Lifts, XP = xp, Auto = auto, Next = GYM.LiftsPerXP - session.Lifts % GYM.LiftsPerXP }
 end
 
 -- Where the body goes on each machine (everyone sees it; the lifting itself
@@ -7303,74 +7433,31 @@ starters.Gym = function(player, session)
 			end
 		end
 	end
-	session.Rep = 1
-	session.Set, session.GoodInSet = 1, 0
-	session.Good, session.Perfects = 0, 0
-	session.Summary = function(s) return { Good = s.Good, Perfects = s.Perfects, Sets = s.Set - 1 } end
-	newRep(session, 1.2)
+	session.Lifts = 0
+	session.LastLift = now() + 1
+	session.Summary = function(s) return { Lifts = s.Lifts } end
 	send(player, "start", {
 		Kind = "Gym", Station = rec.Id, Machine = rec.Machine, Bar = rec.Bar, Camera = rec.Camera, Spot = rec.Spot,
-		Rep = session.RepData, Reps = GYM.Reps, Stat = "PHY", Area = rec.Area,
+		Stat = "PHY", Area = rec.Area, PerXP = GYM.LiftsPerXP,
 	})
 end
 
-local function nextRep(player, session)
-	if session.Rep &gt;= GYM.Reps then
-		local bonus = session.GoodInSet &gt; 0 and reward(player, session, GYM.SetBonus * session.GoodInSet) or 0
-		send(player, "setDone", { Set = session.Set, Good = session.GoodInSet, XP = bonus })
-		session.Set += 1
-		session.Rep = 1
-		session.GoodInSet = 0
-		send(player, "rep", { Rep = newRep(session, GYM.RestSeconds) })
-	else
-		session.Rep += 1
-		send(player, "rep", { Rep = newRep(session, 0.45) })
-	end
-end
-
 actions.Gym = {
-	Lift = function(player, session, tPress)
-		local rep = session.RepData
+	Lift = function(player, session)
 		local t = now()
-		if not rep or rep.Pressed or t &lt; rep.Start - 0.05 then return { Result = "wait" } end
-		local ping = math.clamp(player:GetNetworkPing() or 0, 0, 0.5)
-		local guess = t - ping * 0.5
-		if type(tPress) ~= "number" or tPress ~= tPress or math.abs(tPress - guess) &gt; GYM.PressWindow + ping * 0.5 then
-			tPress = guess
-		end
-		rep.Pressed = true
+		if t - session.LastLift &lt; GYM.LiftCooldown then return { Result = "wait" } end
 		session.LastAction = t
-		local m = DrillMath.Marker(rep, tPress)
-		local off = math.abs(m - rep.Center)
-		local result = { Marker = m, XP = 0 }
-		if off &lt;= rep.Perfect / 2 then
-			result.Result = "perfect"
-			result.XP = reward(player, session, GYM.PerfectXP)
-			session.Perfects += 1
-			session.Good += 1
-			session.GoodInSet += 1
-			StatService.Count(player, "PerfectReps", 1)
-		elseif off &lt;= rep.Width / 2 then
-			result.Result = "good"
-			result.XP = reward(player, session, GYM.GoodXP)
-			session.Good += 1
-			session.GoodInSet += 1
-		else
-			result.Result = "miss"
-		end
-		task.defer(nextRep, player, session)
+		local result = doLift(player, session, false)
+		result.Result = "lift"
 		return result
 	end,
 }
 
 ticks.Gym = function(player, session, t)
-	local rep = session.RepData
-	if rep and not rep.Pressed and t &gt; rep.Start + rep.Period * 4 then
-		rep.Pressed = true
-		send(player, "repMissed", {})
-		nextRep(player, session)
+	-- resting: it lifts by itself (AFK)
+	if t - session.LastLift &gt;= GYM.AutoEvery then
+		send(player, "lift", doLift(player, session, true))
 	end
-	if t - session.LastAction &gt; 45 then TrainingService.End(player, "idle") end
 end
 
 --------------------------------------------------------------------------------
@@ -7566,7 +7653,10 @@ function CardUI.StatUp(data)
 		FKit.pop(cell.Cell, 1.8, 0.45)
 	end
 	local color = Config.Stats[data.Stat] and Config.Stats[data.Stat].Color or FKit.Color.Gold
-	FKit.float(holder, ("+%d %s"):format(data.Ups or 1, data.Stat), color, UDim2.new(0.5, 0, 0, -18), 30)
+	-- "+1 SHO" in the middle of the screen (a drill shouts it itself)
+	if not (ctx.InDrill and ctx.InDrill()) then
+		FKit.float(ctx.Gui, ("+%d %s!"):format(data.Ups or 1, data.Stat), color, UDim2.fromScale(0.5, 0.34), 54)
+	end
 	ctx.Sound("Pop", 1, 1 + math.min(data.Level - 60, 39) / 80)
 end
 
@@ -8654,10 +8744,51 @@ local PACK_LOOK = {
 
 local pickedStat -- the stat the +1 Stat Point goes to
 
+-- Each part of the shop has its own colour: its panel, the blocks falling
+-- behind it, and the whole window's tint while you scroll past it.
+local SHOP_SECTIONS = {
+	{ Title = "GAMEPASSES (FOREVER)", Colors = { Color3.fromRGB(196, 110, 255), Color3.fromRGB(104, 40, 196) }, Tint = Color3.fromRGB(150, 70, 240) },
+	{ Title = "BOOSTS", Colors = { Color3.fromRGB(255, 186, 80), Color3.fromRGB(232, 96, 30) }, Tint = Color3.fromRGB(250, 140, 40) },
+	{ Title = "XP PACKS", Colors = { Color3.fromRGB(90, 214, 255), Color3.fromRGB(28, 104, 226) }, Tint = Color3.fromRGB(40, 160, 250) },
+}
+local RAINBOW_FROM = 149 -- the priciest things get the moving rainbow button
+
+local function shopSection(list, index, height)
+	local def = SHOP_SECTIONS[index]
+	local outer = new("Frame", {
+		Name = "Section" .. index, Size = UDim2.new(1, 0, 0, height + 60),
+		BackgroundColor3 = C.White, LayoutOrder = index, Parent = list,
+	})
+	FKit.corner(outer, 18)
+	FKit.gradient(outer, def.Colors, 90)
+	FKit.stroke(outer, 3, C.Ink, true)
+	-- blocks in the section's own colours, falling slowly all the way down
+	FKit.fallingBlocks(outer, {
+		Corner = 18, Every = 0.7, Max = 9, Duration = { 5.5, 8.5 }, MinSize = 14, MaxSize = 30, Transparency = 0.5,
+		Colors = { def.Colors[1]:Lerp(C.White, 0.5), def.Colors[1], def.Colors[2]:Lerp(C.White, 0.25), C.White },
+	})
+	local content = new("Frame", {
+		Name = "Content", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+		ZIndex = 2, Parent = outer,
+	})
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = content })
+	new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 12), Parent = content })
+	FKit.text(content, def.Title, 24, C.White, {
+		Size = UDim2.new(1, 0, 0, 28), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 0,
+	})
+	return content, outer
+end
+
 function WINDOWS.Shop.Build(page)
-	local list = scroller(page, 8)
-	heading(list, "GAMEPASSES (FOREVER)", 1)
-	local passes = new("Frame", { Size = UDim2.new(1, 0, 0, 200), BackgroundTransparency = 1, LayoutOrder = 2, Parent = list })
+	-- the window's tint: the colour of the section you are looking at
+	local tint = new("Frame", {
+		Name = "Tint", Size = UDim2.fromScale(1, 1), BackgroundColor3 = SHOP_SECTIONS[1].Tint, BackgroundTransparency = 0.72,
+		BorderSizePixel = 0, ZIndex = 0, Parent = page,
+	})
+	FKit.corner(tint, 16)
+	local list = scroller(page, 12)
+	local passSection, passOuter = shopSection(list, 1, 200)
+	local passes = new("Frame", { Size = UDim2.new(1, 0, 0, 200), BackgroundTransparency = 1, LayoutOrder = 2, Parent = passSection })
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = passes })
 	for i, key in ipairs(Config.PassOrder) do
 		local pass = Config.Gamepasses[key]
@@ -8671,7 +8802,12 @@ function WINDOWS.Shop.Build(page)
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 46),
 		})
 		withIcon(b, priceLabel, ownedPass and "check" or "coin")
-		if not ownedPass and i == 1 then FKit.shine(b, 3) end
+		if not ownedPass and pass.Price &gt;= RAINBOW_FROM then
+			FKit.rainbow(b)
+			FKit.shine(b, 2.4 + i * 0.3)
+		elseif not ownedPass and i == 1 then
+			FKit.shine(b, 3)
+		end
 		if ownedPass then
 			b.Active = false
 		else
@@ -8682,8 +8818,8 @@ function WINDOWS.Shop.Build(page)
 		end
 	end
 
-	heading(list, "BOOSTS", 3)
-	local products = new("Frame", { Size = UDim2.new(1, 0, 0, 170), BackgroundTransparency = 1, LayoutOrder = 4, Parent = list })
+	local boostSection, boostOuter = shopSection(list, 2, 170)
+	local products = new("Frame", { Size = UDim2.new(1, 0, 0, 170), BackgroundTransparency = 1, LayoutOrder = 4, Parent = boostSection })
 	-- 2x XP boost
 	local boost = Config.Products.Boost15
 	local boostTile = box(products, { Size = UDim2.new(0.34, -4, 1, 0) }, PASS_LOOK.DoubleXP[2], 16)
@@ -8759,8 +8895,8 @@ function WINDOWS.Shop.Build(page)
 	end)
 
 	-- XP packs: four tiles with a tag on the best ones
-	heading(list, "XP PACKS", 5)
-	local packs = new("Frame", { Size = UDim2.new(1, 0, 0, 176), BackgroundTransparency = 1, LayoutOrder = 6, Parent = list })
+	local packSection, packOuter = shopSection(list, 3, 176)
+	local packs = new("Frame", { Size = UDim2.new(1, 0, 0, 176), BackgroundTransparency = 1, LayoutOrder = 6, Parent = packSection })
 	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = packs })
 	for i, key in ipairs(Config.PackOrder) do
 		local product = Config.Products[key]
@@ -8774,6 +8910,7 @@ function WINDOWS.Shop.Build(page)
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -16, 0, 40), ZIndex = tile.ZIndex + 2,
 		})
 		withIcon(b, priceLabel, "coin", 28)
+		if product.Price &gt;= RAINBOW_FROM then FKit.rainbow(b) end
 		FKit.shine(b, 1.8 + i * 0.5)
 		b.Activated:Connect(function()
 			ctx.Sound("Click")
@@ -8790,6 +8927,21 @@ function WINDOWS.Shop.Build(page)
 	bodyText(list, "\u{1F6E1} Fair play: LEGEND cards and Seasons can never be bought. You earn them by training!", 16, Color3.fromRGB(200, 220, 255), {
 		Size = UDim2.new(1, 0, 0, 44), LayoutOrder = 7,
 	})
+
+	-- tint the window with the section nearest the top of the list
+	local outers = { passOuter, boostOuter, packOuter }
+	local shownTint = 1
+	list:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		local top = list.AbsolutePosition.Y + list.AbsoluteSize.Y * 0.35
+		local pick = 1
+		for i, o in ipairs(outers) do
+			if o.AbsolutePosition.Y &lt;= top then pick = i end
+		end
+		if pick ~= shownTint then
+			shownTint = pick
+			tween(tint, 0.35, { BackgroundColor3 = SHOP_SECTIONS[pick].Tint })
+		end
+	end)
 
 	return function()
 		local left = attr("Boost", 0) - ctx.Now()
@@ -8873,7 +9025,7 @@ local function buildWindow()
 	})
 	MenusUI.Fit(holder, 740, 540)
 	panel = FKit.panel(holder, { Size = UDim2.fromScale(1, 1), ZIndex = 2 }, 22)
-	FKit.fallingBlocks(panel, { Corner = 22, ZIndex = 2 })
+	FKit.fallingBlocks(panel, { Corner = 22, ZIndex = 2, Duration = { 4.5, 7.5 }, Max = 8 })
 	local header = new("Frame", { Name = "Header", Position = UDim2.fromOffset(10, -22), Size = UDim2.new(0, 330, 0, 58), BackgroundColor3 = C.White, ZIndex = 3, Parent = panel })
 	FKit.corner(header, 16)
 	FKit.gradient(header, { C.Gold, C.GoldDark }, 90)
@@ -9374,23 +9526,41 @@ end
 TrainingClient.Shout = function(...) return shout(...) end
 
 -- "+12 XP" floating up off your head.
+-- "+12 XP" in the middle of the screen (like Muscle Legends): it pops in a
+-- little to the side, floats up and fades. Pops close together stack up.
+local popsLive = 0
 local function xpPop(amount, stat)
-	local character = player.Character
-	local head = character and character:FindFirstChild("Head")
-	if not head then return end
-	local gui = new("BillboardGui", {
-		Size = UDim2.fromOffset(180, 48), StudsOffset = Vector3.new((math.random() - 0.5) * 2.4, 2.6, 0), AlwaysOnTop = true,
-		LightInfluence = 0, Adornee = head, Parent = localFolder(),
+	local gui = ctx.Gui
+	if not gui then return end
+	popsLive += 1
+	local lift = math.min(popsLive - 1, 3) * 34
+	local holder = new("Frame", {
+		Name = "XPPop", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+		Position = UDim2.new(0.5 + (math.random() - 0.5) * 0.16, 0, 0.44, -lift), Size = UDim2.fromOffset(260, 64),
+		ZIndex = 40, Parent = gui,
 	})
-	local l = FKit.text(gui, "+" .. Config.Short(amount) .. " XP", 30, C.White, { Size = UDim2.fromScale(1, 1) })
-	FKit.gradient(l, { statColor(stat):Lerp(C.White, 0.6), statColor(stat) }, 90)
-	FKit.pop(l, 0.4, 0.25)
-	tween(gui, 1.1, { StudsOffset = gui.StudsOffset + Vector3.new(0, 3.2, 0) })
-	task.delay(0.7, function()
-		tween(l, 0.4, { TextTransparency = 1 })
-		tween(l.TextStroke, 0.4, { Transparency = 1 })
+	local color = statColor(stat)
+	local l = FKit.text(holder, "+" .. Config.Short(amount) .. " XP", 46, C.White, { Size = UDim2.new(1, 0, 0.72, 0), ZIndex = 41 })
+	local shade = l:FindFirstChild("TextShade")
+	if shade then shade:Destroy() end
+	FKit.gradient(l, { color:Lerp(C.White, 0.55), color }, 90)
+	local tag = Config.Stats[stat] and FKit.text(holder, Config.Stats[stat].Name:upper(), 20, color:Lerp(C.White, 0.3), {
+		Position = UDim2.fromScale(0, 0.7), Size = UDim2.new(1, 0, 0.3, 0), ZIndex = 41,
+	})
+	FKit.pop(holder, 0.3, 0.22)
+	tween(holder, 1.2, { Position = holder.Position - UDim2.fromOffset(0, 70) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	task.delay(0.8, function()
+		for _, t in ipairs({ l, tag }) do
+			if t then
+				tween(t, 0.4, { TextTransparency = 1 })
+				tween(t.TextStroke, 0.4, { Transparency = 1 })
+			end
+		end
 	end)
-	task.delay(1.2, function() gui:Destroy() end)
+	task.delay(1.25, function()
+		popsLive = math.max(0, popsLive - 1)
+		holder:Destroy()
+	end)
 end
 
 local function setXPBar(stat)
@@ -9793,8 +9963,6 @@ local function markNext(s)
 end
 
 local function courseStart(s, data)
-	s.Auto = data.Auto
-	if s.Auto then setControls(false) end
 	s.Checks = data.Checks
 	s.Cones = data.Cones
 	s.Next = 1
@@ -9843,17 +10011,8 @@ local function courseUpdate(s)
 				s.RunStart = s.GoAt
 			end
 			if s.Running then
-				hud.Info.Text = ("%sTIME &lt;font color=\"#FFD84A\"&gt;%.1fs&lt;/font&gt;%s"):format(s.Auto and "AUTO RUN  " or "", now - s.RunStart,
+				hud.Info.Text = ("TIME &lt;font color=\"#FFD84A\"&gt;%.1fs&lt;/font&gt;%s"):format(now - s.RunStart,
 					s.Penalty &gt; 0 and ("  &lt;font color=\"#FF6A6A\"&gt;+%ds&lt;/font&gt;"):format(s.Penalty) or "")
-				-- auto: run to just past the next gate (again every few
-				-- seconds, as a walk order runs out after a while)
-				local check = s.Auto and s.Checks[s.Next]
-				local character = player.Character
-				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-				if check and humanoid and (s.MoveIndex ~= s.Next or os.clock() - (s.MoveAt or 0) &gt; 2.5) then
-					s.MoveIndex, s.MoveAt = s.Next, os.clock()
-					humanoid:MoveTo(check.Pos + check.Dir * 5)
-				end
 			end
 		end
 	end
@@ -9919,17 +10078,90 @@ local function courseEvent(s, kind, data)
 	end
 end
 
-local function courseStop(s)
-	if s.Auto then
-		setControls(true)
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local root = rootOf()
-		if humanoid and root then humanoid:MoveTo(root.Position) end
+-- The Speed Course runs itself: your character runs round the track on
+-- its own, never stopping (the next point is set before it gets to the
+-- last one), and XP comes every second while you run.
+local function humanoidOf()
+	local character = player.Character
+	return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+local function autoStart(s, data)
+	s.Path, s.Loop, s.Dir = data.Path, data.Loop, 1
+	s.Speed = data.Speed or 20
+	s.Laps = 0
+	setControls(false)
+	-- start from the nearest point ahead
+	local root = rootOf()
+	local best, bestD = 1, math.huge
+	for i, p in ipairs(s.Path) do
+		local d = root and (DrillMath.Flat(p) - DrillMath.Flat(root.Position)).Magnitude or 0
+		if d &lt; bestD then best, bestD = i, d end
+	end
+	s.I = s.Loop and (best % #s.Path + 1) or best
+	resetCamera()
+end
+
+local function autoUpdate(s)
+	local humanoid, root = humanoidOf(), rootOf()
+	if not (humanoid and root and s.Path) then return end
+	local target = s.Path[s.I]
+	local d = (DrillMath.Flat(target) - DrillMath.Flat(root.Position)).Magnitude
+	if d &lt; math.max(3.5, humanoid.WalkSpeed * 0.32) then
+		if s.Loop then
+			s.I = s.I % #s.Path + 1
+		else
+			s.I += s.Dir
+			if s.I &gt; #s.Path then s.Dir, s.I = -1, #s.Path - 1 end
+			if s.I &lt; 1 then s.Dir, s.I = 1, 2 end
+		end
+		s.MoveAt = nil
+		target = s.Path[s.I]
+	end
+	if not s.MoveAt or os.clock() - s.MoveAt &gt; 2 then
+		s.MoveAt = os.clock()
+		humanoid:MoveTo(target)
+	end
+	hud.Info.Text = ("AUTO RUN   SPEED &lt;font color=\"#6BE4FF\"&gt;%d&lt;/font&gt;%s"):format(math.floor(humanoid.WalkSpeed + 0.5),
+		s.Best and ("   BEST LAP &lt;font color=\"#FFD84A\"&gt;%.1fs&lt;/font&gt;"):format(s.Best) or "")
+end
+
+local function autoEvent(s, kind, data)
+	if kind == "lap" then
+		s.Laps, s.Best = data.Laps, data.Best
+		shout(("LAP %.1fs"):format(data.Time), C.Green, 44, 0.9)
+		ctx.Sound("Chime")
+	elseif kind == "speed" then
+		s.Speed = data.Speed
+		shout("FASTER!", Color3.fromRGB(90, 220, 255), 46, 0.8)
 	end
 end
 
-controllers.Speed = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent, Stop = courseStop }
+local function autoStop()
+	setControls(true)
+	local humanoid, root = humanoidOf(), rootOf()
+	if humanoid and root then humanoid:MoveTo(root.Position) end
+end
+
+controllers.Speed = {
+	Action = nil,
+	Start = function(s, data)
+		s.AutoRun = data.Auto and data.Path ~= nil
+		if s.AutoRun then return autoStart(s, data) end
+		return courseStart(s, data)
+	end,
+	Update = function(s, dt)
+		if s.AutoRun then return autoUpdate(s, dt) end
+		return courseUpdate(s, dt)
+	end,
+	Event = function(s, kind, data)
+		if s.AutoRun then return autoEvent(s, kind, data) end
+		return courseEvent(s, kind, data)
+	end,
+	Stop = function(s)
+		if s.AutoRun then autoStop() end
+	end,
+}
 controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent }
 
 --------------------------------------------------------------------------------
@@ -10056,17 +10288,9 @@ controllers.Defending = {
 -- Gym
 --------------------------------------------------------------------------------
 
-local function showRep(s, rep)
-	s.Rep = rep
-	hud.TimingZone.Position = UDim2.fromScale(rep.Center - rep.Width / 2, 0)
-	hud.TimingZone.Size = UDim2.fromScale(rep.Width, 1)
-	hud.TimingPerfect.Position = UDim2.fromScale(rep.Center - rep.Perfect / 2, 0)
-	hud.TimingPerfect.Size = UDim2.fromScale(rep.Perfect, 1)
-end
-
 -- The body lifting: the joints of your own character bend with `p`
 -- (0 = the top of the lift, 1 = the bottom), and the bar or sled moves with
--- your hands. p sinks slowly while you wait and snaps back up when you lift.
+-- your hands. Each lift runs one rep (LIFT_TIME).
 local JOINTS = {
 	Root = "LowerTorso", Waist = "UpperTorso",
 	RightShoulder = "RightUpperArm", LeftShoulder = "LeftUpperArm",
@@ -10136,16 +10360,14 @@ local function liftStart(s)
 	s.PGoal = 0
 end
 
+local LIFT_TIME = 0.5 -- one lift: down and back up (the sled: a push and back)
+
 local function liftUpdate(s, dt)
 	if not s.Joints then return end
-	-- sink toward the bottom while waiting for the lift
-	local rep = s.Rep
-	if s.Snap then
-		s.P = math.max(0, s.P - dt / 0.18)
-		if s.P &lt;= 0 then s.Snap = nil end
-	elseif rep and ctx.Now() &gt;= rep.Start then
-		s.P = math.min(1, s.P + dt / math.max(0.6, rep.Period * 1.6))
-	end
+	local k = s.RepT and math.clamp((os.clock() - s.RepT) / LIFT_TIME, 0, 1) or 1
+	local wave = math.sin(k * math.pi)
+	-- squat and bench start at the top (0); the sled starts back (1)
+	s.P = s.Machine == "Sled" and 1 - wave or wave
 	local pose = POSES[s.Machine] or POSES.Squat
 	local offsets = pose(s.P, os.clock())
 	for name, j in pairs(s.Joints) do
@@ -10188,25 +10410,9 @@ local function liftStop(s)
 	s.Joints, s.Moving = nil, nil
 end
 
-local function liftBar(s, good)
-	if s.Joints then
-		-- up! (a miss only gets halfway)
-		if good then
-			s.Snap = true
-		else
-			s.P = math.max(0.5, s.P)
-		end
-		return
-	end
-	local bar = s.Bar
-	if not (bar and bar.Parent) then return end
-	s.BarHome = s.BarHome or bar.CFrame
-	local lift = s.Machine == "Sled" and CFrame.new(0, 0, -1.6) or CFrame.new(0, good and 1.6 or 0.5, 0)
-	local target = (s.Machine == "Sled") and (s.BarHome * lift) or (s.BarHome + lift.Position)
-	tween(bar, 0.15, { CFrame = target })
-	task.delay(0.25, function()
-		if bar.Parent and s.BarHome then tween(bar, 0.3, { CFrame = s.BarHome }) end
-	end)
+-- One lift on screen: the body goes through a rep and a little "+1" pops.
+local function liftBar(s)
+	s.RepT = os.clock()
 end
 
 controllers.Gym = {
@@ -10214,65 +10420,38 @@ controllers.Gym = {
 	Start = function(s, data)
 		s.Bar = data.Bar
 		s.Machine = data.Machine
-		s.Reps = data.Reps
-		s.Set = 1
-		hud.Timing.Visible = true
-		showRep(s, data.Rep)
+		s.PerXP = data.PerXP or 3
+		s.Lifts, s.Next = 0, s.PerXP
+		hud.Timing.Visible = false
 		if data.Camera then setCamera(CFrame.lookAt(data.Camera.Position, data.Spot + Vector3.new(0, 3, 0)), 55) end
 		-- the server has put you on the machine: start moving with it
 		task.delay(0.2, function()
 			if S == s then pcall(liftStart, s) end
 		end)
-		hud.Info.Text = touchOnly() and "Press LIFT when the marker is in the green!" or "Press (Space / click / LIFT) when the marker is in the green!"
 	end,
 	Update = function(s, dt)
-		local rep = s.Rep
-		if not rep then return end
 		liftUpdate(s, dt or 1 / 60)
-		local now = ctx.Now()
-		local m = DrillMath.Marker(rep, now)
-		hud.TimingMarker.Position = UDim2.fromScale(m, 0.5)
-		hud.TimingMarker.Visible = now &gt;= rep.Start
-		hud.Info.Text = ("REP &lt;font color=\"#FFD84A\"&gt;%d/%d&lt;/font&gt;   SET %d"):format(rep.Index, s.Reps, s.Set)
+		local tip = touchOnly() and "Tap LIFT!" or "Click to lift!"
+		hud.Info.Text = ("%s   LIFTS &lt;font color=\"#FFD84A\"&gt;%d&lt;/font&gt;   XP in &lt;font color=\"#6BFF7A\"&gt;%d&lt;/font&gt;"):format(tip, s.Lifts, s.Next)
 	end,
 	PressBegan = function(s)
-		local rep = s.Rep
-		if not rep or rep.Sent or ctx.Now() &lt; rep.Start then return end
-		rep.Sent = true
-		local t = ctx.Now()
 		task.spawn(function()
-			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Lift", t) end)
-			if not (ok and r) or S ~= s then return end
-			if r.Result == "perfect" then
-				shout("PERFECT!", C.Gold, 64, 0.6)
-				ctx.Sound("Perfect")
-				liftBar(s, true)
-			elseif r.Result == "good" then
-				shout("GOOD", C.Green, 54, 0.5)
-				ctx.Sound("Clank")
-				liftBar(s, true)
-			elseif r.Result == "miss" then
-				shout("MISS", C.Red, 46, 0.5)
-				ctx.Sound("Miss")
-				liftBar(s, false)
-			end
+			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Lift") end)
+			if not (ok and r) or S ~= s or r.Result ~= "lift" then return end
+			s.Lifts, s.Next = r.Lifts, r.Next
+			liftBar(s)
+			ctx.Sound(r.XP &gt; 0 and "Chime" or "Clank", 0.6, 0.9 + math.random() * 0.25)
 		end)
 	end,
 	Event = function(s, kind, data)
-		if kind == "rep" then
-			if data.Rep.Index == 1 then s.Set = (s.Set or 1) + ((s.Rep and s.Rep.Index or 1) &gt; 1 and 1 or 0) end
-			showRep(s, data.Rep)
-		elseif kind == "setDone" then
-			shout("SET COMPLETE!", C.Orange, 62, 1.2)
-			ctx.Sound("Chime")
-			s.Set = data.Set + 1
-		elseif kind == "repMissed" then
-			shout("TOO SLOW!", C.Red, 46, 0.6)
-			s.Snap = true
+		if kind == "lift" then
+			-- resting: it lifted by itself
+			s.Lifts, s.Next = data.Lifts, data.Next
+			liftBar(s)
+			ctx.Sound("Clank", 0.35)
 		end
 	end,
 	Stop = function(s)
-		hud.Timing.Visible = false
 		liftStop(s)
 		if s.Bar and s.BarHome then s.Bar.CFrame = s.BarHome end
 	end,

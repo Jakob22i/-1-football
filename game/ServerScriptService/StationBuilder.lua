@@ -254,7 +254,7 @@ function StationBuilder.Speed(parent, cf, opts)
 	local right = look:Cross(Vector3.yAxis)
 	local origin = flat(cf.Position)
 	local checks = {}
-	local length
+	local length, path
 	local startCF
 	local center
 	if opts.Compact then
@@ -272,6 +272,8 @@ function StationBuilder.Speed(parent, cf, opts)
 		end
 		startCF = CFrame.lookAt(origin - look * 3 + V(0, 3, 0), origin + look * 10 + V(0, 3, 0))
 		center = origin + look * (length / 2)
+		-- the auto run: up the lane and back, over and over
+		path = { origin + look * 4, origin + look * (length - 4) }
 	else
 		-- an oval: two straights and two bends; run anticlockwise seen from above
 		local straight, radius, width = 90, 28, 10
@@ -339,9 +341,24 @@ function StationBuilder.Speed(parent, cf, opts)
 		length = straight * 2 + 2 * math.pi * radius
 		startCF = CFrame.lookAt(at(-3, radius) + V(0, 3, 0), at(10, radius) + V(0, 3, 0))
 		center = origin
+		-- the auto run: round the middle of the track, lap after lap
+		path = { at(0, radius), at(straight / 2, radius) }
+		for k = 1, 7 do
+			local a = k / 8 * math.pi
+			table.insert(path, at(straight / 2 + math.sin(a) * radius, math.cos(a) * radius))
+		end
+		table.insert(path, at(straight / 2, -radius))
+		table.insert(path, at(0, -radius))
+		table.insert(path, at(-straight / 2, -radius))
+		for k = 7, 1, -1 do
+			local a = k / 8 * math.pi
+			table.insert(path, at(-straight / 2 - math.sin(a) * radius, math.cos(a) * radius))
+		end
+		table.insert(path, at(-straight / 2, radius))
 	end
 	local prompt = startPrompt(model, (startCF * CFrame.new(0, -3, 3)).Position, "SPEED", opts.Color)
-	return { Kind = "Speed", Model = model, Prompt = prompt, Start = startCF, Checks = checks, Length = length, Center = center, Extent = opts.Compact and 90 or 110 }
+	return { Kind = "Speed", Model = model, Prompt = prompt, Start = startCF, Checks = checks, Length = length, Center = center, Extent = opts.Compact and 90 or 110,
+		Path = path, Loop = not opts.Compact }
 end
 
 --------------------------------------------------------------------------------

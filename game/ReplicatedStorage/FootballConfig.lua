@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v23"
+Config.Version = "v24"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -293,6 +293,7 @@ Config.Drills = {
 		Title = "SPEED COURSE",
 		Line = "You run it by yourself: more Pace, faster laps!",
 		Auto = true,        -- the course runs itself, lap after lap (AFK friendly)
+		XPPerSecond = 5,    -- XP every second you run (x your track speed / 20)
 		BaseXP = 80,        -- for a run at par time
 		MaxFactor = 1.7,    -- the most a very fast run multiplies it by
 		Countdown = 3,
@@ -372,16 +373,11 @@ Config.Drills = {
 	Gym = {
 		Stat = "PHY",
 		Title = "GYM",
-		Line = "Press when the marker is in the green. Gold = perfect!",
-		GoodXP = 4,
-		PerfectXP = 6,
-		SetBonus = 1.5,       -- x good reps, at the end of a set
-		Reps = 10,
-		PeriodStart = 1.35, PeriodEnd = 0.85, -- seconds for the marker to cross the bar
-		ZoneEasy = 0.22, ZoneHard = 0.14,
-		Perfect = 0.05,
-		PressWindow = 0.14,   -- how far the client's press time may be from the server's guess
-		RestSeconds = 2,
+		Line = "Click to lift! XP every few lifts. Resting? It lifts by itself.",
+		LiftCooldown = 0.35,  -- the fastest you can lift by clicking
+		LiftsPerXP = 3,       -- XP comes every this many lifts
+		XPPerLift = 4,        -- so a set of 3 gives 12 XP (more with PHY and boosts)
+		AutoEvery = 1.6,      -- when you do not click, a lift by itself this often (AFK)
 	},
 	Match = {
 		Stat = "ALL",
@@ -451,7 +447,7 @@ Config.Quests = {
 	{ Id = "Perfect", Counter = "PerfectRuns", Stat = "DRI", Text = "Do %s PERFECT RUNS in the cones", Goals = { 1, 3, 10, 25, 60 } },
 	{ Id = "SpeedTime", Counter = "SpeedBest", Stat = "PAC", Lower = true, Text = "Finish the Speed Course under %ss", Goals = { 26, 24, 22, 20, 19, 18, 17, 16 } },
 	{ Id = "Tackles", Counter = "Tackles", Stat = "DEF", Text = "Stop %s attackers", Goals = { 10, 30, 75, 200, 500 } },
-	{ Id = "Reps", Counter = "PerfectReps", Stat = "PHY", Text = "Do %s perfect reps in the gym", Goals = { 10, 30, 75, 200, 500 } },
+	{ Id = "Reps", Counter = "PerfectReps", Stat = "PHY", Text = "Do %s sets of lifts in the gym", Goals = { 10, 30, 75, 200, 500 } },
 	{ Id = "OVR", Counter = "BestOVR", Stat = "ALL", Text = "Reach %s OVR", Goals = { 65, 70, 75, 80, 85, 90, 95, 99 } },
 	{ Id = "Matches", Counter = "MatchesWon", Stat = "ALL", Text = "Win %s Stadium Matches", Goals = { 1, 3, 10, 25, 60 } },
 }

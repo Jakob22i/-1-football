@@ -75,7 +75,10 @@ function CardUI.StatUp(data)
 		FKit.pop(cell.Cell, 1.8, 0.45)
 	end
 	local color = Config.Stats[data.Stat] and Config.Stats[data.Stat].Color or FKit.Color.Gold
-	FKit.float(holder, ("+%d %s"):format(data.Ups or 1, data.Stat), color, UDim2.new(0.5, 0, 0, -18), 30)
+	-- "+1 SHO" in the middle of the screen (a drill shouts it itself)
+	if not (ctx.InDrill and ctx.InDrill()) then
+		FKit.float(ctx.Gui, ("+%d %s!"):format(data.Ups or 1, data.Stat), color, UDim2.fromScale(0.5, 0.34), 54)
+	end
 	ctx.Sound("Pop", 1, 1 + math.min(data.Level - 60, 39) / 80)
 end
 

@@ -35,11 +35,16 @@ empty baseplate.
 
 ## How to play
 
-- **Speed Course runs itself**: start it once and you run lap after lap on
-  your own (AFK friendly). The more Pace you have, the faster you run on it
-  (20 studs/s at 60 Pace, about 37 at 99; `Config.TrackSpeed`).
-- **Gym**: your character really lifts: squats under the bar, presses on the
-  bench, and leans into the sled; the bar and the sled move with your hands.
+- **Speed Course runs itself**: start it once and your character runs round
+  the track by itself, never stopping, with no arrows or checkpoints, and XP
+  comes every second while you run (AFK friendly). The more Pace you have,
+  the faster you run (20 at 60 Pace, about 37 at 99; `Config.TrackSpeed`).
+  Lap times still count for the fastest-lap board.
+- **Gym**: click (or tap LIFT) to lift, like Muscle Legends: every lift is a
+  rep and every 3 lifts give XP. Resting? It lifts by itself (slower), so
+  it works AFK too. Your character really squats, presses and pushes the
+  sled, and the bar or sled moves with you.
+- **XP** pops up in the middle of the screen ("+12 XP", in the stat's colour).
 
 Walk to a station and press **E** (or tap the prompt) to start a drill.
 Everything shows its controls on screen. On a phone, tap to aim and use the
@@ -183,6 +188,10 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   circles and passing hoops are a few big parts, a smaller crowd), no shadows
   from the floodlights, and flat pieces on top of each other are lifted a
   hair so they never flicker.
+- **Shop**: each part (gamepasses, boosts, XP packs) has its own colour panel
+  with blocks in its colours falling slowly down it, and the window's tint
+  follows the part you scroll to. The priciest things (149 and up) have a
+  moving rainbow button (`FKit.rainbow`).
 - **Moving UI**: little studded blocks tumble down behind every window and the
   XP packs, price buttons get a sweeping shine, pack icons breathe and the
   HOT / BEST VALUE tags wobble. All tweens, no per-frame code.

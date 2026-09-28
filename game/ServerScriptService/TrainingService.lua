@@ -439,7 +439,28 @@ local function startCourse(player, session)
 	})
 	beginRun(player, session)
 end
-starters.Speed = startCourse
+-- The Speed Course runs itself: no laps against the clock, just XP every
+-- second while you run round (and the lap times still count for the board).
+starters.Speed = function(player, session)
+	local rec = session.Station
+	local drill = Config.Drills.Speed
+	if not (drill.Auto and rec.Path) then return startCourse(player, session) end
+	freeze(player, true)
+	placeAt(player, rec.Start)
+	session.Speed = courseSpeed(player, session)
+	local _, humanoid = rootOf(player)
+	if humanoid then humanoid.WalkSpeed = session.Speed end
+	session.Auto = true
+	session.Laps, session.BestTime = 0, nil
+	session.LastTick = now()
+	session.LastPos = DrillMath.Flat(rec.Start.Position)
+	session.LapStart = now()
+	session.Summary = function(s) return { Runs = s.Laps, Best = s.BestTime } end
+	send(player, "start", {
+		Kind = "Speed", Station = rec.Id, Start = rec.Start, Path = rec.Path, Loop = rec.Loop, Length = rec.Length,
+		Stat = session.Stat, Area = rec.Area, Lobby = rec.Id == "Lobby_Speed", Auto = true, Speed = session.Speed,
+	})
+end
 starters.Dribbling = startCourse
 
 local function finishRun(player, session, t)
@@ -555,7 +576,63 @@ local function tickCourse(player, session, t)
 	session.Prev = nil
 	if session.Next > #rec.Checks then finishRun(player, session, t) end
 end
-ticks.Speed = tickCourse
+local function tickAutoRun(player, session, t)
+	local rec = session.Station
+	local drill = Config.Drills.Speed
+	local root, humanoid = rootOf(player)
+	if not (root and humanoid) then return end
+	local pos = DrillMath.Flat(root.Position)
+	if (pos - DrillMath.Flat(rec.Center)).Magnitude > rec.Extent then
+		TrainingService.End(player, "left")
+		return
+	end
+	-- a lap: past the finish line (the Pace board keeps the best lap)
+	local finish = rec.Loop and rec.Checks[#rec.Checks]
+	if finish then
+		local along = (pos - DrillMath.Flat(finish.Pos)):Dot(finish.Dir)
+		local side = math.abs((pos - DrillMath.Flat(finish.Pos)):Dot(DrillMath.Right(finish.Dir)))
+		if session.Prev and session.Prev < 0 and along >= 0 and side < 10 then
+			local lap = t - session.LapStart
+			session.LapStart = t
+			-- a real lap takes at least the track length at full speed
+			if lap >= rec.Length * 0.8 / (session.Speed * 1.1) then
+				session.Laps += 1
+				if not session.BestTime or lap < session.BestTime then session.BestTime = lap end
+				if rec.Id == "Lobby_Speed" then
+					StatService.Count(player, "SpeedBest", math.floor(lap * 100 + 0.5) / 100, "min")
+					StatService.Count(player, "SpeedRuns", 1)
+					StatService.Sync(player)
+				end
+				send(player, "lap", { Time = lap, Best = session.BestTime, Laps = session.Laps })
+			end
+		end
+		session.Prev = along
+	end
+	if t - session.LastTick < 1 then return end
+	local dt = t - session.LastTick
+	session.LastTick = t
+	-- keep up with Pace going up while you run
+	local speed = courseSpeed(player, session)
+	if speed ~= session.Speed then
+		session.Speed = speed
+		humanoid.WalkSpeed = speed
+		send(player, "speed", { Speed = speed })
+	end
+	local moved = (pos - session.LastPos).Magnitude
+	session.LastPos = pos
+	-- XP for running (not for standing still)
+	if moved >= speed * dt * 0.35 and moved <= speed * dt * 1.6 + 6 then
+		session.LastAction = t
+		reward(player, session, drill.XPPerSecond * dt * (speed / 20))
+	elseif t - session.LastAction > 30 then
+		TrainingService.End(player, "idle")
+	end
+end
+
+ticks.Speed = function(player, session, t)
+	if session.Auto then return tickAutoRun(player, session, t) end
+	return tickCourse(player, session, t)
+end
 ticks.Dribbling = tickCourse
 actions.Speed = {}
 actions.Dribbling = {}
@@ -691,16 +768,17 @@ end
 
 local GYM = Config.Drills.Gym
 
-local function newRep(session, delay)
-	local p = progress(session.Player, session)
-	local index = session.Rep
-	local period = Config.Lerp(GYM.PeriodStart, GYM.PeriodEnd, (index - 1) / math.max(1, GYM.Reps - 1)) * (1 - 0.15 * p)
-	local width = Config.Lerp(GYM.ZoneEasy, GYM.ZoneHard, p)
-	local center = 0.3 + rng:NextNumber() * 0.5
-	session.RepData = {
-		Index = index, Start = now() + (delay or 0.5), Period = period, Center = center, Width = width, Perfect = GYM.Perfect, Pressed = false,
-	}
-	return session.RepData
+-- One lift (a click, or by itself while you rest): every few lifts gives XP.
+local function doLift(player, session, auto)
+	local t = now()
+	session.Lifts += 1
+	session.LastLift = t
+	local xp = 0
+	if session.Lifts % GYM.LiftsPerXP == 0 then
+		xp = reward(player, session, GYM.XPPerLift * GYM.LiftsPerXP)
+		StatService.Count(player, "PerfectReps", 1)
+	end
+	return { Lifts = session.Lifts, XP = xp, Auto = auto, Next = GYM.LiftsPerXP - session.Lifts % GYM.LiftsPerXP }
 end
 
 -- Where the body goes on each machine (everyone sees it; the lifting itself
@@ -743,74 +821,31 @@ starters.Gym = function(player, session)
 			end
 		end
 	end
-	session.Rep = 1
-	session.Set, session.GoodInSet = 1, 0
-	session.Good, session.Perfects = 0, 0
-	session.Summary = function(s) return { Good = s.Good, Perfects = s.Perfects, Sets = s.Set - 1 } end
-	newRep(session, 1.2)
+	session.Lifts = 0
+	session.LastLift = now() + 1
+	session.Summary = function(s) return { Lifts = s.Lifts } end
 	send(player, "start", {
 		Kind = "Gym", Station = rec.Id, Machine = rec.Machine, Bar = rec.Bar, Camera = rec.Camera, Spot = rec.Spot,
-		Rep = session.RepData, Reps = GYM.Reps, Stat = "PHY", Area = rec.Area,
+		Stat = "PHY", Area = rec.Area, PerXP = GYM.LiftsPerXP,
 	})
 end
 
-local function nextRep(player, session)
-	if session.Rep >= GYM.Reps then
-		local bonus = session.GoodInSet > 0 and reward(player, session, GYM.SetBonus * session.GoodInSet) or 0
-		send(player, "setDone", { Set = session.Set, Good = session.GoodInSet, XP = bonus })
-		session.Set += 1
-		session.Rep = 1
-		session.GoodInSet = 0
-		send(player, "rep", { Rep = newRep(session, GYM.RestSeconds) })
-	else
-		session.Rep += 1
-		send(player, "rep", { Rep = newRep(session, 0.45) })
-	end
-end
-
 actions.Gym = {
-	Lift = function(player, session, tPress)
-		local rep = session.RepData
+	Lift = function(player, session)
 		local t = now()
-		if not rep or rep.Pressed or t < rep.Start - 0.05 then return { Result = "wait" } end
-		local ping = math.clamp(player:GetNetworkPing() or 0, 0, 0.5)
-		local guess = t - ping * 0.5
-		if type(tPress) ~= "number" or tPress ~= tPress or math.abs(tPress - guess) > GYM.PressWindow + ping * 0.5 then
-			tPress = guess
-		end
-		rep.Pressed = true
+		if t - session.LastLift < GYM.LiftCooldown then return { Result = "wait" } end
 		session.LastAction = t
-		local m = DrillMath.Marker(rep, tPress)
-		local off = math.abs(m - rep.Center)
-		local result = { Marker = m, XP = 0 }
-		if off <= rep.Perfect / 2 then
-			result.Result = "perfect"
-			result.XP = reward(player, session, GYM.PerfectXP)
-			session.Perfects += 1
-			session.Good += 1
-			session.GoodInSet += 1
-			StatService.Count(player, "PerfectReps", 1)
-		elseif off <= rep.Width / 2 then
-			result.Result = "good"
-			result.XP = reward(player, session, GYM.GoodXP)
-			session.Good += 1
-			session.GoodInSet += 1
-		else
-			result.Result = "miss"
-		end
-		task.defer(nextRep, player, session)
+		local result = doLift(player, session, false)
+		result.Result = "lift"
 		return result
 	end,
 }
 
 ticks.Gym = function(player, session, t)
-	local rep = session.RepData
-	if rep and not rep.Pressed and t > rep.Start + rep.Period * 4 then
-		rep.Pressed = true
-		send(player, "repMissed", {})
-		nextRep(player, session)
+	-- resting: it lifts by itself (AFK)
+	if t - session.LastLift >= GYM.AutoEvery then
+		send(player, "lift", doLift(player, session, true))
 	end
-	if t - session.LastAction > 45 then TrainingService.End(player, "idle") end
 end
 
 --------------------------------------------------------------------------------
