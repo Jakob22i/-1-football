@@ -199,7 +199,13 @@ local ICONS = {
 }
 
 -- which icon each stat uses
-Icons.Stat = { PAC = "bolt", SHO = "ball", PAS = "target", DRI = "swirl", DEF = "shield", PHY = "dumbbell" }
+-- Passing and Dribbling use pictures from the icon sheet when it is there
+-- (two arrows passing each other, arrows going round), otherwise these:
+ICONS.pass = ICONS.target
+ICONS.dribble = ICONS.swirl
+
+-- the icon for each stat (the XP pops, the XP bar, the card, quests)
+Icons.Stat = { PAC = "bolt", SHO = "ball", PAS = "pass", DRI = "dribble", DEF = "shield", PHY = "dumbbell" }
 
 local function piece(holder, spec, z, withLine)
 	local f = Instance.new("Frame")
@@ -263,6 +269,7 @@ Icons.Sprite = {
 		check = "check", cross = "cross", coin = "coin", plus = "plus", refresh = "refresh",
 		cart = "basket", clipboard = "swap", gift = "gift", palette = "wheel", crown = "gem",
 		robot = "hand", diamond = "diamond", trophy = "diamond",
+		pass = "swap", dribble = "refresh",
 	},
 }
 

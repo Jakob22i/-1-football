@@ -303,38 +303,49 @@ end
 TrainingClient.Shout = function(...) return shout(...) end
 
 -- "+12 XP" floating up off your head.
--- "+12 XP" in the middle of the screen (like Muscle Legends): it pops in a
--- little to the side, floats up and fades. Pops close together stack up.
+-- "+12" and the stat's icon in the middle of the screen (like Muscle
+-- Legends): small, quick, a little to the side, floats up and fades. Pops
+-- close together stack up.
+local POP_TIME = 0.7
 local popsLive = 0
 local function xpPop(amount, stat)
 	local gui = ctx.Gui
 	if not gui then return end
 	popsLive += 1
-	local lift = math.min(popsLive - 1, 3) * 34
+	local lift = math.min(popsLive - 1, 3) * 26
 	local holder = new("Frame", {
 		Name = "XPPop", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
-		Position = UDim2.new(0.5 + (math.random() - 0.5) * 0.16, 0, 0.44, -lift), Size = UDim2.fromOffset(260, 64),
+		Position = UDim2.new(0.5 + (math.random() - 0.5) * 0.14, 0, 0.45, -lift), Size = UDim2.fromOffset(170, 38),
 		ZIndex = 40, Parent = gui,
 	})
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = holder,
+	})
 	local color = statColor(stat)
-	local l = FKit.text(holder, "+" .. Config.Short(amount) .. " XP", 46, C.White, { Size = UDim2.new(1, 0, 0.72, 0), ZIndex = 41 })
+	local l = FKit.text(holder, "+" .. Config.Short(amount), 28, C.White, {
+		Size = UDim2.fromOffset(0, 38), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 1, ZIndex = 41,
+	})
 	local shade = l:FindFirstChild("TextShade")
 	if shade then shade:Destroy() end
 	FKit.gradient(l, { color:Lerp(C.White, 0.55), color }, 90)
-	local tag = Config.Stats[stat] and FKit.text(holder, Config.Stats[stat].Name:upper(), 20, color:Lerp(C.White, 0.3), {
-		Position = UDim2.fromScale(0, 0.7), Size = UDim2.new(1, 0, 0.3, 0), ZIndex = 41,
-	})
-	FKit.pop(holder, 0.3, 0.22)
-	tween(holder, 1.2, { Position = holder.Position - UDim2.fromOffset(0, 70) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	task.delay(0.8, function()
-		for _, t in ipairs({ l, tag }) do
-			if t then
-				tween(t, 0.4, { TextTransparency = 1 })
-				tween(t.TextStroke, 0.4, { Transparency = 1 })
+	local icon = Icons.new(holder, Icons.Stat[stat] or "star", { Size = UDim2.fromOffset(38, 38), LayoutOrder = 2, ZIndex = 41 })
+	FKit.pop(holder, 0.4, 0.12)
+	tween(holder, POP_TIME, { Position = holder.Position - UDim2.fromOffset(0, 46) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	task.delay(POP_TIME * 0.55, function()
+		tween(l, POP_TIME * 0.4, { TextTransparency = 1 })
+		tween(l.TextStroke, POP_TIME * 0.4, { Transparency = 1 })
+		for _, d in ipairs(icon:GetDescendants()) do
+			if d:IsA("ImageLabel") then
+				tween(d, POP_TIME * 0.4, { ImageTransparency = 1 })
+			elseif d:IsA("Frame") then
+				tween(d, POP_TIME * 0.4, { BackgroundTransparency = 1 })
+			elseif d:IsA("UIStroke") then
+				tween(d, POP_TIME * 0.4, { Transparency = 1 })
 			end
 		end
 	end)
-	task.delay(1.25, function()
+	task.delay(POP_TIME + 0.05, function()
 		popsLive = math.max(0, popsLive - 1)
 		holder:Destroy()
 	end)

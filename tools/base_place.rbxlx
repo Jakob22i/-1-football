@@ -23,7 +23,10 @@
 			</Properties>
 		</Item>
 	</Item>
-	<Item class="Lighting" referent="BASE3"><Properties><string name="Name">Lighting</string><token name="Technology">3</token></Properties></Item>
+	<Item class="Lighting" referent="BASE3"><Properties><string name="Name">Lighting</string><token name="Technology">3</token><Color3 name="Ambient"><R>0.784314</R><G>0.627451</G><B>0.882353</B></Color3><float name="Brightness">2.5</float><Color3 name="ColorShift_Bottom"><R>0.000000</R><G>0.000000</G><B>0.000000</B></Color3><Color3 name="ColorShift_Top"><R>0.843137</R><G>0.745098</G><B>0.529412</B></Color3><float name="EnvironmentDiffuseScale">0.4</float><float name="EnvironmentSpecularScale">0.5</float><bool name="GlobalShadows">true</bool><Color3 name="OutdoorAmbient"><R>0.490196</R><G>0.392157</G><B>0.588235</B></Color3><string name="TimeOfDay">14:30:00</string><float name="GeographicLatitude">0</float><float name="ExposureCompensation">0</float><Color3 name="FogColor"><R>0.784314</R><G>0.666667</G><B>0.980392</B></Color3><float name="FogEnd">2500</float><float name="FogStart">0</float></Properties>
+		<Item class="Sky" referent="BASE12"><Properties><string name="Name">Sunless Blue Sky</string><Content name="SkyboxBk"><url>rbxassetid://591058823</url></Content><Content name="SkyboxDn"><url>rbxassetid://591059876</url></Content><Content name="SkyboxFt"><url>rbxassetid://591058104</url></Content><Content name="SkyboxLf"><url>rbxassetid://591057861</url></Content><Content name="SkyboxRt"><url>rbxassetid://591057625</url></Content><Content name="SkyboxUp"><url>rbxassetid://591059642</url></Content><bool name="CelestialBodiesShown">true</bool><int name="StarCount">3000</int></Properties></Item>
+		<Item class="ColorCorrectionEffect" referent="BASE13"><Properties><string name="Name">ColorCorrection</string><float name="Brightness">0.05</float><float name="Contrast">0.1</float><float name="Saturation">0.15</float><Color3 name="TintColor"><R>1.000000</R><G>1.000000</G><B>1.000000</B></Color3><bool name="Enabled">true</bool></Properties></Item>
+	</Item>
 	<Item class="ReplicatedStorage" referent="BASE4"><Properties><string name="Name">ReplicatedStorage</string></Properties></Item>
 	<Item class="ServerScriptService" referent="BASE5"><Properties><string name="Name">ServerScriptService</string></Properties></Item>
 	<Item class="StarterPlayer" referent="BASE6">

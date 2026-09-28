@@ -57,12 +57,17 @@ empty baseplate.
     every 2.2 s from the same lanes in the same order; click (early is fine)
     to tackle. Resting: you tackle them yourself when they reach you, for a
     bit less XP.
-- **Lighting** follows the "Roblox lighting 100x better" TikTok
-  (`Config.LightingPresets.Video`): Ambient 124,155,184, Brightness 4,
-  Realistic, OutdoorAmbient 157,178,255, ShadowSoftness 1, ClockTime 14.5,
-  Bloom 1 / 56 / 2, ColorCorrection contrast 0.5, saturation 0.5, tint
-  243,234,255, and a thin dark outline round every player.
-- **XP** pops up in the middle of the screen ("+12 XP", in the stat's colour).
+- **Lighting** follows "How to setup lighting for your simulator game"
+  (mysticdevex, TikTok; `Config.LightingPresets.Simulator`): Ambient
+  200,160,225, Brightness 2.5, ColorShift_Top 215,190,135, diffuse 0.4,
+  specular 0.5, Soft, OutdoorAmbient 125,100,150, ClockTime 14.5, lilac fog
+  (200,170,250) ending at 2500, no Atmosphere / Bloom / DepthOfField /
+  SunRays, a light ColorCorrection (0.05 / 0.1 / 0.15), and the "Sunless
+  Blue Sky Skybox" sky. The place file has it too, so Studio shows it
+  before you press Play.
+- **XP** pops up small and quick in the middle of the screen: "+12" in the
+  stat's colour with its icon (bolt, ball, passing arrows, dribble arrows,
+  shield, dumbbell; the arrows come from the icon sheet).
 
 Walk to a station and press **E** (or tap the prompt) to start a drill.
 Everything shows its controls on screen. On a phone, tap to aim and use the

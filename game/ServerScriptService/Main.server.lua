@@ -76,26 +76,30 @@ do
 	end
 end
 
--- the light (Config.Lighting)
+-- the light (Config.Lighting): first clear out every effect already in
+-- Lighting (an Atmosphere would hide the fog), then add only the preset's
 do
 	local Lighting = game:GetService("Lighting")
 	local L = Config.Lighting
+	for _, child in ipairs(Lighting:GetChildren()) do
+		if child:IsA("Atmosphere") or child:IsA("PostEffect") then child:Destroy() end
+	end
 	for k, v in pairs(L.Lighting) do pcall(function() Lighting[k] = v end) end
-	for k, v in pairs(L.Newer) do
+	for k, v in pairs(L.Newer or {}) do
 		pcall(function()
 			if k == "LightingStyle" then Lighting[k] = Enum.LightingStyle[v] else Lighting[k] = v end
 		end)
 	end
 	local function effect(class, name, props)
-		local e = Lighting:FindFirstChild(name) or Instance.new(class)
+		local e = Instance.new(class)
 		e.Name = name
-		for k, v in pairs(props) do e[k] = v end
+		for k, v in pairs(props) do pcall(function() e[k] = v end) end
 		e.Parent = Lighting
 		return e
 	end
-	effect("Atmosphere", "Atmosphere", L.Atmosphere)
-	effect("ColorCorrectionEffect", "ColorCorrection", L.ColorCorrection)
-	effect("SunRaysEffect", "SunRays", L.SunRays)
+	if L.Atmosphere then effect("Atmosphere", "Atmosphere", L.Atmosphere) end
+	if L.ColorCorrection then effect("ColorCorrectionEffect", "ColorCorrection", L.ColorCorrection) end
+	if L.SunRays then effect("SunRaysEffect", "SunRays", L.SunRays) end
 	if L.Bloom then effect("BloomEffect", "Bloom", L.Bloom) end
 end
 
@@ -113,7 +117,7 @@ do
 			if old:IsA("Sky") then old:Destroy() end
 		end
 		local sky = Instance.new("Sky")
-		sky.Name = "GameSky"
+		sky.Name = ids.Name or "GameSky"
 		sky.SkyboxBk, sky.SkyboxDn, sky.SkyboxFt = asset(ids.Bk), asset(ids.Dn), asset(ids.Ft)
 		sky.SkyboxLf, sky.SkyboxRt, sky.SkyboxUp = asset(ids.Lf), asset(ids.Rt), asset(ids.Up)
 		sky.SunAngularSize = ids.SunVisible and 21 or 0
@@ -128,7 +132,7 @@ do
 				print("[Football] sky loaded: " .. sky.Name)
 			else
 				warn("[Football] could not load the sky " .. tostring(ids.AssetId) .. ": " .. tostring(model)
-					.. " - insert Obby Sky from the Toolbox into Lighting, or fill in Config.Sky")
+					.. " - insert the sky from the Toolbox into Lighting, or fill in Config.Sky")
 			end
 			if ok and model then model:Destroy() end
 		end)

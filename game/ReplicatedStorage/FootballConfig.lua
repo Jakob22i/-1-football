@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v25"
+Config.Version = "v26"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -219,17 +219,43 @@ Config.LightingPresets.Video = {
 	-- a thin dark outline round every player (a Highlight), as in the video
 	Outline = { FillColor = rgb(0, 0, 0), FillTransparency = 0.8, OutlineColor = rgb(0, 0, 0) },
 }
-Config.LightingName = "Video"
+-- From "How to setup lighting for your simulator game" (mysticdevex, TikTok):
+-- lilac ambient, soft light, warm top colour shift, lilac fog far away, a
+-- light colour correction, and no Atmosphere, Bloom, DepthOfField or
+-- SunRays at all. The sky is "Sunless Blue Sky Skybox" (Config.Sky).
+-- This is the one the game uses.
+Config.LightingPresets.Simulator = {
+	Lighting = {
+		Ambient = rgb(200, 160, 225),
+		Brightness = 2.5,
+		ColorShift_Bottom = rgb(0, 0, 0),
+		ColorShift_Top = rgb(215, 190, 135),
+		EnvironmentDiffuseScale = 0.4,
+		EnvironmentSpecularScale = 0.5,
+		GlobalShadows = true,
+		OutdoorAmbient = rgb(125, 100, 150),
+		ClockTime = 14.5,
+		GeographicLatitude = 0,
+		ExposureCompensation = 0,
+		FogColor = rgb(200, 170, 250),
+		FogEnd = 2500,
+		FogStart = 0,
+	},
+	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = true },
+	ColorCorrection = { Brightness = 0.05, Contrast = 0.1, Saturation = 0.15, TintColor = rgb(255, 255, 255) },
+}
+Config.LightingName = "Simulator"
 Config.Lighting = Config.LightingPresets[Config.LightingName] or Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
 
--- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
--- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).
--- Empty = the game leaves Lighting alone (a Sky you put there yourself stays).
+-- The sky: the six image ids from the Sky's properties (SkyboxBk, SkyboxDn,
+-- SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp). Empty = the game loads AssetId
+-- from the Toolbox when Lighting has no Sky (a Sky you put there stays).
 Config.Sky = {
-	-- "Obby Sky" by SaturunSnow in the Toolbox: loaded when the game starts
-	-- if Lighting has no Sky yet (a Sky you put in Lighting yourself wins)
-	AssetId = 127719608807122,
-	Bk = "", Dn = "", Ft = "", Lf = "", Rt = "", Up = "",
+	-- "Sunless Blue Sky Skybox" by Yourius (Toolbox 591067775): blue sky and
+	-- white clouds, the one in the lighting video. Its six images:
+	Name = "Sunless Blue Sky",
+	AssetId = 591067775,
+	Bk = 591058823, Dn = 591059876, Ft = 591058104, Lf = 591057861, Rt = 591057625, Up = 591059642,
 	SunVisible = true,
 }
 
