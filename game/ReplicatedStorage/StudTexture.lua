@@ -48,7 +48,7 @@ local function petSim(part)
 		part[face] = Enum.SurfaceType.Smooth
 	end
 	local h, sat, v = part.Color:ToHSV()
-	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.22 + 0.05), math.min(1, v * 1.06 + 0.02))
+	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.05 + 0.02), math.min(1, v * 1.03 + 0.01))
 end
 
 function StudTexture.Apply(part)

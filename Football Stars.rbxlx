@@ -1194,7 +1194,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v24"
+Config.Version = "v25"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -1377,7 +1377,35 @@ Config.LightingPresets.PetSim = {
 	SunRays = { Intensity = 0.02, Spread = 0.4 },
 	Bloom = { Intensity = 0.25, Size = 16, Threshold = 2 },
 }
-Config.Lighting = Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
+-- From the "Roblox lighting 100x better" TikTok (kh_studios): cool blue
+-- ambient, bright sun, Realistic style, big soft bloom, punchy contrast and
+-- saturation with a hint of lilac. This is the one the game uses.
+Config.LightingPresets.Video = {
+	Lighting = {
+		Ambient = rgb(124, 155, 184),
+		Brightness = 4,
+		ColorShift_Bottom = rgb(0, 0, 0),
+		ColorShift_Top = rgb(0, 0, 0),
+		EnvironmentDiffuseScale = 1,
+		EnvironmentSpecularScale = 1,
+		GlobalShadows = true,
+		OutdoorAmbient = rgb(157, 178, 255),
+		ShadowSoftness = 1,
+		ExposureCompensation = 0,
+		ClockTime = 14.5,
+		GeographicLatitude = 0,
+	},
+	Newer = { LightingStyle = "Realistic", PrioritizeLightingQuality = true },
+	-- Roblox's own defaults for a new place (the video leaves them as they are)
+	Atmosphere = { Density = 0.3, Offset = 0.25, Color = rgb(199, 199, 199), Decay = rgb(106, 112, 125), Glare = 0, Haze = 0 },
+	ColorCorrection = { Brightness = 0, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(243, 234, 255) },
+	SunRays = { Intensity = 0.01, Spread = 0.1 },
+	Bloom = { Intensity = 1, Size = 56, Threshold = 2 },
+	-- a thin dark outline round every player (a Highlight), as in the video
+	Outline = { FillColor = rgb(0, 0, 0), FillTransparency = 0.8, OutlineColor = rgb(0, 0, 0) },
+}
+Config.LightingName = "Video"
+Config.Lighting = Config.LightingPresets[Config.LightingName] or Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
 
 -- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
 -- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).
@@ -1488,14 +1516,27 @@ Config.Drills = {
 	Shooting = {
 		Stat = "SHO",
 		Title = "SHOOTING PRACTICE",
-		Line = "Aim, hold to power up, release in the green. Hit the targets!",
+		Line = "Click the target to shoot! Same 5 spots every time, in the same order.",
+		-- AFK farming: the target moves through the same spots in the same
+		-- order forever (an auto clicker can be set to click them in turn),
+		-- a click shoots right where you click, and if you do not shoot for
+		-- AutoEvery seconds, a shot goes in by itself.
+		Pattern = {
+			{ -0.62, 0.3 },          -- bottom left   (u: share of half the goal width, v: share of its height)
+			{ 0.62, 0.3 },           -- bottom right
+			{ 0, 0.55 },             -- middle
+			{ -0.74, 0.8, true },    -- top left corner (bonus)
+			{ 0.74, 0.8, true },     -- top right corner (bonus)
+		},
+		PatternRadius = 2.1,
+		AutoEvery = 3,
 		HitXP = 10,
 		OnTargetXP = 2,     -- on target but not on a circle
 		TopCornerBonus = 1.5,
 		StreakForFire = 5,  -- hits in a row for ON FIRE
 		FireSeconds = 10,
 		FireMultiplier = 2,
-		ShotCooldown = 1.2,
+		ShotCooldown = 0.8,
 		FlightTime = 0.38,
 		IdleEnd = 40,       -- no shot for this long ends the session
 		-- target size (radius in studs) and movement from SHO 60 to 99
@@ -1511,7 +1552,9 @@ Config.Drills = {
 	Passing = {
 		Stat = "PAS",
 		Title = "PASSING DRILL",
-		Line = "Pass to the target that lights up. Quick and accurate = more XP!",
+		Line = "Click the lit target to pass! The targets light up in the same order every time.",
+		PatternMode = true,     -- targets light in a fixed order, a pass goes where you click
+		AutoEvery = 3,          -- no pass for this long: one goes by itself (AFK)
 		PassXP = 8,
 		RingBonus = 1.4,
 		MaxDistance = 62,       -- full power reaches this far
@@ -1530,7 +1573,9 @@ Config.Drills = {
 	Dribbling = {
 		Stat = "DRI",
 		Title = "DRIBBLING CONES",
-		Line = "Weave left and right round every cone. Don't touch them!",
+		Line = "You dribble round the cones by yourself: more Dribbling, faster laps!",
+		Auto = true,          -- weaves round the cones by itself, XP every second
+		XPPerSecond = 5,      -- x your dribbling speed / 14
 		BaseXP = 55,
 		MaxFactor = 1.7,
 		PerfectBonus = 1.5,
@@ -1544,7 +1589,14 @@ Config.Drills = {
 	Defending = {
 		Stat = "DEF",
 		Title = "TACKLE ZONE",
-		Line = "Stop the attackers before they reach your goal line!",
+		Line = "Attackers run at you one by one: click to tackle! Too slow? You tackle by yourself.",
+		PatternMode = true,   -- you stand in front of goal; attackers come in a fixed order
+		Lanes = { -0.55, 0.55, 0, -0.3, 0.3 }, -- where each one starts (share of half the pitch width)
+		PatternSpeed = 11,    -- how fast they run
+		PatternGap = 2.2,     -- seconds between attackers
+		PatternReach = 9,     -- a click tackles anyone this close (a long window, easy for an auto clicker)
+		AutoReach = 1.5,      -- this close and not tackled yet: you tackle by yourself
+		AutoXP = 0.6,         -- ... for this share of the XP
 		StopXP = 9,
 		WaveBonus = 4,        -- x the wave number, for clearing a wave without a goal
 		Lives = 3,
@@ -2672,7 +2724,7 @@ local function petSim(part)
 		part[face] = Enum.SurfaceType.Smooth
 	end
 	local h, sat, v = part.Color:ToHSV()
-	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.22 + 0.05), math.min(1, v * 1.06 + 0.02))
+	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.05 + 0.02), math.min(1, v * 1.03 + 0.01))
 end
 
 function StudTexture.Apply(part)
@@ -6778,7 +6830,30 @@ local function newTarget(session, corner)
 	return target
 end
 
+-- The pattern target: the next of the fixed spots, standing still.
+local function patternTarget(session)
+	local rec = session.Station
+	local spot = SHOOT.Pattern[session.PatternIndex]
+	local r = SHOOT.PatternRadius
+	local halfW = rec.GoalWidth / 2 - r - 0.3
+	local target = {
+		Id = session.NextId, R = r, T0 = now(), Phase = 0, Corner = spot[3] == true,
+		U0 = spot[1] * halfW, V0 = math.clamp(spot[2] * rec.GoalHeight, r + 0.3, rec.GoalHeight - r - 0.3),
+		AU = 0, AV = 0, W = 0, Spot = session.PatternIndex,
+	}
+	session.NextId += 1
+	return target
+end
+
 local function refillTargets(session)
+	if SHOOT.Pattern then
+		if next(session.Targets) == nil then
+			local t = patternTarget(session)
+			session.Targets[t.Id] = t
+			return true
+		end
+		return false
+	end
 	local changed = false
 	-- one ordinary target always, and sometimes a top corner one
 	local ordinary, corner = 0, 0
@@ -6811,14 +6886,16 @@ starters.Shooting = function(player, session)
 	placeAt(player, CFrame.lookAt(rec.Spot + Vector3.new(0, 3, 0) + DrillMath.Flat(rec.Spot - goalMid).Unit * 2, Vector3.new(goalMid.X, rec.Spot.Y + 3, goalMid.Z)))
 	session.Targets = {}
 	session.NextId = 1
+	session.PatternIndex = 1
 	session.Streak, session.BestStreak, session.Goals, session.Shots = 0, 0, 0, 0
 	session.FireUntil = 0
-	session.LastShot = 0
+	session.LastShot = now()
 	refillTargets(session)
 	session.Summary = function(s) return { Goals = s.Goals, Shots = s.Shots, BestStreak = s.BestStreak } end
 	send(player, "start", {
 		Kind = "Shooting", Station = rec.Id, Spot = rec.Spot, Goal = rec.Goal, GoalWidth = rec.GoalWidth, GoalHeight = rec.GoalHeight,
 		Targets = targetList(session), Green = { SHOOT.GreenFrom, SHOOT.GreenTo }, Stat = "SHO", Area = rec.Area,
+		Pattern = SHOOT.Pattern ~= nil,
 	})
 end
 
@@ -6831,65 +6908,90 @@ function TrainingService.ResolveShot(player, session, u, v, power, goalWidth, go
 	return lu, lv, inGoal
 end
 
+-- A shot at (u, v) on the goal mouth. In the pattern it goes exactly where
+-- you aimed; `auto` is the shot that goes by itself when you rest.
+local function shootAt(player, session, u, v, power, auto)
+	local t = now()
+	session.LastShot = t
+	session.Shots += 1
+	local rec = session.Station
+	u = math.clamp(u, -rec.GoalWidth, rec.GoalWidth)
+	v = math.clamp(v, 0, rec.GoalHeight * 2)
+	power = math.clamp(power, 0, 1)
+	local lu, lv, inGoal
+	if SHOOT.Pattern then
+		lu, lv = u, v
+		inGoal = math.abs(lu) &lt;= rec.GoalWidth / 2 - 0.35 and lv &gt;= 0.2 and lv &lt;= rec.GoalHeight - 0.35
+	else
+		lu, lv, inGoal = TrainingService.ResolveShot(player, session, u, v, power, rec.GoalWidth, rec.GoalHeight)
+	end
+	local tHit = t + SHOOT.FlightTime
+	local hit
+	if inGoal then
+		for _, target in pairs(session.Targets) do
+			local tu, tv = DrillMath.TargetPos(target, tHit)
+			if math.sqrt((lu - tu) ^ 2 + (lv - tv) ^ 2) &lt;= target.R + (SHOOT.Pattern and 0.8 or 0.4) then
+				hit = target
+				break
+			end
+		end
+	end
+	local result = { U = lu, V = lv, Time = tHit, XP = 0, Auto = auto }
+	if hit then
+		session.Streak += 1
+		session.BestStreak = math.max(session.BestStreak, session.Streak)
+		session.Goals += 1
+		local fire = t &lt; session.FireUntil
+		local base = SHOOT.HitXP * (hit.Corner and SHOOT.TopCornerBonus or 1) * (fire and SHOOT.FireMultiplier or 1)
+		result.XP = reward(player, session, base)
+		result.Result = hit.Corner and "corner" or "hit"
+		result.Target = hit.Id
+		StatService.Count(player, "Goals", 1)
+		if hit.Corner then StatService.Count(player, "TopCorners", 1) end
+		if session.Streak % SHOOT.StreakForFire == 0 then
+			session.FireUntil = t + SHOOT.FireSeconds
+			result.OnFire = true
+		end
+		session.Targets[hit.Id] = nil
+		if SHOOT.Pattern then session.PatternIndex = session.PatternIndex % #SHOOT.Pattern + 1 end
+		refillTargets(session)
+		result.Targets = targetList(session)
+	elseif inGoal then
+		session.Streak = 0
+		result.Result = "goal"
+		result.XP = reward(player, session, SHOOT.OnTargetXP)
+	else
+		session.Streak = 0
+		result.Result = "miss"
+	end
+	result.Streak = session.Streak
+	result.FireUntil = session.FireUntil
+	return result
+end
+
 actions.Shooting = {
 	Shoot = function(player, session, u, v, power)
 		if type(u) ~= "number" or type(v) ~= "number" or type(power) ~= "number" then return nil end
 		if u ~= u or v ~= v or power ~= power then return nil end
 		local t = now()
 		if t - session.LastShot &lt; SHOOT.ShotCooldown then return { Result = "wait" } end
-		session.LastShot = t
 		session.LastAction = t
-		session.Shots += 1
-		local rec = session.Station
-		u = math.clamp(u, -rec.GoalWidth, rec.GoalWidth)
-		v = math.clamp(v, 0, rec.GoalHeight * 2)
-		power = math.clamp(power, 0, 1)
-		local lu, lv, inGoal = TrainingService.ResolveShot(player, session, u, v, power, rec.GoalWidth, rec.GoalHeight)
-		local tHit = t + SHOOT.FlightTime
-		local hit
-		if inGoal then
-			for _, target in pairs(session.Targets) do
-				local tu, tv = DrillMath.TargetPos(target, tHit)
-				if math.sqrt((lu - tu) ^ 2 + (lv - tv) ^ 2) &lt;= target.R + 0.4 then
-					hit = target
-					break
-				end
-			end
-		end
-		local result = { U = lu, V = lv, Time = tHit, XP = 0 }
-		if hit then
-			session.Streak += 1
-			session.BestStreak = math.max(session.BestStreak, session.Streak)
-			session.Goals += 1
-			local fire = t &lt; session.FireUntil
-			local base = SHOOT.HitXP * (hit.Corner and SHOOT.TopCornerBonus or 1) * (fire and SHOOT.FireMultiplier or 1)
-			result.XP = reward(player, session, base)
-			result.Result = hit.Corner and "corner" or "hit"
-			result.Target = hit.Id
-			StatService.Count(player, "Goals", 1)
-			if hit.Corner then StatService.Count(player, "TopCorners", 1) end
-			if session.Streak % SHOOT.StreakForFire == 0 then
-				session.FireUntil = t + SHOOT.FireSeconds
-				result.OnFire = true
-			end
-			session.Targets[hit.Id] = nil
-			refillTargets(session)
-			result.Targets = targetList(session)
-		elseif inGoal then
-			session.Streak = 0
-			result.Result = "goal"
-			result.XP = reward(player, session, SHOOT.OnTargetXP)
-		else
-			session.Streak = 0
-			result.Result = "miss"
-		end
-		result.Streak = session.Streak
-		result.FireUntil = session.FireUntil
-		return result
+		return shootAt(player, session, u, v, power, false)
 	end,
 }
 
 ticks.Shooting = function(player, session, t)
+	if SHOOT.Pattern then
+		-- resting: a shot at the target goes in by itself (AFK)
+		if t - session.LastShot &gt;= SHOOT.AutoEvery then
+			local _, target = next(session.Targets)
+			if target then
+				local tu, tv = DrillMath.TargetPos(target, t + SHOOT.FlightTime)
+				send(player, "autoShot", shootAt(player, session, tu, tv, (SHOOT.GreenFrom + SHOOT.GreenTo) / 2, true))
+			end
+		end
+		return
+	end
 	local changed = false
 	for id, target in pairs(session.Targets) do
 		if target.Expires and t &gt; target.Expires then
@@ -6912,6 +7014,15 @@ local PASS = Config.Drills.Passing
 
 local function lightNext(session, delay)
 	local rec = session.Station
+	if PASS.PatternMode then
+		-- the targets light up in the same order, round and round (and stay
+		-- lit until you hit them)
+		session.PatternIndex = (session.PatternIndex or 0) % #rec.Targets + 1
+		local target = rec.Targets[session.PatternIndex]
+		local since = now() + (delay or 0.3)
+		session.Lit = { Id = target.Id, Since = since, Expires = since + 1e6 }
+		return session.Lit
+	end
 	local choices = {}
 	for _, target in ipairs(rec.Targets) do
 		if not (session.Lit and session.Lit.Id == target.Id) then
@@ -6932,7 +7043,8 @@ starters.Passing = function(player, session)
 	freeze(player, true)
 	local forward = DrillMath.Flat(rec.Facing.LookVector).Unit
 	placeAt(player, CFrame.lookAt(rec.Spot + Vector3.new(0, 3, 0) - forward * 2, rec.Spot + Vector3.new(0, 3, 0) + forward * 10))
-	session.LastPass = 0
+	session.LastPass = now()
+	session.PatternIndex = 0
 	session.Good, session.Passes = 0, 0
 	lightNext(session, 1.2)
 	session.Summary = function(s) return { Good = s.Good, Passes = s.Passes } end
@@ -6942,7 +7054,7 @@ starters.Passing = function(player, session)
 	end
 	send(player, "start", {
 		Kind = "Passing", Station = rec.Id, Spot = rec.Spot, Facing = rec.Facing, Targets = targets, Lit = session.Lit,
-		MaxDistance = PASS.MaxDistance, Stat = "PAS", Area = rec.Area,
+		MaxDistance = PASS.MaxDistance, Stat = "PAS", Area = rec.Area, Pattern = PASS.PatternMode,
 	})
 end
 
@@ -6959,6 +7071,61 @@ function TrainingService.ResolvePass(player, spot, targetPos, kind, aim, power)
 	return success, landing, accuracy
 end
 
+-- A pass to (x, z). In the pattern it lands where you aimed; `auto` is the
+-- pass that goes by itself when you rest.
+local function passTo(player, session, x, z, power, auto)
+	local t = now()
+	local lit = session.Lit
+	session.LastPass = t
+	session.Passes += 1
+	local rec = session.Station
+	local target
+	for _, tgt in ipairs(rec.Targets) do
+		if tgt.Id == lit.Id then target = tgt end
+	end
+	local success, landing, accuracy
+	if PASS.PatternMode then
+		local spot = DrillMath.Flat(rec.Spot)
+		landing = Vector3.new(x, 0, z)
+		local off = DrillMath.Flat(landing) - spot
+		if off.Magnitude &gt; PASS.MaxDistance then landing = spot + off.Unit * PASS.MaxDistance end
+		local lengthErr, sideErr = DrillMath.PassError(rec.Spot, target.Pos, landing)
+		local width = target.Kind == "Ring" and PASS.RingWidth or PASS.DummyWidth
+		local depth = target.Kind == "Ring" and PASS.RingDepth or PASS.DummyDepth
+		success = math.abs(sideErr) &lt;= width * 1.3 and math.abs(lengthErr) &lt;= depth * 1.3
+		accuracy = 1
+	else
+		success, landing, accuracy = TrainingService.ResolvePass(player, rec.Spot, target.Pos, target.Kind,
+			Vector3.new(x, 0, z), math.clamp(power, 0, 1))
+	end
+	local result = { Success = success, Landing = landing, Target = target.Id, XP = 0, Auto = auto }
+	if success then
+		local reaction = t - lit.Since
+		local speed
+		if PASS.PatternMode then
+			speed = 1
+		elseif reaction &lt;= PASS.QuickTime then
+			speed = 1.3
+		elseif reaction &gt;= PASS.SlowTime then
+			speed = 0.75
+		else
+			speed = 1.3 - 0.55 * (reaction - PASS.QuickTime) / (PASS.SlowTime - PASS.QuickTime)
+		end
+		local base = PASS.PassXP * (0.7 + 0.6 * accuracy) * speed * (target.Kind == "Ring" and PASS.RingBonus or 1)
+		result.XP = reward(player, session, base)
+		result.Quick = not PASS.PatternMode and reaction &lt;= PASS.QuickTime
+		session.Good += 1
+		StatService.Count(player, "Passes", 1)
+		result.Next = lightNext(session)
+	elseif PASS.PatternMode then
+		-- missed: the same target stays lit
+		result.Next = session.Lit
+	else
+		result.Next = lightNext(session)
+	end
+	return result
+end
+
 actions.Passing = {
 	Pass = function(player, session, x, z, power)
 		if type(x) ~= "number" or type(z) ~= "number" or type(power) ~= "number" then return nil end
@@ -6967,39 +7134,24 @@ actions.Passing = {
 		if t - session.LastPass &lt; PASS.PassCooldown then return { Result = "wait" } end
 		local lit = session.Lit
 		if not lit or t &lt; lit.Since - 0.15 then return { Result = "wait" } end
-		session.LastPass = t
 		session.LastAction = t
-		session.Passes += 1
-		local rec = session.Station
-		local target
-		for _, tgt in ipairs(rec.Targets) do
-			if tgt.Id == lit.Id then target = tgt end
-		end
-		local success, landing, accuracy = TrainingService.ResolvePass(player, rec.Spot, target.Pos, target.Kind,
-			Vector3.new(x, 0, z), math.clamp(power, 0, 1))
-		local result = { Success = success, Landing = landing, Target = target.Id, XP = 0 }
-		if success then
-			local reaction = t - lit.Since
-			local speed
-			if reaction &lt;= PASS.QuickTime then
-				speed = 1.3
-			elseif reaction &gt;= PASS.SlowTime then
-				speed = 0.75
-			else
-				speed = 1.3 - 0.55 * (reaction - PASS.QuickTime) / (PASS.SlowTime - PASS.QuickTime)
-			end
-			local base = PASS.PassXP * (0.7 + 0.6 * accuracy) * speed * (target.Kind == "Ring" and PASS.RingBonus or 1)
-			result.XP = reward(player, session, base)
-			result.Quick = reaction &lt;= PASS.QuickTime
-			session.Good += 1
-			StatService.Count(player, "Passes", 1)
-		end
-		result.Next = lightNext(session)
-		return result
+		return passTo(player, session, x, z, power, false)
 	end,
 }
 
 ticks.Passing = function(player, session, t)
+	if PASS.PatternMode then
+		-- resting: a pass to the lit target goes by itself (AFK)
+		local lit = session.Lit
+		if lit and t &gt;= lit.Since and t - session.LastPass &gt;= PASS.AutoEvery then
+			local target
+			for _, tgt in ipairs(session.Station.Targets) do
+				if tgt.Id == lit.Id then target = tgt end
+			end
+			if target then send(player, "autoPass", passTo(player, session, target.Pos.X, target.Pos.Z, 0.5, true)) end
+		end
+		return
+	end
 	if session.Lit and t &gt; session.Lit.Expires then
 		send(player, "lit", { Lit = lightNext(session), Missed = true })
 	end
@@ -7053,10 +7205,8 @@ local function startCourse(player, session)
 end
 -- The Speed Course runs itself: no laps against the clock, just XP every
 -- second while you run round (and the lap times still count for the board).
-starters.Speed = function(player, session)
+local function startAutoRun(player, session, path, loop)
 	local rec = session.Station
-	local drill = Config.Drills.Speed
-	if not (drill.Auto and rec.Path) then return startCourse(player, session) end
 	freeze(player, true)
 	placeAt(player, rec.Start)
 	session.Speed = courseSpeed(player, session)
@@ -7069,11 +7219,38 @@ starters.Speed = function(player, session)
 	session.LapStart = now()
 	session.Summary = function(s) return { Runs = s.Laps, Best = s.BestTime } end
 	send(player, "start", {
-		Kind = "Speed", Station = rec.Id, Start = rec.Start, Path = rec.Path, Loop = rec.Loop, Length = rec.Length,
+		Kind = session.Kind, Station = rec.Id, Start = rec.Start, Path = path, Loop = loop, Length = rec.Length,
 		Stat = session.Stat, Area = rec.Area, Lobby = rec.Id == "Lobby_Speed", Auto = true, Speed = session.Speed,
 	})
 end
-starters.Dribbling = startCourse
+
+starters.Speed = function(player, session)
+	local rec = session.Station
+	if not (Config.Drills.Speed.Auto and rec.Path) then return startCourse(player, session) end
+	startAutoRun(player, session, rec.Path, rec.Loop)
+end
+
+-- Dribbling by itself: out past each cone on its side, round the flag, back
+-- through the other lane, over the finish and across to the start again.
+starters.Dribbling = function(player, session)
+	local rec = session.Station
+	if not Config.Drills.Dribbling.Auto then return startCourse(player, session) end
+	if not rec.AutoPath then
+		local path = { DrillMath.Flat(rec.Start.Position) }
+		for _, check in ipairs(rec.Checks) do
+			if check.Kind == "Cone" then
+				table.insert(path, DrillMath.Flat(check.Pos) + DrillMath.Right(check.Dir) * check.Side * 2.4)
+			elseif check.Kind == "Turn" then
+				local prev = path[#path]
+				table.insert(path, DrillMath.Flat(check.Pos) + DrillMath.Flat(check.Pos - prev).Unit * 3)
+			else
+				table.insert(path, DrillMath.Flat(check.Pos) + check.Dir * 3)
+			end
+		end
+		rec.AutoPath = path
+	end
+	startAutoRun(player, session, rec.AutoPath, true)
+end
 
 local function finishRun(player, session, t)
 	local drill = Config.Drills[session.Kind]
@@ -7190,7 +7367,8 @@ local function tickCourse(player, session, t)
 end
 local function tickAutoRun(player, session, t)
 	local rec = session.Station
-	local drill = Config.Drills.Speed
+	local drill = Config.Drills[session.Kind]
+	local refSpeed = session.Kind == "Dribbling" and Config.Speed.Dribble or Config.Speed.Track
 	local root, humanoid = rootOf(player)
 	if not (root and humanoid) then return end
 	local pos = DrillMath.Flat(root.Position)
@@ -7199,7 +7377,7 @@ local function tickAutoRun(player, session, t)
 		return
 	end
 	-- a lap: past the finish line (the Pace board keeps the best lap)
-	local finish = rec.Loop and rec.Checks[#rec.Checks]
+	local finish = session.Kind == "Speed" and rec.Loop and rec.Checks[#rec.Checks]
 	if finish then
 		local along = (pos - DrillMath.Flat(finish.Pos)):Dot(finish.Dir)
 		local side = math.abs((pos - DrillMath.Flat(finish.Pos)):Dot(DrillMath.Right(finish.Dir)))
@@ -7235,7 +7413,7 @@ local function tickAutoRun(player, session, t)
 	-- XP for running (not for standing still)
 	if moved &gt;= speed * dt * 0.35 and moved &lt;= speed * dt * 1.6 + 6 then
 		session.LastAction = t
-		reward(player, session, drill.XPPerSecond * dt * (speed / 20))
+		reward(player, session, drill.XPPerSecond * dt * (speed / refSpeed))
 	elseif t - session.LastAction &gt; 30 then
 		TrainingService.End(player, "idle")
 	end
@@ -7245,7 +7423,10 @@ ticks.Speed = function(player, session, t)
 	if session.Auto then return tickAutoRun(player, session, t) end
 	return tickCourse(player, session, t)
 end
-ticks.Dribbling = tickCourse
+ticks.Dribbling = function(player, session, t)
+	if session.Auto then return tickAutoRun(player, session, t) end
+	return tickCourse(player, session, t)
+end
 actions.Speed = {}
 actions.Dribbling = {}
 
@@ -7280,8 +7461,55 @@ local function spawnWave(player, session)
 	send(player, "wave", { Wave = session.Wave, Attackers = list, Lives = session.Lives })
 end
 
+-- The pattern: you stand in front of goal and attackers run straight at you,
+-- one every PatternGap seconds, from the same lanes in the same order.
+local function defendSpot(rec)
+	return rec.GoalLine * CFrame.new(0, 0, -7)
+end
+
+local function spawnPatternAttacker(player, session, t0)
+	local rec = session.Station
+	session.LaneIndex = session.LaneIndex % #DEF.Lanes + 1
+	local side = DEF.Lanes[session.LaneIndex] * (rec.Width / 2 - 4)
+	local startPos = (rec.GoalLine * CFrame.new(side, 0, -rec.Length)).Position
+	local endPos = defendSpot(rec).Position
+	local att = {
+		Id = session.NextId, Start = startPos, End = endPos, T0 = t0,
+		Duration = (endPos - startPos).Magnitude / DEF.PatternSpeed, Amp = 0, Freq = 0,
+	}
+	session.NextId += 1
+	session.Attackers[att.Id] = att
+	send(player, "attackers", { Attackers = { att } })
+end
+
+local function tackleAttacker(player, session, att, auto)
+	session.Attackers[att.Id] = nil
+	session.Stops += 1
+	StatService.Count(player, "Tackles", 1)
+	local xp = reward(player, session, DEF.StopXP * (auto and DEF.AutoXP or 1))
+	return { Result = "stop", Attacker = att.Id, XP = xp, Auto = auto }
+end
+
 starters.Defending = function(player, session)
 	local rec = session.Station
+	if DEF.PatternMode then
+		freeze(player, true)
+		local spot = defendSpot(rec)
+		placeAt(player, CFrame.lookAt(spot.Position + Vector3.new(0, 3, 0), (rec.GoalLine * CFrame.new(0, 3, -40)).Position))
+		session.Attackers = {}
+		session.NextId = 1
+		session.LaneIndex = 0
+		session.Wave, session.Lives, session.Stops = 0, DEF.Lives, 0
+		session.LastTackle = 0
+		session.NextSpawn = now() + 1.5
+		session.Pattern = true
+		session.Summary = function(s) return { Waves = 0, Stops = s.Stops } end
+		send(player, "start", {
+			Kind = "Defending", Station = rec.Id, GoalLine = rec.GoalLine, Length = rec.Length, Width = rec.Width, Lives = session.Lives,
+			Stat = "DEF", Area = rec.Area, Pattern = true, Spot = spot.Position,
+		})
+		return
+	end
 	StatService.SetBusy(player, true)
 	local _, humanoid = rootOf(player)
 	if humanoid then
@@ -7304,10 +7532,10 @@ starters.Defending = function(player, session)
 end
 
 -- The attacker a tackle reaches, if any (shared with the stadium).
-function TrainingService.TackleCheck(player, attackers, t)
+function TrainingService.TackleCheck(player, attackers, t, reach)
 	local root = rootOf(player)
 	if not root then return nil end
-	local reach = DEF.Reach + DEF.ReachPerLevel * math.max(0, statLevel(player, "DEF") - Config.StartLevel)
+	reach = reach or (DEF.Reach + DEF.ReachPerLevel * math.max(0, statLevel(player, "DEF") - Config.StartLevel))
 	local ping = math.clamp(player:GetNetworkPing() or 0, 0, 0.4)
 	local pos = DrillMath.Flat(root.Position)
 	local best, bestDist = nil, math.huge
@@ -7326,6 +7554,15 @@ end
 actions.Defending = {
 	Tackle = function(player, session)
 		local t = now()
+		if session.Pattern then
+			-- the pattern: clicking too early costs nothing (auto clickers)
+			if t - session.LastTackle &lt; 0.2 then return { Result = "wait" } end
+			local att = TrainingService.TackleCheck(player, session.Attackers, t, DEF.PatternReach)
+			if not att then return { Result = "miss" } end
+			session.LastTackle = t
+			session.LastAction = t
+			return tackleAttacker(player, session, att, false)
+		end
 		if t - session.LastTackle &lt; DEF.TackleCooldown then return { Result = "wait" } end
 		session.LastTackle = t
 		session.LastAction = t
@@ -7341,6 +7578,22 @@ actions.Defending = {
 
 ticks.Defending = function(player, session, t)
 	local rec = session.Station
+	if session.Pattern then
+		if t &gt;= session.NextSpawn then
+			spawnPatternAttacker(player, session, session.NextSpawn + 0.6)
+			session.NextSpawn += DEF.PatternGap
+		end
+		-- too close and not tackled: you tackle by yourself (AFK)
+		local root = rootOf(player)
+		for _, att in pairs(session.Attackers) do
+			local pos = DrillMath.AttackerPos(att, t)
+			local d = root and (DrillMath.Flat(pos) - DrillMath.Flat(root.Position)).Magnitude or 0
+			if t &gt;= att.T0 and (d &lt;= DEF.AutoReach or DrillMath.AttackerDone(att, t)) then
+				send(player, "autoTackle", tackleAttacker(player, session, att, true))
+			end
+		end
+		return
+	end
 	local root = rootOf(player)
 	if root and (DrillMath.Flat(root.Position) - DrillMath.Flat((rec.GoalLine * CFrame.new(0, 0, -rec.Length / 2)).Position)).Magnitude &gt; rec.Length then
 		TrainingService.End(player, "left")
@@ -8064,6 +8317,32 @@ do
 			close()
 		end
 	end)
+end
+
+-- A thin dark outline round every player's character (Config.Lighting.Outline,
+-- from the lighting video). Roblox shows at most 31 outlines at once, so it
+-- stops at 24 players (the star players use a few).
+do
+	local look = Config.Lighting.Outline
+	if look then
+		local count = 0
+		local function outline(character)
+			if count &gt;= 24 or character:FindFirstChild("PlayerOutline") then return end
+			count += 1
+			local h = new("Highlight", {
+				Name = "PlayerOutline", FillColor = look.FillColor, FillTransparency = look.FillTransparency,
+				OutlineColor = look.OutlineColor, OutlineTransparency = 0, DepthMode = Enum.HighlightDepthMode.Occluded,
+				Adornee = character, Parent = character,
+			})
+			h.Destroying:Connect(function() count = math.max(0, count - 1) end)
+		end
+		local function watch(p)
+			if p.Character then outline(p.Character) end
+			p.CharacterAdded:Connect(outline)
+		end
+		for _, p in ipairs(Players:GetPlayers()) do watch(p) end
+		Players.PlayerAdded:Connect(watch)
+	end
 end
 </ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL25"><Properties><string name="Name">MenusUI</string><ProtectedString name="Source">-- The menus: big buttons on the left (My Card, Daily, Quests, Positions,
 -- Season, Style, Shop) with badges, one window at a time in the middle of
@@ -9737,6 +10016,55 @@ local function shootPressEnded(s, send)
 	end)
 end
 
+-- What a shot did, once the ball gets there (a click, or a shot by itself).
+local function showShot(ss, r)
+	flyBall(ss, r.U, r.V, r.Time, r.Result ~= "miss")
+	local wait = math.max(0, r.Time - ctx.Now())
+	task.delay(wait, function()
+		if S ~= ss then return end
+		if r.Result == "corner" then
+			shout("TOP CORNER!", C.Gold, r.Auto and 50 or 70)
+			ctx.Sound("Perfect", r.Auto and 0.5 or 1)
+			if not r.Auto then ctx.Sound("Cheer", 0.6) end
+		elseif r.Result == "hit" then
+			shout("GOAL!", C.Green, r.Auto and 50 or 70)
+			ctx.Sound("Ding", r.Auto and 0.5 or 1)
+		elseif r.Result == "goal" then
+			shout("ON TARGET", C.White, 44)
+		else
+			shout("MISS", C.Red, 50)
+			ctx.Sound("Miss")
+		end
+		if r.OnFire then
+			shout("\u{1F525} ON FIRE! x2 XP \u{1F525}", C.Orange, 60, 1.3)
+			ctx.Sound("Fire")
+		end
+		ss.Streak = r.Streak or 0
+		ss.FireUntil = r.FireUntil or 0
+		if r.Targets then buildTargets(ss, r.Targets) end
+	end)
+end
+
+-- The pattern: faint numbered rings on every spot the target goes to, so
+-- you (or an auto clicker) can learn the order.
+local function patternMarks(s)
+	local shoot = Config.Drills.Shooting
+	local folder = localFolder()
+	local r = shoot.PatternRadius
+	local halfW = s.GoalW / 2 - r - 0.3
+	for i, spot in ipairs(shoot.Pattern) do
+		local u = spot[1] * halfW
+		local v = math.clamp(spot[2] * s.GoalH, r + 0.3, s.GoalH - r - 0.3)
+		lpart(folder, { Name = "PatternSpot", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.08, r * 2.1, r * 2.1),
+			Color = C.White, Material = Enum.Material.Neon, Transparency = 0.8, CFrame = goalCFrameAt(s, u, v, 0.25) })
+		local tag = new("BillboardGui", { Size = UDim2.fromOffset(40, 40), AlwaysOnTop = false, LightInfluence = 0,
+			StudsOffsetWorldSpace = Vector3.new(0, r + 0.6, 0), Parent = folder })
+		tag.Adornee = lpart(folder, { Name = "PatternTag", Transparency = 1, Size = Vector3.new(0.2, 0.2, 0.2),
+			CFrame = goalCFrameAt(s, u, v, 0.3) })
+		FKit.text(tag, tostring(i), 26, C.White, { Size = UDim2.fromScale(1, 1) })
+	end
+end
+
 controllers.Shooting = {
 	Action = "SHOOT",
 	Start = function(s, data)
@@ -9745,8 +10073,14 @@ controllers.Shooting = {
 		s.CanShoot = true
 		s.Streak = 0
 		s.FireUntil = 0
-		hud.Info.Text = (touchOnly() and "Tap to aim, hold SHOOT" or "Aim with the mouse, hold to power up")
-			.. ", let go in the &lt;font color=\"#6BFF7A\"&gt;green&lt;/font&gt;!"
+		s.Pattern = data.Pattern
+		if s.Pattern then
+			patternMarks(s)
+			hud.Info.Text = (touchOnly() and "Tap" or "Click") .. " the target to shoot! Spots 1-5, same order every time. Resting? It shoots by itself."
+		else
+			hud.Info.Text = (touchOnly() and "Tap to aim, hold SHOOT" or "Aim with the mouse, hold to power up")
+				.. ", let go in the &lt;font color=\"#6BFF7A\"&gt;green&lt;/font&gt;!"
+		end
 	end,
 	Update = function(s)
 		local now = ctx.Now()
@@ -9759,38 +10093,32 @@ controllers.Shooting = {
 			hud.Info.Text = ("STREAK %d  &lt;font color=\"#FFD84A\"&gt;%d more for ON FIRE&lt;/font&gt;"):format(s.Streak, 5 - s.Streak % 5)
 		end
 	end,
-	PressBegan = function(s) shootPressBegan(s) end,
-	PressEnded = function(s)
-		shootPressEnded(s, function(ss, r)
-			flyBall(ss, r.U, r.V, r.Time, r.Result ~= "miss")
-			local wait = math.max(0, r.Time - ctx.Now())
-			task.delay(wait, function()
-				if S ~= ss then return end
-				if r.Result == "corner" then
-					shout("TOP CORNER!", C.Gold, 70)
-					ctx.Sound("Perfect")
-					ctx.Sound("Cheer", 0.6)
-				elseif r.Result == "hit" then
-					shout("GOAL!", C.Green, 70)
-					ctx.Sound("Ding")
-				elseif r.Result == "goal" then
-					shout("ON TARGET", C.White, 44)
-				else
-					shout("MISS", C.Red, 50)
-					ctx.Sound("Miss")
-				end
-				if r.OnFire then
-					shout("\u{1F525} ON FIRE! x2 XP \u{1F525}", C.Orange, 60, 1.3)
-					ctx.Sound("Fire")
-				end
-				ss.Streak = r.Streak or 0
-				ss.FireUntil = r.FireUntil or 0
-				if r.Targets then buildTargets(ss, r.Targets) end
-			end)
+	PressBegan = function(s)
+		if not s.Pattern then return shootPressBegan(s) end
+		-- the pattern: a click shoots right where you point
+		if (s.LastClick or 0) &gt; os.clock() - 0.2 then return end
+		s.LastClick = os.clock()
+		updateAim(s)
+		local u, v = s.Aim[1], s.Aim[2]
+		task.spawn(function()
+			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Shoot", u, v, 0.77) end)
+			if ok and r and r.U and S == s then
+				ctx.Sound("Kick")
+				showShot(s, r)
+			end
 		end)
 	end,
+	PressEnded = function(s)
+		if s.Pattern then return end
+		shootPressEnded(s, showShot)
+	end,
 	Event = function(s, kind, data)
-		if kind == "targets" then buildTargets(s, data.Targets) end
+		if kind == "targets" then
+			buildTargets(s, data.Targets)
+		elseif kind == "autoShot" then
+			ctx.Sound("Kick", 0.5)
+			showShot(s, data)
+		end
 	end,
 	Stop = function() end,
 }
@@ -9860,14 +10188,36 @@ local function showLit(s)
 	s.LitWaitTarget = t
 end
 
+-- What a pass did, once the ball gets there.
+local function showPass(s, r)
+	local target = litTarget(s)
+	local duration = rollBall(s, r.Landing, target and target.Kind == "Ring" and 2.6 or 0)
+	task.delay(duration, function()
+		if S ~= s then return end
+		if r.Success then
+			shout(r.Quick and "QUICK PASS!" or "NICE PASS!", C.Green, r.Auto and 46 or 60)
+			ctx.Sound("Ding", r.Auto and 0.5 or 1)
+		else
+			shout("MISSED", C.Red, 50)
+			ctx.Sound("Miss")
+		end
+		if r.Next then
+			s.Lit = r.Next
+			showLit(s)
+		end
+	end)
+end
+
 controllers.Passing = {
 	Action = "PASS",
 	Start = function(s, data)
 		passSetup(s, data.Spot, data.Facing, data.MaxDistance)
 		s.Targets = data.Targets
 		s.Lit = data.Lit
+		s.Pattern = data.Pattern
 		showLit(s)
-		hud.Info.Text = "Pass to the target that lights up. Hold, then let go at the white line!"
+		hud.Info.Text = s.Pattern and ((touchOnly() and "Tap" or "Click") .. " the lit target to pass! Same order every time. Resting? It passes by itself.")
+			or "Pass to the target that lights up. Hold, then let go at the white line!"
 	end,
 	Update = function(s)
 		local now = ctx.Now()
@@ -9885,13 +10235,28 @@ controllers.Passing = {
 		if s.LitArrow and s.LitBase then
 			s.LitArrow.CFrame = s.LitBase + Vector3.new(0, math.sin(os.clock() * 6) * 0.7, 0)
 		end
-		if s.Lit and now &lt; s.Lit.Expires and s.LitShown then
+		if not s.Pattern and s.Lit and now &lt; s.Lit.Expires and s.LitShown then
 			local left = s.Lit.Expires - now
 			hud.Info.Text = ("PASS NOW!  &lt;font color=\"#FFD84A\"&gt;%.1fs&lt;/font&gt;"):format(left)
 		end
 		if s.Charging then hud.PowerFill.Size = UDim2.fromScale(chargeValue(s.ChargeSince), 1) end
 	end,
 	PressBegan = function(s)
+		if s.Pattern then
+			-- the pattern: a click passes right where you point
+			if (s.LastClick or 0) &gt; os.clock() - 0.2 then return end
+			s.LastClick = os.clock()
+			updatePassAim(s)
+			local aim = s.Aim
+			task.spawn(function()
+				local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Pass", aim.X, aim.Z, 0.5) end)
+				if ok and r and r.Landing and S == s then
+					ctx.Sound("Kick", 0.8, 1.15)
+					showPass(s, r)
+				end
+			end)
+			return
+		end
 		if s.Charging then return end
 		s.Charging = true
 		s.ChargeSince = os.clock()
@@ -9900,7 +10265,7 @@ controllers.Passing = {
 		showPower(true, nil, ideal)
 	end,
 	PressEnded = function(s)
-		if not s.Charging then return end
+		if s.Pattern or not s.Charging then return end
 		s.Charging = false
 		local power = chargeValue(s.ChargeSince)
 		showPower(false)
@@ -9909,22 +10274,7 @@ controllers.Passing = {
 		task.spawn(function()
 			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Pass", aim.X, aim.Z, power) end)
 			if not (ok and r and r.Landing) or S ~= s then return end
-			local target = litTarget(s)
-			local duration = rollBall(s, r.Landing, target and target.Kind == "Ring" and 2.6 or 0)
-			task.delay(duration, function()
-				if S ~= s then return end
-				if r.Success then
-					shout(r.Quick and "QUICK PASS!" or "NICE PASS!", C.Green, 60)
-					ctx.Sound("Ding")
-				else
-					shout("MISSED", C.Red, 50)
-					ctx.Sound("Miss")
-				end
-				if r.Next then
-					s.Lit = r.Next
-					showLit(s)
-				end
-			end)
+			showPass(s, r)
 		end)
 	end,
 	Event = function(s, kind, data)
@@ -9932,6 +10282,9 @@ controllers.Passing = {
 			if data.Missed then shout("TOO SLOW!", C.Red, 44) end
 			s.Lit = data.Lit
 			showLit(s)
+		elseif kind == "autoPass" then
+			ctx.Sound("Kick", 0.5, 1.15)
+			showPass(s, data)
 		end
 	end,
 	Stop = function(s)
@@ -10099,6 +10452,7 @@ local function autoStart(s, data)
 		if d &lt; bestD then best, bestD = i, d end
 	end
 	s.I = s.Loop and (best % #s.Path + 1) or best
+	if data.Kind == "Dribbling" then s.Ball = makeBall(localFolder()) end
 	resetCamera()
 end
 
@@ -10122,7 +10476,15 @@ local function autoUpdate(s)
 		s.MoveAt = os.clock()
 		humanoid:MoveTo(target)
 	end
-	hud.Info.Text = ("AUTO RUN   SPEED &lt;font color=\"#6BE4FF\"&gt;%d&lt;/font&gt;%s"):format(math.floor(humanoid.WalkSpeed + 0.5),
+	-- the ball at your feet (dribbling)
+	if s.Ball then
+		local look = DrillMath.Flat(root.CFrame.LookVector)
+		if look.Magnitude &lt; 0.01 then look = Vector3.new(0, 0, -1) end
+		local pos = root.Position + look.Unit * 2.2 + Vector3.new(0, -2.2, 0)
+		s.Roll = (s.Roll or 0) + root.AssemblyLinearVelocity.Magnitude * 0.02
+		s.Ball:PivotTo(CFrame.new(pos + Vector3.new(0, math.abs(math.sin(s.Roll * 1.2)) * 0.3, 0)) * CFrame.Angles(-s.Roll, 0, 0))
+	end
+	hud.Info.Text = ("%s   SPEED &lt;font color=\"#6BE4FF\"&gt;%d&lt;/font&gt;%s"):format(s.Ball and "AUTO DRIBBLE" or "AUTO RUN", math.floor(humanoid.WalkSpeed + 0.5),
 		s.Best and ("   BEST LAP &lt;font color=\"#FFD84A\"&gt;%.1fs&lt;/font&gt;"):format(s.Best) or "")
 end
 
@@ -10162,7 +10524,7 @@ controllers.Speed = {
 		if s.AutoRun then autoStop() end
 	end,
 }
-controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent }
+controllers.Dribbling = controllers.Speed
 
 --------------------------------------------------------------------------------
 -- Defending (also the stadium's defend moments)
@@ -10233,10 +10595,11 @@ local function tackle(s)
 		local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Tackle") end)
 		if not (ok and r) or S ~= s then return end
 		if r.Result == "stop" then
+			s.Stops = (s.Stops or 0) + 1
 			removeAttacker(s, r.Attacker, true)
 			shout("TACKLE!", C.Blue, 64)
 			ctx.Sound("Tackle")
-		elseif r.Result == "miss" then
+		elseif r.Result == "miss" and not s.Pattern then
 			shout("TOO FAR!", C.Grey, 40, 0.5)
 		end
 	end)
@@ -10256,12 +10619,25 @@ controllers.Defending = {
 		s.Lives = data.Lives
 		s.Wave = 0
 		s.Attackers = {}
-		resetCamera()
-		hud.Info.Text = touchOnly() and "Run to the attackers and press TACKLE!" or "Run to the attackers and tackle! (F, click or TACKLE)"
+		s.Pattern = data.Pattern
+		s.Stops = 0
+		if s.Pattern then
+			-- behind you, looking up the pitch at the attackers coming
+			local line = data.GoalLine
+			setCamera(CFrame.lookAt((line * CFrame.new(0, 11, 8)).Position, (line * CFrame.new(0, 2, -30)).Position), 60)
+			hud.Info.Text = (touchOnly() and "Tap TACKLE" or "Click") .. " when they reach you! Same lanes, same rhythm. Resting? You tackle by yourself."
+		else
+			resetCamera()
+			hud.Info.Text = touchOnly() and "Run to the attackers and press TACKLE!" or "Run to the attackers and tackle! (F, click or TACKLE)"
+		end
 	end,
 	Update = function(s)
 		updateAttackers(s)
-		if s.Wave &gt; 0 then hud.Info.Text = ("WAVE %d   %s"):format(s.Wave, hearts(s.Lives)) end
+		if s.Pattern then
+			if s.Stops &gt; 0 then hud.Info.Text = ("TACKLES &lt;font color=\"#6BE4FF\"&gt;%d&lt;/font&gt;"):format(s.Stops) end
+		elseif s.Wave &gt; 0 then
+			hud.Info.Text = ("WAVE %d   %s"):format(s.Wave, hearts(s.Lives))
+		end
 	end,
 	PressBegan = function(s) tackle(s) end,
 	Event = function(s, kind, data)
@@ -10279,6 +10655,13 @@ controllers.Defending = {
 		elseif kind == "waveClear" then
 			shout("WAVE CLEAR!", C.Green, 60)
 			ctx.Sound("Chime")
+		elseif kind == "attackers" then
+			addAttackers(s, data.Attackers)
+		elseif kind == "autoTackle" then
+			removeAttacker(s, data.Attacker, true)
+			s.Stops += 1
+			shout("TACKLE!", C.Blue, 46)
+			ctx.Sound("Tackle", 0.5)
 		end
 	end,
 	Stop = function() end,

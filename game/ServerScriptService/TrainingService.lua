@@ -166,7 +166,30 @@ local function newTarget(session, corner)
 	return target
 end
 
+-- The pattern target: the next of the fixed spots, standing still.
+local function patternTarget(session)
+	local rec = session.Station
+	local spot = SHOOT.Pattern[session.PatternIndex]
+	local r = SHOOT.PatternRadius
+	local halfW = rec.GoalWidth / 2 - r - 0.3
+	local target = {
+		Id = session.NextId, R = r, T0 = now(), Phase = 0, Corner = spot[3] == true,
+		U0 = spot[1] * halfW, V0 = math.clamp(spot[2] * rec.GoalHeight, r + 0.3, rec.GoalHeight - r - 0.3),
+		AU = 0, AV = 0, W = 0, Spot = session.PatternIndex,
+	}
+	session.NextId += 1
+	return target
+end
+
 local function refillTargets(session)
+	if SHOOT.Pattern then
+		if next(session.Targets) == nil then
+			local t = patternTarget(session)
+			session.Targets[t.Id] = t
+			return true
+		end
+		return false
+	end
 	local changed = false
 	-- one ordinary target always, and sometimes a top corner one
 	local ordinary, corner = 0, 0
@@ -199,14 +222,16 @@ starters.Shooting = function(player, session)
 	placeAt(player, CFrame.lookAt(rec.Spot + Vector3.new(0, 3, 0) + DrillMath.Flat(rec.Spot - goalMid).Unit * 2, Vector3.new(goalMid.X, rec.Spot.Y + 3, goalMid.Z)))
 	session.Targets = {}
 	session.NextId = 1
+	session.PatternIndex = 1
 	session.Streak, session.BestStreak, session.Goals, session.Shots = 0, 0, 0, 0
 	session.FireUntil = 0
-	session.LastShot = 0
+	session.LastShot = now()
 	refillTargets(session)
 	session.Summary = function(s) return { Goals = s.Goals, Shots = s.Shots, BestStreak = s.BestStreak } end
 	send(player, "start", {
 		Kind = "Shooting", Station = rec.Id, Spot = rec.Spot, Goal = rec.Goal, GoalWidth = rec.GoalWidth, GoalHeight = rec.GoalHeight,
 		Targets = targetList(session), Green = { SHOOT.GreenFrom, SHOOT.GreenTo }, Stat = "SHO", Area = rec.Area,
+		Pattern = SHOOT.Pattern ~= nil,
 	})
 end
 
@@ -219,65 +244,90 @@ function TrainingService.ResolveShot(player, session, u, v, power, goalWidth, go
 	return lu, lv, inGoal
 end
 
+-- A shot at (u, v) on the goal mouth. In the pattern it goes exactly where
+-- you aimed; `auto` is the shot that goes by itself when you rest.
+local function shootAt(player, session, u, v, power, auto)
+	local t = now()
+	session.LastShot = t
+	session.Shots += 1
+	local rec = session.Station
+	u = math.clamp(u, -rec.GoalWidth, rec.GoalWidth)
+	v = math.clamp(v, 0, rec.GoalHeight * 2)
+	power = math.clamp(power, 0, 1)
+	local lu, lv, inGoal
+	if SHOOT.Pattern then
+		lu, lv = u, v
+		inGoal = math.abs(lu) <= rec.GoalWidth / 2 - 0.35 and lv >= 0.2 and lv <= rec.GoalHeight - 0.35
+	else
+		lu, lv, inGoal = TrainingService.ResolveShot(player, session, u, v, power, rec.GoalWidth, rec.GoalHeight)
+	end
+	local tHit = t + SHOOT.FlightTime
+	local hit
+	if inGoal then
+		for _, target in pairs(session.Targets) do
+			local tu, tv = DrillMath.TargetPos(target, tHit)
+			if math.sqrt((lu - tu) ^ 2 + (lv - tv) ^ 2) <= target.R + (SHOOT.Pattern and 0.8 or 0.4) then
+				hit = target
+				break
+			end
+		end
+	end
+	local result = { U = lu, V = lv, Time = tHit, XP = 0, Auto = auto }
+	if hit then
+		session.Streak += 1
+		session.BestStreak = math.max(session.BestStreak, session.Streak)
+		session.Goals += 1
+		local fire = t < session.FireUntil
+		local base = SHOOT.HitXP * (hit.Corner and SHOOT.TopCornerBonus or 1) * (fire and SHOOT.FireMultiplier or 1)
+		result.XP = reward(player, session, base)
+		result.Result = hit.Corner and "corner" or "hit"
+		result.Target = hit.Id
+		StatService.Count(player, "Goals", 1)
+		if hit.Corner then StatService.Count(player, "TopCorners", 1) end
+		if session.Streak % SHOOT.StreakForFire == 0 then
+			session.FireUntil = t + SHOOT.FireSeconds
+			result.OnFire = true
+		end
+		session.Targets[hit.Id] = nil
+		if SHOOT.Pattern then session.PatternIndex = session.PatternIndex % #SHOOT.Pattern + 1 end
+		refillTargets(session)
+		result.Targets = targetList(session)
+	elseif inGoal then
+		session.Streak = 0
+		result.Result = "goal"
+		result.XP = reward(player, session, SHOOT.OnTargetXP)
+	else
+		session.Streak = 0
+		result.Result = "miss"
+	end
+	result.Streak = session.Streak
+	result.FireUntil = session.FireUntil
+	return result
+end
+
 actions.Shooting = {
 	Shoot = function(player, session, u, v, power)
 		if type(u) ~= "number" or type(v) ~= "number" or type(power) ~= "number" then return nil end
 		if u ~= u or v ~= v or power ~= power then return nil end
 		local t = now()
 		if t - session.LastShot < SHOOT.ShotCooldown then return { Result = "wait" } end
-		session.LastShot = t
 		session.LastAction = t
-		session.Shots += 1
-		local rec = session.Station
-		u = math.clamp(u, -rec.GoalWidth, rec.GoalWidth)
-		v = math.clamp(v, 0, rec.GoalHeight * 2)
-		power = math.clamp(power, 0, 1)
-		local lu, lv, inGoal = TrainingService.ResolveShot(player, session, u, v, power, rec.GoalWidth, rec.GoalHeight)
-		local tHit = t + SHOOT.FlightTime
-		local hit
-		if inGoal then
-			for _, target in pairs(session.Targets) do
-				local tu, tv = DrillMath.TargetPos(target, tHit)
-				if math.sqrt((lu - tu) ^ 2 + (lv - tv) ^ 2) <= target.R + 0.4 then
-					hit = target
-					break
-				end
-			end
-		end
-		local result = { U = lu, V = lv, Time = tHit, XP = 0 }
-		if hit then
-			session.Streak += 1
-			session.BestStreak = math.max(session.BestStreak, session.Streak)
-			session.Goals += 1
-			local fire = t < session.FireUntil
-			local base = SHOOT.HitXP * (hit.Corner and SHOOT.TopCornerBonus or 1) * (fire and SHOOT.FireMultiplier or 1)
-			result.XP = reward(player, session, base)
-			result.Result = hit.Corner and "corner" or "hit"
-			result.Target = hit.Id
-			StatService.Count(player, "Goals", 1)
-			if hit.Corner then StatService.Count(player, "TopCorners", 1) end
-			if session.Streak % SHOOT.StreakForFire == 0 then
-				session.FireUntil = t + SHOOT.FireSeconds
-				result.OnFire = true
-			end
-			session.Targets[hit.Id] = nil
-			refillTargets(session)
-			result.Targets = targetList(session)
-		elseif inGoal then
-			session.Streak = 0
-			result.Result = "goal"
-			result.XP = reward(player, session, SHOOT.OnTargetXP)
-		else
-			session.Streak = 0
-			result.Result = "miss"
-		end
-		result.Streak = session.Streak
-		result.FireUntil = session.FireUntil
-		return result
+		return shootAt(player, session, u, v, power, false)
 	end,
 }
 
 ticks.Shooting = function(player, session, t)
+	if SHOOT.Pattern then
+		-- resting: a shot at the target goes in by itself (AFK)
+		if t - session.LastShot >= SHOOT.AutoEvery then
+			local _, target = next(session.Targets)
+			if target then
+				local tu, tv = DrillMath.TargetPos(target, t + SHOOT.FlightTime)
+				send(player, "autoShot", shootAt(player, session, tu, tv, (SHOOT.GreenFrom + SHOOT.GreenTo) / 2, true))
+			end
+		end
+		return
+	end
 	local changed = false
 	for id, target in pairs(session.Targets) do
 		if target.Expires and t > target.Expires then
@@ -300,6 +350,15 @@ local PASS = Config.Drills.Passing
 
 local function lightNext(session, delay)
 	local rec = session.Station
+	if PASS.PatternMode then
+		-- the targets light up in the same order, round and round (and stay
+		-- lit until you hit them)
+		session.PatternIndex = (session.PatternIndex or 0) % #rec.Targets + 1
+		local target = rec.Targets[session.PatternIndex]
+		local since = now() + (delay or 0.3)
+		session.Lit = { Id = target.Id, Since = since, Expires = since + 1e6 }
+		return session.Lit
+	end
 	local choices = {}
 	for _, target in ipairs(rec.Targets) do
 		if not (session.Lit and session.Lit.Id == target.Id) then
@@ -320,7 +379,8 @@ starters.Passing = function(player, session)
 	freeze(player, true)
 	local forward = DrillMath.Flat(rec.Facing.LookVector).Unit
 	placeAt(player, CFrame.lookAt(rec.Spot + Vector3.new(0, 3, 0) - forward * 2, rec.Spot + Vector3.new(0, 3, 0) + forward * 10))
-	session.LastPass = 0
+	session.LastPass = now()
+	session.PatternIndex = 0
 	session.Good, session.Passes = 0, 0
 	lightNext(session, 1.2)
 	session.Summary = function(s) return { Good = s.Good, Passes = s.Passes } end
@@ -330,7 +390,7 @@ starters.Passing = function(player, session)
 	end
 	send(player, "start", {
 		Kind = "Passing", Station = rec.Id, Spot = rec.Spot, Facing = rec.Facing, Targets = targets, Lit = session.Lit,
-		MaxDistance = PASS.MaxDistance, Stat = "PAS", Area = rec.Area,
+		MaxDistance = PASS.MaxDistance, Stat = "PAS", Area = rec.Area, Pattern = PASS.PatternMode,
 	})
 end
 
@@ -347,6 +407,61 @@ function TrainingService.ResolvePass(player, spot, targetPos, kind, aim, power)
 	return success, landing, accuracy
 end
 
+-- A pass to (x, z). In the pattern it lands where you aimed; `auto` is the
+-- pass that goes by itself when you rest.
+local function passTo(player, session, x, z, power, auto)
+	local t = now()
+	local lit = session.Lit
+	session.LastPass = t
+	session.Passes += 1
+	local rec = session.Station
+	local target
+	for _, tgt in ipairs(rec.Targets) do
+		if tgt.Id == lit.Id then target = tgt end
+	end
+	local success, landing, accuracy
+	if PASS.PatternMode then
+		local spot = DrillMath.Flat(rec.Spot)
+		landing = Vector3.new(x, 0, z)
+		local off = DrillMath.Flat(landing) - spot
+		if off.Magnitude > PASS.MaxDistance then landing = spot + off.Unit * PASS.MaxDistance end
+		local lengthErr, sideErr = DrillMath.PassError(rec.Spot, target.Pos, landing)
+		local width = target.Kind == "Ring" and PASS.RingWidth or PASS.DummyWidth
+		local depth = target.Kind == "Ring" and PASS.RingDepth or PASS.DummyDepth
+		success = math.abs(sideErr) <= width * 1.3 and math.abs(lengthErr) <= depth * 1.3
+		accuracy = 1
+	else
+		success, landing, accuracy = TrainingService.ResolvePass(player, rec.Spot, target.Pos, target.Kind,
+			Vector3.new(x, 0, z), math.clamp(power, 0, 1))
+	end
+	local result = { Success = success, Landing = landing, Target = target.Id, XP = 0, Auto = auto }
+	if success then
+		local reaction = t - lit.Since
+		local speed
+		if PASS.PatternMode then
+			speed = 1
+		elseif reaction <= PASS.QuickTime then
+			speed = 1.3
+		elseif reaction >= PASS.SlowTime then
+			speed = 0.75
+		else
+			speed = 1.3 - 0.55 * (reaction - PASS.QuickTime) / (PASS.SlowTime - PASS.QuickTime)
+		end
+		local base = PASS.PassXP * (0.7 + 0.6 * accuracy) * speed * (target.Kind == "Ring" and PASS.RingBonus or 1)
+		result.XP = reward(player, session, base)
+		result.Quick = not PASS.PatternMode and reaction <= PASS.QuickTime
+		session.Good += 1
+		StatService.Count(player, "Passes", 1)
+		result.Next = lightNext(session)
+	elseif PASS.PatternMode then
+		-- missed: the same target stays lit
+		result.Next = session.Lit
+	else
+		result.Next = lightNext(session)
+	end
+	return result
+end
+
 actions.Passing = {
 	Pass = function(player, session, x, z, power)
 		if type(x) ~= "number" or type(z) ~= "number" or type(power) ~= "number" then return nil end
@@ -355,39 +470,24 @@ actions.Passing = {
 		if t - session.LastPass < PASS.PassCooldown then return { Result = "wait" } end
 		local lit = session.Lit
 		if not lit or t < lit.Since - 0.15 then return { Result = "wait" } end
-		session.LastPass = t
 		session.LastAction = t
-		session.Passes += 1
-		local rec = session.Station
-		local target
-		for _, tgt in ipairs(rec.Targets) do
-			if tgt.Id == lit.Id then target = tgt end
-		end
-		local success, landing, accuracy = TrainingService.ResolvePass(player, rec.Spot, target.Pos, target.Kind,
-			Vector3.new(x, 0, z), math.clamp(power, 0, 1))
-		local result = { Success = success, Landing = landing, Target = target.Id, XP = 0 }
-		if success then
-			local reaction = t - lit.Since
-			local speed
-			if reaction <= PASS.QuickTime then
-				speed = 1.3
-			elseif reaction >= PASS.SlowTime then
-				speed = 0.75
-			else
-				speed = 1.3 - 0.55 * (reaction - PASS.QuickTime) / (PASS.SlowTime - PASS.QuickTime)
-			end
-			local base = PASS.PassXP * (0.7 + 0.6 * accuracy) * speed * (target.Kind == "Ring" and PASS.RingBonus or 1)
-			result.XP = reward(player, session, base)
-			result.Quick = reaction <= PASS.QuickTime
-			session.Good += 1
-			StatService.Count(player, "Passes", 1)
-		end
-		result.Next = lightNext(session)
-		return result
+		return passTo(player, session, x, z, power, false)
 	end,
 }
 
 ticks.Passing = function(player, session, t)
+	if PASS.PatternMode then
+		-- resting: a pass to the lit target goes by itself (AFK)
+		local lit = session.Lit
+		if lit and t >= lit.Since and t - session.LastPass >= PASS.AutoEvery then
+			local target
+			for _, tgt in ipairs(session.Station.Targets) do
+				if tgt.Id == lit.Id then target = tgt end
+			end
+			if target then send(player, "autoPass", passTo(player, session, target.Pos.X, target.Pos.Z, 0.5, true)) end
+		end
+		return
+	end
 	if session.Lit and t > session.Lit.Expires then
 		send(player, "lit", { Lit = lightNext(session), Missed = true })
 	end
@@ -441,10 +541,8 @@ local function startCourse(player, session)
 end
 -- The Speed Course runs itself: no laps against the clock, just XP every
 -- second while you run round (and the lap times still count for the board).
-starters.Speed = function(player, session)
+local function startAutoRun(player, session, path, loop)
 	local rec = session.Station
-	local drill = Config.Drills.Speed
-	if not (drill.Auto and rec.Path) then return startCourse(player, session) end
 	freeze(player, true)
 	placeAt(player, rec.Start)
 	session.Speed = courseSpeed(player, session)
@@ -457,11 +555,38 @@ starters.Speed = function(player, session)
 	session.LapStart = now()
 	session.Summary = function(s) return { Runs = s.Laps, Best = s.BestTime } end
 	send(player, "start", {
-		Kind = "Speed", Station = rec.Id, Start = rec.Start, Path = rec.Path, Loop = rec.Loop, Length = rec.Length,
+		Kind = session.Kind, Station = rec.Id, Start = rec.Start, Path = path, Loop = loop, Length = rec.Length,
 		Stat = session.Stat, Area = rec.Area, Lobby = rec.Id == "Lobby_Speed", Auto = true, Speed = session.Speed,
 	})
 end
-starters.Dribbling = startCourse
+
+starters.Speed = function(player, session)
+	local rec = session.Station
+	if not (Config.Drills.Speed.Auto and rec.Path) then return startCourse(player, session) end
+	startAutoRun(player, session, rec.Path, rec.Loop)
+end
+
+-- Dribbling by itself: out past each cone on its side, round the flag, back
+-- through the other lane, over the finish and across to the start again.
+starters.Dribbling = function(player, session)
+	local rec = session.Station
+	if not Config.Drills.Dribbling.Auto then return startCourse(player, session) end
+	if not rec.AutoPath then
+		local path = { DrillMath.Flat(rec.Start.Position) }
+		for _, check in ipairs(rec.Checks) do
+			if check.Kind == "Cone" then
+				table.insert(path, DrillMath.Flat(check.Pos) + DrillMath.Right(check.Dir) * check.Side * 2.4)
+			elseif check.Kind == "Turn" then
+				local prev = path[#path]
+				table.insert(path, DrillMath.Flat(check.Pos) + DrillMath.Flat(check.Pos - prev).Unit * 3)
+			else
+				table.insert(path, DrillMath.Flat(check.Pos) + check.Dir * 3)
+			end
+		end
+		rec.AutoPath = path
+	end
+	startAutoRun(player, session, rec.AutoPath, true)
+end
 
 local function finishRun(player, session, t)
 	local drill = Config.Drills[session.Kind]
@@ -578,7 +703,8 @@ local function tickCourse(player, session, t)
 end
 local function tickAutoRun(player, session, t)
 	local rec = session.Station
-	local drill = Config.Drills.Speed
+	local drill = Config.Drills[session.Kind]
+	local refSpeed = session.Kind == "Dribbling" and Config.Speed.Dribble or Config.Speed.Track
 	local root, humanoid = rootOf(player)
 	if not (root and humanoid) then return end
 	local pos = DrillMath.Flat(root.Position)
@@ -587,7 +713,7 @@ local function tickAutoRun(player, session, t)
 		return
 	end
 	-- a lap: past the finish line (the Pace board keeps the best lap)
-	local finish = rec.Loop and rec.Checks[#rec.Checks]
+	local finish = session.Kind == "Speed" and rec.Loop and rec.Checks[#rec.Checks]
 	if finish then
 		local along = (pos - DrillMath.Flat(finish.Pos)):Dot(finish.Dir)
 		local side = math.abs((pos - DrillMath.Flat(finish.Pos)):Dot(DrillMath.Right(finish.Dir)))
@@ -623,7 +749,7 @@ local function tickAutoRun(player, session, t)
 	-- XP for running (not for standing still)
 	if moved >= speed * dt * 0.35 and moved <= speed * dt * 1.6 + 6 then
 		session.LastAction = t
-		reward(player, session, drill.XPPerSecond * dt * (speed / 20))
+		reward(player, session, drill.XPPerSecond * dt * (speed / refSpeed))
 	elseif t - session.LastAction > 30 then
 		TrainingService.End(player, "idle")
 	end
@@ -633,7 +759,10 @@ ticks.Speed = function(player, session, t)
 	if session.Auto then return tickAutoRun(player, session, t) end
 	return tickCourse(player, session, t)
 end
-ticks.Dribbling = tickCourse
+ticks.Dribbling = function(player, session, t)
+	if session.Auto then return tickAutoRun(player, session, t) end
+	return tickCourse(player, session, t)
+end
 actions.Speed = {}
 actions.Dribbling = {}
 
@@ -668,8 +797,55 @@ local function spawnWave(player, session)
 	send(player, "wave", { Wave = session.Wave, Attackers = list, Lives = session.Lives })
 end
 
+-- The pattern: you stand in front of goal and attackers run straight at you,
+-- one every PatternGap seconds, from the same lanes in the same order.
+local function defendSpot(rec)
+	return rec.GoalLine * CFrame.new(0, 0, -7)
+end
+
+local function spawnPatternAttacker(player, session, t0)
+	local rec = session.Station
+	session.LaneIndex = session.LaneIndex % #DEF.Lanes + 1
+	local side = DEF.Lanes[session.LaneIndex] * (rec.Width / 2 - 4)
+	local startPos = (rec.GoalLine * CFrame.new(side, 0, -rec.Length)).Position
+	local endPos = defendSpot(rec).Position
+	local att = {
+		Id = session.NextId, Start = startPos, End = endPos, T0 = t0,
+		Duration = (endPos - startPos).Magnitude / DEF.PatternSpeed, Amp = 0, Freq = 0,
+	}
+	session.NextId += 1
+	session.Attackers[att.Id] = att
+	send(player, "attackers", { Attackers = { att } })
+end
+
+local function tackleAttacker(player, session, att, auto)
+	session.Attackers[att.Id] = nil
+	session.Stops += 1
+	StatService.Count(player, "Tackles", 1)
+	local xp = reward(player, session, DEF.StopXP * (auto and DEF.AutoXP or 1))
+	return { Result = "stop", Attacker = att.Id, XP = xp, Auto = auto }
+end
+
 starters.Defending = function(player, session)
 	local rec = session.Station
+	if DEF.PatternMode then
+		freeze(player, true)
+		local spot = defendSpot(rec)
+		placeAt(player, CFrame.lookAt(spot.Position + Vector3.new(0, 3, 0), (rec.GoalLine * CFrame.new(0, 3, -40)).Position))
+		session.Attackers = {}
+		session.NextId = 1
+		session.LaneIndex = 0
+		session.Wave, session.Lives, session.Stops = 0, DEF.Lives, 0
+		session.LastTackle = 0
+		session.NextSpawn = now() + 1.5
+		session.Pattern = true
+		session.Summary = function(s) return { Waves = 0, Stops = s.Stops } end
+		send(player, "start", {
+			Kind = "Defending", Station = rec.Id, GoalLine = rec.GoalLine, Length = rec.Length, Width = rec.Width, Lives = session.Lives,
+			Stat = "DEF", Area = rec.Area, Pattern = true, Spot = spot.Position,
+		})
+		return
+	end
 	StatService.SetBusy(player, true)
 	local _, humanoid = rootOf(player)
 	if humanoid then
@@ -692,10 +868,10 @@ starters.Defending = function(player, session)
 end
 
 -- The attacker a tackle reaches, if any (shared with the stadium).
-function TrainingService.TackleCheck(player, attackers, t)
+function TrainingService.TackleCheck(player, attackers, t, reach)
 	local root = rootOf(player)
 	if not root then return nil end
-	local reach = DEF.Reach + DEF.ReachPerLevel * math.max(0, statLevel(player, "DEF") - Config.StartLevel)
+	reach = reach or (DEF.Reach + DEF.ReachPerLevel * math.max(0, statLevel(player, "DEF") - Config.StartLevel))
 	local ping = math.clamp(player:GetNetworkPing() or 0, 0, 0.4)
 	local pos = DrillMath.Flat(root.Position)
 	local best, bestDist = nil, math.huge
@@ -714,6 +890,15 @@ end
 actions.Defending = {
 	Tackle = function(player, session)
 		local t = now()
+		if session.Pattern then
+			-- the pattern: clicking too early costs nothing (auto clickers)
+			if t - session.LastTackle < 0.2 then return { Result = "wait" } end
+			local att = TrainingService.TackleCheck(player, session.Attackers, t, DEF.PatternReach)
+			if not att then return { Result = "miss" } end
+			session.LastTackle = t
+			session.LastAction = t
+			return tackleAttacker(player, session, att, false)
+		end
 		if t - session.LastTackle < DEF.TackleCooldown then return { Result = "wait" } end
 		session.LastTackle = t
 		session.LastAction = t
@@ -729,6 +914,22 @@ actions.Defending = {
 
 ticks.Defending = function(player, session, t)
 	local rec = session.Station
+	if session.Pattern then
+		if t >= session.NextSpawn then
+			spawnPatternAttacker(player, session, session.NextSpawn + 0.6)
+			session.NextSpawn += DEF.PatternGap
+		end
+		-- too close and not tackled: you tackle by yourself (AFK)
+		local root = rootOf(player)
+		for _, att in pairs(session.Attackers) do
+			local pos = DrillMath.AttackerPos(att, t)
+			local d = root and (DrillMath.Flat(pos) - DrillMath.Flat(root.Position)).Magnitude or 0
+			if t >= att.T0 and (d <= DEF.AutoReach or DrillMath.AttackerDone(att, t)) then
+				send(player, "autoTackle", tackleAttacker(player, session, att, true))
+			end
+		end
+		return
+	end
 	local root = rootOf(player)
 	if root and (DrillMath.Flat(root.Position) - DrillMath.Flat((rec.GoalLine * CFrame.new(0, 0, -rec.Length / 2)).Position)).Magnitude > rec.Length then
 		TrainingService.End(player, "left")

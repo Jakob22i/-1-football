@@ -514,6 +514,55 @@ local function shootPressEnded(s, send)
 	end)
 end
 
+-- What a shot did, once the ball gets there (a click, or a shot by itself).
+local function showShot(ss, r)
+	flyBall(ss, r.U, r.V, r.Time, r.Result ~= "miss")
+	local wait = math.max(0, r.Time - ctx.Now())
+	task.delay(wait, function()
+		if S ~= ss then return end
+		if r.Result == "corner" then
+			shout("TOP CORNER!", C.Gold, r.Auto and 50 or 70)
+			ctx.Sound("Perfect", r.Auto and 0.5 or 1)
+			if not r.Auto then ctx.Sound("Cheer", 0.6) end
+		elseif r.Result == "hit" then
+			shout("GOAL!", C.Green, r.Auto and 50 or 70)
+			ctx.Sound("Ding", r.Auto and 0.5 or 1)
+		elseif r.Result == "goal" then
+			shout("ON TARGET", C.White, 44)
+		else
+			shout("MISS", C.Red, 50)
+			ctx.Sound("Miss")
+		end
+		if r.OnFire then
+			shout("\u{1F525} ON FIRE! x2 XP \u{1F525}", C.Orange, 60, 1.3)
+			ctx.Sound("Fire")
+		end
+		ss.Streak = r.Streak or 0
+		ss.FireUntil = r.FireUntil or 0
+		if r.Targets then buildTargets(ss, r.Targets) end
+	end)
+end
+
+-- The pattern: faint numbered rings on every spot the target goes to, so
+-- you (or an auto clicker) can learn the order.
+local function patternMarks(s)
+	local shoot = Config.Drills.Shooting
+	local folder = localFolder()
+	local r = shoot.PatternRadius
+	local halfW = s.GoalW / 2 - r - 0.3
+	for i, spot in ipairs(shoot.Pattern) do
+		local u = spot[1] * halfW
+		local v = math.clamp(spot[2] * s.GoalH, r + 0.3, s.GoalH - r - 0.3)
+		lpart(folder, { Name = "PatternSpot", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.08, r * 2.1, r * 2.1),
+			Color = C.White, Material = Enum.Material.Neon, Transparency = 0.8, CFrame = goalCFrameAt(s, u, v, 0.25) })
+		local tag = new("BillboardGui", { Size = UDim2.fromOffset(40, 40), AlwaysOnTop = false, LightInfluence = 0,
+			StudsOffsetWorldSpace = Vector3.new(0, r + 0.6, 0), Parent = folder })
+		tag.Adornee = lpart(folder, { Name = "PatternTag", Transparency = 1, Size = Vector3.new(0.2, 0.2, 0.2),
+			CFrame = goalCFrameAt(s, u, v, 0.3) })
+		FKit.text(tag, tostring(i), 26, C.White, { Size = UDim2.fromScale(1, 1) })
+	end
+end
+
 controllers.Shooting = {
 	Action = "SHOOT",
 	Start = function(s, data)
@@ -522,8 +571,14 @@ controllers.Shooting = {
 		s.CanShoot = true
 		s.Streak = 0
 		s.FireUntil = 0
-		hud.Info.Text = (touchOnly() and "Tap to aim, hold SHOOT" or "Aim with the mouse, hold to power up")
-			.. ", let go in the <font color=\"#6BFF7A\">green</font>!"
+		s.Pattern = data.Pattern
+		if s.Pattern then
+			patternMarks(s)
+			hud.Info.Text = (touchOnly() and "Tap" or "Click") .. " the target to shoot! Spots 1-5, same order every time. Resting? It shoots by itself."
+		else
+			hud.Info.Text = (touchOnly() and "Tap to aim, hold SHOOT" or "Aim with the mouse, hold to power up")
+				.. ", let go in the <font color=\"#6BFF7A\">green</font>!"
+		end
 	end,
 	Update = function(s)
 		local now = ctx.Now()
@@ -536,38 +591,32 @@ controllers.Shooting = {
 			hud.Info.Text = ("STREAK %d  <font color=\"#FFD84A\">%d more for ON FIRE</font>"):format(s.Streak, 5 - s.Streak % 5)
 		end
 	end,
-	PressBegan = function(s) shootPressBegan(s) end,
-	PressEnded = function(s)
-		shootPressEnded(s, function(ss, r)
-			flyBall(ss, r.U, r.V, r.Time, r.Result ~= "miss")
-			local wait = math.max(0, r.Time - ctx.Now())
-			task.delay(wait, function()
-				if S ~= ss then return end
-				if r.Result == "corner" then
-					shout("TOP CORNER!", C.Gold, 70)
-					ctx.Sound("Perfect")
-					ctx.Sound("Cheer", 0.6)
-				elseif r.Result == "hit" then
-					shout("GOAL!", C.Green, 70)
-					ctx.Sound("Ding")
-				elseif r.Result == "goal" then
-					shout("ON TARGET", C.White, 44)
-				else
-					shout("MISS", C.Red, 50)
-					ctx.Sound("Miss")
-				end
-				if r.OnFire then
-					shout("\u{1F525} ON FIRE! x2 XP \u{1F525}", C.Orange, 60, 1.3)
-					ctx.Sound("Fire")
-				end
-				ss.Streak = r.Streak or 0
-				ss.FireUntil = r.FireUntil or 0
-				if r.Targets then buildTargets(ss, r.Targets) end
-			end)
+	PressBegan = function(s)
+		if not s.Pattern then return shootPressBegan(s) end
+		-- the pattern: a click shoots right where you point
+		if (s.LastClick or 0) > os.clock() - 0.2 then return end
+		s.LastClick = os.clock()
+		updateAim(s)
+		local u, v = s.Aim[1], s.Aim[2]
+		task.spawn(function()
+			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Shoot", u, v, 0.77) end)
+			if ok and r and r.U and S == s then
+				ctx.Sound("Kick")
+				showShot(s, r)
+			end
 		end)
 	end,
+	PressEnded = function(s)
+		if s.Pattern then return end
+		shootPressEnded(s, showShot)
+	end,
 	Event = function(s, kind, data)
-		if kind == "targets" then buildTargets(s, data.Targets) end
+		if kind == "targets" then
+			buildTargets(s, data.Targets)
+		elseif kind == "autoShot" then
+			ctx.Sound("Kick", 0.5)
+			showShot(s, data)
+		end
 	end,
 	Stop = function() end,
 }
@@ -637,14 +686,36 @@ local function showLit(s)
 	s.LitWaitTarget = t
 end
 
+-- What a pass did, once the ball gets there.
+local function showPass(s, r)
+	local target = litTarget(s)
+	local duration = rollBall(s, r.Landing, target and target.Kind == "Ring" and 2.6 or 0)
+	task.delay(duration, function()
+		if S ~= s then return end
+		if r.Success then
+			shout(r.Quick and "QUICK PASS!" or "NICE PASS!", C.Green, r.Auto and 46 or 60)
+			ctx.Sound("Ding", r.Auto and 0.5 or 1)
+		else
+			shout("MISSED", C.Red, 50)
+			ctx.Sound("Miss")
+		end
+		if r.Next then
+			s.Lit = r.Next
+			showLit(s)
+		end
+	end)
+end
+
 controllers.Passing = {
 	Action = "PASS",
 	Start = function(s, data)
 		passSetup(s, data.Spot, data.Facing, data.MaxDistance)
 		s.Targets = data.Targets
 		s.Lit = data.Lit
+		s.Pattern = data.Pattern
 		showLit(s)
-		hud.Info.Text = "Pass to the target that lights up. Hold, then let go at the white line!"
+		hud.Info.Text = s.Pattern and ((touchOnly() and "Tap" or "Click") .. " the lit target to pass! Same order every time. Resting? It passes by itself.")
+			or "Pass to the target that lights up. Hold, then let go at the white line!"
 	end,
 	Update = function(s)
 		local now = ctx.Now()
@@ -662,13 +733,28 @@ controllers.Passing = {
 		if s.LitArrow and s.LitBase then
 			s.LitArrow.CFrame = s.LitBase + Vector3.new(0, math.sin(os.clock() * 6) * 0.7, 0)
 		end
-		if s.Lit and now < s.Lit.Expires and s.LitShown then
+		if not s.Pattern and s.Lit and now < s.Lit.Expires and s.LitShown then
 			local left = s.Lit.Expires - now
 			hud.Info.Text = ("PASS NOW!  <font color=\"#FFD84A\">%.1fs</font>"):format(left)
 		end
 		if s.Charging then hud.PowerFill.Size = UDim2.fromScale(chargeValue(s.ChargeSince), 1) end
 	end,
 	PressBegan = function(s)
+		if s.Pattern then
+			-- the pattern: a click passes right where you point
+			if (s.LastClick or 0) > os.clock() - 0.2 then return end
+			s.LastClick = os.clock()
+			updatePassAim(s)
+			local aim = s.Aim
+			task.spawn(function()
+				local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Pass", aim.X, aim.Z, 0.5) end)
+				if ok and r and r.Landing and S == s then
+					ctx.Sound("Kick", 0.8, 1.15)
+					showPass(s, r)
+				end
+			end)
+			return
+		end
 		if s.Charging then return end
 		s.Charging = true
 		s.ChargeSince = os.clock()
@@ -677,7 +763,7 @@ controllers.Passing = {
 		showPower(true, nil, ideal)
 	end,
 	PressEnded = function(s)
-		if not s.Charging then return end
+		if s.Pattern or not s.Charging then return end
 		s.Charging = false
 		local power = chargeValue(s.ChargeSince)
 		showPower(false)
@@ -686,22 +772,7 @@ controllers.Passing = {
 		task.spawn(function()
 			local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Pass", aim.X, aim.Z, power) end)
 			if not (ok and r and r.Landing) or S ~= s then return end
-			local target = litTarget(s)
-			local duration = rollBall(s, r.Landing, target and target.Kind == "Ring" and 2.6 or 0)
-			task.delay(duration, function()
-				if S ~= s then return end
-				if r.Success then
-					shout(r.Quick and "QUICK PASS!" or "NICE PASS!", C.Green, 60)
-					ctx.Sound("Ding")
-				else
-					shout("MISSED", C.Red, 50)
-					ctx.Sound("Miss")
-				end
-				if r.Next then
-					s.Lit = r.Next
-					showLit(s)
-				end
-			end)
+			showPass(s, r)
 		end)
 	end,
 	Event = function(s, kind, data)
@@ -709,6 +780,9 @@ controllers.Passing = {
 			if data.Missed then shout("TOO SLOW!", C.Red, 44) end
 			s.Lit = data.Lit
 			showLit(s)
+		elseif kind == "autoPass" then
+			ctx.Sound("Kick", 0.5, 1.15)
+			showPass(s, data)
 		end
 	end,
 	Stop = function(s)
@@ -876,6 +950,7 @@ local function autoStart(s, data)
 		if d < bestD then best, bestD = i, d end
 	end
 	s.I = s.Loop and (best % #s.Path + 1) or best
+	if data.Kind == "Dribbling" then s.Ball = makeBall(localFolder()) end
 	resetCamera()
 end
 
@@ -899,7 +974,15 @@ local function autoUpdate(s)
 		s.MoveAt = os.clock()
 		humanoid:MoveTo(target)
 	end
-	hud.Info.Text = ("AUTO RUN   SPEED <font color=\"#6BE4FF\">%d</font>%s"):format(math.floor(humanoid.WalkSpeed + 0.5),
+	-- the ball at your feet (dribbling)
+	if s.Ball then
+		local look = DrillMath.Flat(root.CFrame.LookVector)
+		if look.Magnitude < 0.01 then look = Vector3.new(0, 0, -1) end
+		local pos = root.Position + look.Unit * 2.2 + Vector3.new(0, -2.2, 0)
+		s.Roll = (s.Roll or 0) + root.AssemblyLinearVelocity.Magnitude * 0.02
+		s.Ball:PivotTo(CFrame.new(pos + Vector3.new(0, math.abs(math.sin(s.Roll * 1.2)) * 0.3, 0)) * CFrame.Angles(-s.Roll, 0, 0))
+	end
+	hud.Info.Text = ("%s   SPEED <font color=\"#6BE4FF\">%d</font>%s"):format(s.Ball and "AUTO DRIBBLE" or "AUTO RUN", math.floor(humanoid.WalkSpeed + 0.5),
 		s.Best and ("   BEST LAP <font color=\"#FFD84A\">%.1fs</font>"):format(s.Best) or "")
 end
 
@@ -939,7 +1022,7 @@ controllers.Speed = {
 		if s.AutoRun then autoStop() end
 	end,
 }
-controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent }
+controllers.Dribbling = controllers.Speed
 
 --------------------------------------------------------------------------------
 -- Defending (also the stadium's defend moments)
@@ -1010,10 +1093,11 @@ local function tackle(s)
 		local ok, r = pcall(function() return ctx.Remotes.Train:InvokeServer("Tackle") end)
 		if not (ok and r) or S ~= s then return end
 		if r.Result == "stop" then
+			s.Stops = (s.Stops or 0) + 1
 			removeAttacker(s, r.Attacker, true)
 			shout("TACKLE!", C.Blue, 64)
 			ctx.Sound("Tackle")
-		elseif r.Result == "miss" then
+		elseif r.Result == "miss" and not s.Pattern then
 			shout("TOO FAR!", C.Grey, 40, 0.5)
 		end
 	end)
@@ -1033,12 +1117,25 @@ controllers.Defending = {
 		s.Lives = data.Lives
 		s.Wave = 0
 		s.Attackers = {}
-		resetCamera()
-		hud.Info.Text = touchOnly() and "Run to the attackers and press TACKLE!" or "Run to the attackers and tackle! (F, click or TACKLE)"
+		s.Pattern = data.Pattern
+		s.Stops = 0
+		if s.Pattern then
+			-- behind you, looking up the pitch at the attackers coming
+			local line = data.GoalLine
+			setCamera(CFrame.lookAt((line * CFrame.new(0, 11, 8)).Position, (line * CFrame.new(0, 2, -30)).Position), 60)
+			hud.Info.Text = (touchOnly() and "Tap TACKLE" or "Click") .. " when they reach you! Same lanes, same rhythm. Resting? You tackle by yourself."
+		else
+			resetCamera()
+			hud.Info.Text = touchOnly() and "Run to the attackers and press TACKLE!" or "Run to the attackers and tackle! (F, click or TACKLE)"
+		end
 	end,
 	Update = function(s)
 		updateAttackers(s)
-		if s.Wave > 0 then hud.Info.Text = ("WAVE %d   %s"):format(s.Wave, hearts(s.Lives)) end
+		if s.Pattern then
+			if s.Stops > 0 then hud.Info.Text = ("TACKLES <font color=\"#6BE4FF\">%d</font>"):format(s.Stops) end
+		elseif s.Wave > 0 then
+			hud.Info.Text = ("WAVE %d   %s"):format(s.Wave, hearts(s.Lives))
+		end
 	end,
 	PressBegan = function(s) tackle(s) end,
 	Event = function(s, kind, data)
@@ -1056,6 +1153,13 @@ controllers.Defending = {
 		elseif kind == "waveClear" then
 			shout("WAVE CLEAR!", C.Green, 60)
 			ctx.Sound("Chime")
+		elseif kind == "attackers" then
+			addAttackers(s, data.Attackers)
+		elseif kind == "autoTackle" then
+			removeAttacker(s, data.Attacker, true)
+			s.Stops += 1
+			shout("TACKLE!", C.Blue, 46)
+			ctx.Sound("Tackle", 0.5)
 		end
 	end,
 	Stop = function() end,

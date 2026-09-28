@@ -44,6 +44,24 @@ empty baseplate.
   rep and every 3 lifts give XP. Resting? It lifts by itself (slower), so
   it works AFK too. Your character really squats, presses and pushes the
   sled, and the bar or sled moves with you.
+- **Everything farms AFK, in a fixed pattern** (set an auto clicker to it):
+  - **Shooting**: the target goes through the same 5 numbered spots in the
+    same order (bottom left, bottom right, middle, top left, top right) and
+    a click shoots exactly where you click. Rest 3 s: it shoots by itself.
+  - **Passing**: the targets light up in the same order, round and round, and
+    a click passes exactly where you click (a miss keeps the same target, so
+    a clicker going round the targets always catches up). Rest 3 s: it
+    passes by itself.
+  - **Dribbling**: weaves round the cones by itself, XP every second.
+  - **Tackle Zone**: you stand in front of goal and attackers run at you one
+    every 2.2 s from the same lanes in the same order; click (early is fine)
+    to tackle. Resting: you tackle them yourself when they reach you, for a
+    bit less XP.
+- **Lighting** follows the "Roblox lighting 100x better" TikTok
+  (`Config.LightingPresets.Video`): Ambient 124,155,184, Brightness 4,
+  Realistic, OutdoorAmbient 157,178,255, ShadowSoftness 1, ClockTime 14.5,
+  Bloom 1 / 56 / 2, ColorCorrection contrast 0.5, saturation 0.5, tint
+  243,234,255, and a thin dark outline round every player.
 - **XP** pops up in the middle of the screen ("+12 XP", in the stat's colour).
 
 Walk to a station and press **E** (or tap the prompt) to start a drill.

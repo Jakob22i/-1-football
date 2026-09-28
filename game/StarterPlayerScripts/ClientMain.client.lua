@@ -353,3 +353,29 @@ do
 		end
 	end)
 end
+
+-- A thin dark outline round every player's character (Config.Lighting.Outline,
+-- from the lighting video). Roblox shows at most 31 outlines at once, so it
+-- stops at 24 players (the star players use a few).
+do
+	local look = Config.Lighting.Outline
+	if look then
+		local count = 0
+		local function outline(character)
+			if count >= 24 or character:FindFirstChild("PlayerOutline") then return end
+			count += 1
+			local h = new("Highlight", {
+				Name = "PlayerOutline", FillColor = look.FillColor, FillTransparency = look.FillTransparency,
+				OutlineColor = look.OutlineColor, OutlineTransparency = 0, DepthMode = Enum.HighlightDepthMode.Occluded,
+				Adornee = character, Parent = character,
+			})
+			h.Destroying:Connect(function() count = math.max(0, count - 1) end)
+		end
+		local function watch(p)
+			if p.Character then outline(p.Character) end
+			p.CharacterAdded:Connect(outline)
+		end
+		for _, p in ipairs(Players:GetPlayers()) do watch(p) end
+		Players.PlayerAdded:Connect(watch)
+	end
+end

@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v24"
+Config.Version = "v25"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -192,7 +192,35 @@ Config.LightingPresets.PetSim = {
 	SunRays = { Intensity = 0.02, Spread = 0.4 },
 	Bloom = { Intensity = 0.25, Size = 16, Threshold = 2 },
 }
-Config.Lighting = Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
+-- From the "Roblox lighting 100x better" TikTok (kh_studios): cool blue
+-- ambient, bright sun, Realistic style, big soft bloom, punchy contrast and
+-- saturation with a hint of lilac. This is the one the game uses.
+Config.LightingPresets.Video = {
+	Lighting = {
+		Ambient = rgb(124, 155, 184),
+		Brightness = 4,
+		ColorShift_Bottom = rgb(0, 0, 0),
+		ColorShift_Top = rgb(0, 0, 0),
+		EnvironmentDiffuseScale = 1,
+		EnvironmentSpecularScale = 1,
+		GlobalShadows = true,
+		OutdoorAmbient = rgb(157, 178, 255),
+		ShadowSoftness = 1,
+		ExposureCompensation = 0,
+		ClockTime = 14.5,
+		GeographicLatitude = 0,
+	},
+	Newer = { LightingStyle = "Realistic", PrioritizeLightingQuality = true },
+	-- Roblox's own defaults for a new place (the video leaves them as they are)
+	Atmosphere = { Density = 0.3, Offset = 0.25, Color = rgb(199, 199, 199), Decay = rgb(106, 112, 125), Glare = 0, Haze = 0 },
+	ColorCorrection = { Brightness = 0, Contrast = 0.5, Saturation = 0.5, TintColor = rgb(243, 234, 255) },
+	SunRays = { Intensity = 0.01, Spread = 0.1 },
+	Bloom = { Intensity = 1, Size = 56, Threshold = 2 },
+	-- a thin dark outline round every player (a Highlight), as in the video
+	Outline = { FillColor = rgb(0, 0, 0), FillTransparency = 0.8, OutlineColor = rgb(0, 0, 0) },
+}
+Config.LightingName = "Video"
+Config.Lighting = Config.LightingPresets[Config.LightingName] or Config.LightingPresets[Config.Look] or Config.LightingPresets.Studs
 
 -- The sky ("Obby Sky", or "Anime Sky"): the six image ids from the Sky's
 -- properties (SkyboxBk, SkyboxDn, SkyboxFt, SkyboxLf, SkyboxRt, SkyboxUp).
@@ -303,14 +331,27 @@ Config.Drills = {
 	Shooting = {
 		Stat = "SHO",
 		Title = "SHOOTING PRACTICE",
-		Line = "Aim, hold to power up, release in the green. Hit the targets!",
+		Line = "Click the target to shoot! Same 5 spots every time, in the same order.",
+		-- AFK farming: the target moves through the same spots in the same
+		-- order forever (an auto clicker can be set to click them in turn),
+		-- a click shoots right where you click, and if you do not shoot for
+		-- AutoEvery seconds, a shot goes in by itself.
+		Pattern = {
+			{ -0.62, 0.3 },          -- bottom left   (u: share of half the goal width, v: share of its height)
+			{ 0.62, 0.3 },           -- bottom right
+			{ 0, 0.55 },             -- middle
+			{ -0.74, 0.8, true },    -- top left corner (bonus)
+			{ 0.74, 0.8, true },     -- top right corner (bonus)
+		},
+		PatternRadius = 2.1,
+		AutoEvery = 3,
 		HitXP = 10,
 		OnTargetXP = 2,     -- on target but not on a circle
 		TopCornerBonus = 1.5,
 		StreakForFire = 5,  -- hits in a row for ON FIRE
 		FireSeconds = 10,
 		FireMultiplier = 2,
-		ShotCooldown = 1.2,
+		ShotCooldown = 0.8,
 		FlightTime = 0.38,
 		IdleEnd = 40,       -- no shot for this long ends the session
 		-- target size (radius in studs) and movement from SHO 60 to 99
@@ -326,7 +367,9 @@ Config.Drills = {
 	Passing = {
 		Stat = "PAS",
 		Title = "PASSING DRILL",
-		Line = "Pass to the target that lights up. Quick and accurate = more XP!",
+		Line = "Click the lit target to pass! The targets light up in the same order every time.",
+		PatternMode = true,     -- targets light in a fixed order, a pass goes where you click
+		AutoEvery = 3,          -- no pass for this long: one goes by itself (AFK)
 		PassXP = 8,
 		RingBonus = 1.4,
 		MaxDistance = 62,       -- full power reaches this far
@@ -345,7 +388,9 @@ Config.Drills = {
 	Dribbling = {
 		Stat = "DRI",
 		Title = "DRIBBLING CONES",
-		Line = "Weave left and right round every cone. Don't touch them!",
+		Line = "You dribble round the cones by yourself: more Dribbling, faster laps!",
+		Auto = true,          -- weaves round the cones by itself, XP every second
+		XPPerSecond = 5,      -- x your dribbling speed / 14
 		BaseXP = 55,
 		MaxFactor = 1.7,
 		PerfectBonus = 1.5,
@@ -359,7 +404,14 @@ Config.Drills = {
 	Defending = {
 		Stat = "DEF",
 		Title = "TACKLE ZONE",
-		Line = "Stop the attackers before they reach your goal line!",
+		Line = "Attackers run at you one by one: click to tackle! Too slow? You tackle by yourself.",
+		PatternMode = true,   -- you stand in front of goal; attackers come in a fixed order
+		Lanes = { -0.55, 0.55, 0, -0.3, 0.3 }, -- where each one starts (share of half the pitch width)
+		PatternSpeed = 11,    -- how fast they run
+		PatternGap = 2.2,     -- seconds between attackers
+		PatternReach = 9,     -- a click tackles anyone this close (a long window, easy for an auto clicker)
+		AutoReach = 1.5,      -- this close and not tackled yet: you tackle by yourself
+		AutoXP = 0.6,         -- ... for this share of the XP
 		StopXP = 9,
 		WaveBonus = 4,        -- x the wave number, for clearing a wave without a goal
 		Lives = 3,

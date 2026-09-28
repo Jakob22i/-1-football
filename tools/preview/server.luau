@@ -129,47 +129,50 @@ end
 
 local drills = {}
 
+-- An auto clicker: clicks the 5 pattern spots in turn, then rests (the
+-- drill shoots by itself).
 drills.Shooting = function()
-	print("-- Shooting")
+	print("-- Shooting (pattern + auto clicker)")
 	print("  start", startAt("Lobby_Shooting"))
 	local s = TrainingService.Get(plr)
-	local shots, hits = 0, 0
+	local rec = s.Station
+	local shoot = Config.Drills.Shooting
+	local halfW = rec.GoalWidth / 2 - shoot.PatternRadius - 0.3
+	local clicks, hits, i = 0, 0, 1
 	local t0 = CLOCK
 	while CLOCK - t0 < SECONDS_EACH do
-		-- aim at a target where it will be when the ball arrives
-		local target
-		for _, tg in pairs(s.Targets) do target = tg; if tg.Corner then break end end
-		local u, v = DrillMath.TargetPos(target, CLOCK + 1.0 + Config.Drills.Shooting.FlightTime)
-		advance(1.0)
-		local r = invoke("Shoot", u, v, 0.77)
-		shots += 1
-		if r and (r.Result == "hit" or r.Result == "corner") then hits += 1 end
-		advance(0.3)
+		if CLOCK - t0 < SECONDS_EACH / 2 then
+			local spot = shoot.Pattern[i]
+			local v = math.clamp(spot[2] * rec.GoalHeight, shoot.PatternRadius + 0.3, rec.GoalHeight - shoot.PatternRadius - 0.3)
+			local r = invoke("Shoot", spot[1] * halfW, v, 0.5)
+			clicks += 1
+			if r and (r.Result == "hit" or r.Result == "corner") then hits += 1 end
+			i = i % #shoot.Pattern + 1
+		end
+		advance(0.9)
 	end
-	print(("  shots %d, hits %d, streak best %d"):format(shots, hits, s.BestStreak))
+	print(("  clicks %d, hits %d, all goals %d (the rest by itself)"):format(clicks, hits, s.Goals))
 	invoke("Leave")
 end
 
 drills.Passing = function()
-	print("-- Passing")
+	print("-- Passing (pattern + auto clicker)")
 	print("  start", startAt("Lobby_Passing"))
 	local s = TrainingService.Get(plr)
 	local rec = s.Station
-	local passes, good = 0, 0
+	local clicks, good, i = 0, 0, 1
 	local t0 = CLOCK
 	while CLOCK - t0 < SECONDS_EACH do
-		local lit = s.Lit
-		if CLOCK < lit.Since then advance(lit.Since - CLOCK + 0.05) end
-		advance(0.9)
-		local target
-		for _, tg in ipairs(rec.Targets) do if tg.Id == s.Lit.Id then target = tg end end
-		local dist = (DrillMath.Flat(target.Pos) - DrillMath.Flat(rec.Spot)).Magnitude
-		local r = invoke("Pass", target.Pos.X, target.Pos.Z, dist / Config.Drills.Passing.MaxDistance)
-		passes += 1
-		if r and r.Success then good += 1 end
-		advance(0.2)
+		if CLOCK - t0 < SECONDS_EACH / 2 then
+			local target = rec.Targets[i]
+			local r = invoke("Pass", target.Pos.X, target.Pos.Z, 0.5)
+			clicks += 1
+			if r and r.Success then good += 1 end
+			i = i % #rec.Targets + 1
+		end
+		advance(0.7)
 	end
-	print(("  passes %d, good %d"):format(passes, good))
+	print(("  clicks %d, good %d, all good passes %d"):format(clicks, good, s.Good))
 	invoke("Leave")
 end
 
@@ -224,36 +227,33 @@ drills.Speed = function()
 end
 
 drills.Dribbling = function()
-	print("-- Dribbling")
-	runCourse("Lobby_Dribbling", true)
+	print("-- Dribbling (auto)")
+	print("  start", startAt("Lobby_Dribbling"))
+	local s = TrainingService.Get(plr)
+	local path = s.Station.AutoPath
+	local i, t0 = 2, CLOCK
+	while CLOCK - t0 < SECONDS_EACH and TrainingService.Get(plr) == s do
+		if moveTo(path[i], 0.05) then i = i % #path + 1 end
+		advance(0.05)
+	end
+	print("  speed", s.Speed)
+	invoke("Leave")
 end
 
 drills.Defending = function()
-	print("-- Defending")
+	print("-- Defending (pattern: click, then rest)")
 	print("  start", startAt("Lobby_Defending"))
 	local s = TrainingService.Get(plr)
 	local t0 = CLOCK
 	local tackles = 0
 	while CLOCK - t0 < SECONDS_EACH and TrainingService.Get(plr) == s do
-		-- chase the nearest attacker and tackle when close
-		local best, bestD
-		for _, att in pairs(s.Attackers) do
-			if CLOCK >= att.T0 then
-				local p = DrillMath.AttackerPos(att, CLOCK)
-				local d = (DrillMath.Flat(p) - DrillMath.Flat(root.Position)).Magnitude
-				if not bestD or d < bestD then best, bestD = p, d end
-			end
+		if CLOCK - t0 < SECONDS_EACH / 2 then
+			local r = invoke("Tackle")
+			if r and r.Result == "stop" then tackles += 1 end
 		end
-		if best then
-			moveTo(best, 0.05)
-			if bestD < 4 then
-				local r = invoke("Tackle")
-				if r and r.Result == "stop" then tackles += 1 end
-			end
-		end
-		advance(0.05)
+		advance(0.4)
 	end
-	print("  stops", tackles, "wave", s.Wave, "lives", s.Lives)
+	print("  clicked tackles", tackles, "all tackles", s.Stops, "lives", s.Lives)
 	invoke("Leave")
 end
 
