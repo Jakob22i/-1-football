@@ -304,6 +304,8 @@ local function buildPlaza(parent)
 		-- the prompt: "Buy" or "Wear" (each player's screen sets the words)
 		local prompt = MapKit.prompt(plaza, "StarPrompt", at + V(0, 3, 0) + (V(0, 0, 0) - at).Unit * 2, "Buy", star.Name, 9)
 		prompt:SetAttribute("Star", key)
+		-- each player's screen draws it: a rainbow button (ClientMain)
+		prompt.Style = Enum.ProximityPromptStyle.Custom
 		prompt.Name = "StarPrompt_" .. key
 		starPrompts[key] = prompt
 		task.spawn(function()
@@ -358,6 +360,29 @@ local function buildPlaza(parent)
 			MapKit.uiText(tag, ("R$ %d"):format(Config.Gamepasses[star.Pass].Price), 3, rgb(120, 255, 140),
 				{ Name = "Price", Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.6) })
 			tag.Parent = head
+			-- a soft golden glow round them and a few sparkles drifting up
+			local glow = Instance.new("PointLight")
+			glow.Name = "StarGlow"
+			glow.Color = rgb(255, 214, 120)
+			glow.Brightness = 1.6
+			glow.Range = 11
+			glow.Shadows = false
+			glow.Parent = root
+			local aura = Instance.new("ParticleEmitter")
+			aura.Name = "StarAura"
+			aura.Color = ColorSequence.new(rgb(255, 240, 170), rgb(255, 190, 70))
+			aura.LightEmission = 1
+			aura.LightInfluence = 0
+			aura.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.4, 0.35), NumberSequenceKeypoint.new(1, 0) })
+			aura.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+			aura.Lifetime = NumberRange.new(1.4, 2.2)
+			aura.Rate = 7
+			aura.Speed = NumberRange.new(0.8, 1.6)
+			aura.SpreadAngle = Vector2.new(25, 25)
+			aura.EmissionDirection = Enum.NormalId.Top
+			aura.Shape = Enum.ParticleEmitterShape.Cylinder
+			aura.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+			aura.Parent = root
 			rig.Parent = plaza
 			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
 			local anim = Instance.new("Animation")

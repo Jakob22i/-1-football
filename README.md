@@ -153,7 +153,9 @@ without Studio, so flat colours and emoji as words) are in `images/`.
   fountain, two small goals on the centre circle, corner flags, lamp posts
   and benches, and ad boards in front of the stands.
 - **Star players**: Ronaldo, Messi, Bellingham and Neymar Jr stand round the
-  fountain in real catalogue kits, hair and beard (`Config.Stars`). Each is a
+  fountain in real catalogue kits, hair and beard (`Config.Stars`), with a
+  soft golden glow and sparkles drifting up. Their prompt is a rainbow
+  button (tap it on a phone). Each is a
   gamepass: press E to buy, then E to wear the look on your own avatar (kept
   when you respawn and rejoin) or take it off. Owning one gives +10% XP in
   that player's best stat. Set each pass id in `Config.Gamepasses`

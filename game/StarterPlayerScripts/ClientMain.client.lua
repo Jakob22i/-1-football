@@ -269,3 +269,87 @@ task.spawn(function()
 		refreshStars()
 	end
 end)
+
+-- The star players' prompt is a rainbow button: the colours slide across
+-- it while it shows. Press E, or tap it.
+do
+	local PromptService = game:GetService("ProximityPromptService")
+	local RunService = game:GetService("RunService")
+	local UserInputService = game:GetService("UserInputService")
+	-- a full rainbow across the button, shifted along by `phase` (0-1)
+	local function rainbow(phase)
+		local keys = {}
+		for i = 0, 8 do
+			local t = i / 8
+			keys[i + 1] = ColorSequenceKeypoint.new(t, Color3.fromHSV((phase - t) % 1, 0.72, 1))
+		end
+		return ColorSequence.new(keys)
+	end
+	local shownPrompts = {}
+	PromptService.PromptShown:Connect(function(prompt)
+		if not prompt:GetAttribute("Star") or shownPrompts[prompt] then return end
+		local gui = new("BillboardGui", {
+			Name = "RainbowPrompt",
+			Adornee = prompt.Parent,
+			Size = UDim2.fromOffset(190, 62),
+			AlwaysOnTop = true,
+			Active = true,
+			ResetOnSpawn = false,
+			LightInfluence = 0,
+			Parent = player:WaitForChild("PlayerGui"),
+		})
+		local button = new("TextButton", {
+			Name = "Button",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			AutoButtonColor = false,
+			Text = "",
+			Parent = gui,
+		})
+		FKit.corner(button, 14)
+		new("UIStroke", { Thickness = 3, Color = Color3.fromRGB(8, 8, 16), ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = button })
+		local gradient = new("UIGradient", { Color = rainbow(0), Parent = button })
+		-- the key to press, in a dark square on the left (not on touch screens)
+		local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		if not touch then
+			local key = new("Frame", {
+				Size = UDim2.fromOffset(40, 40),
+				Position = UDim2.new(0, 11, 0.5, -20),
+				BackgroundColor3 = Color3.fromRGB(12, 18, 48),
+				Parent = button,
+			})
+			FKit.corner(key, 10)
+			FKit.text(key, "E", 24, C.White, { Size = UDim2.fromScale(1, 1) })
+		end
+		local label = FKit.text(button, prompt.ActionText, 24, C.White, {
+			Size = UDim2.new(1, touch and -16 or -64, 1, 0),
+			Position = UDim2.fromOffset(touch and 8 or 56, 0),
+			TextScaled = true,
+		})
+		new("UITextSizeConstraint", { MaxTextSize = 26, Parent = label })
+		local changed = prompt:GetPropertyChangedSignal("ActionText"):Connect(function()
+			label.Text = prompt.ActionText
+		end)
+		button.Activated:Connect(function()
+			prompt:InputHoldBegin()
+			prompt:InputHoldEnd()
+		end)
+		FKit.pop(button, 0.6, 0.18)
+		-- slide the rainbow along
+		local spin = RunService.RenderStepped:Connect(function()
+			gradient.Color = rainbow(os.clock() * 0.4 % 1)
+		end)
+		shownPrompts[prompt] = function()
+			spin:Disconnect()
+			changed:Disconnect()
+			gui:Destroy()
+		end
+	end)
+	PromptService.PromptHidden:Connect(function(prompt)
+		local close = shownPrompts[prompt]
+		if close then
+			shownPrompts[prompt] = nil
+			close()
+		end
+	end)
+end
