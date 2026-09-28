@@ -1155,7 +1155,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v21"
+Config.Version = "v22"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -1334,7 +1334,7 @@ Config.LightingPresets.PetSim = {
 	},
 	Newer = { LightingStyle = "Soft", PrioritizeLightingQuality = false },
 	Atmosphere = { Density = 0.18, Offset = 0, Color = rgb(214, 232, 255), Decay = rgb(150, 190, 240), Glare = 0, Haze = 0 },
-	ColorCorrection = { Brightness = 0, Contrast = 0.08, Saturation = 0.15, TintColor = rgb(255, 255, 255) },
+	ColorCorrection = { Brightness = 0.02, Contrast = 0.1, Saturation = 0.28, TintColor = rgb(255, 252, 255) },
 	SunRays = { Intensity = 0.02, Spread = 0.4 },
 	Bloom = { Intensity = 0.25, Size = 16, Threshold = 2 },
 }
@@ -1364,28 +1364,29 @@ Config.Texture = {
 	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true, Football = true, KitDummy = true, StarPlayer = true },
 }
 
--- The four star players round the lobby fountain, dressed in real kits,
+-- The four star players round the lobby fountain (look-alikes with made-up
+-- names: Ranaldo, Massi, Ballingham, Naymar Jr), dressed in real kits,
 -- hair and beards from the Roblox catalogue. Each is a gamepass (Stars.Pass
 -- in Config.Gamepasses): walk up and buy it, then wear the look whenever
 -- you like, and get more XP in that player's best stat for good.
 Config.Stars = {
 	Ronaldo = {
-		Name = "RONALDO", Number = 7, Stat = "SHO", Bonus = 0.1, Pass = "Star_Ronaldo",
+		Name = "RANALDO", Number = 7, Stat = "SHO", Bonus = 0.1, Pass = "Star_Ronaldo",
 		Shirt = 12671727804, Pants = 13957328362,    -- red and green, #7
 		Hair = { 135555885443323 }, Skin = Color3.fromRGB(214, 160, 118),
 	},
 	Messi = {
-		Name = "MESSI", Number = 10, Stat = "DRI", Bonus = 0.1, Pass = "Star_Messi",
+		Name = "MASSI", Number = 10, Stat = "DRI", Bonus = 0.1, Pass = "Star_Messi",
 		Shirt = 13037685109, Pants = 15864727387,    -- sky blue and white stripes, #10
 		Hair = { 103592509359330 }, Face = { 119423740610031 }, Skin = Color3.fromRGB(234, 190, 152),
 	},
 	Bellingham = {
-		Name = "BELLINGHAM", Number = 10, Stat = "PAS", Bonus = 0.1, Pass = "Star_Bellingham",
+		Name = "BALLINGHAM", Number = 10, Stat = "PAS", Bonus = 0.1, Pass = "Star_Bellingham",
 		Shirt = 122350971207999, Pants = 17126960776, -- white and navy, #10
 		Hair = { 126200440326529 }, Skin = Color3.fromRGB(124, 82, 56),
 	},
 	Neymar = {
-		Name = "NEYMAR JR", Number = 10, Stat = "PAC", Bonus = 0.1, Pass = "Star_Neymar",
+		Name = "NAYMAR JR", Number = 10, Stat = "PAC", Bonus = 0.1, Pass = "Star_Neymar",
 		Shirt = 91285212995098, Pants = 14483484956,  -- yellow and blue, #10
 		Hair = { 111937344447115 }, Skin = Color3.fromRGB(196, 140, 98),
 	},
@@ -1639,10 +1640,10 @@ Config.Gamepasses = {
 	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations.", Short = "New borders &amp; effects" },
 	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", Short = "Run 20% faster", WalkBonus = 0.2 },
 	-- the star players by the fountain (Config.Stars)
-	Star_Ronaldo = { Id = 0, Price = 99, Name = "Ronaldo", Line = "Wear Ronaldo's look. +10% Shooting XP.", Short = "Ronaldo look + SHO XP" },
-	Star_Messi = { Id = 0, Price = 99, Name = "Messi", Line = "Wear Messi's look. +10% Dribbling XP.", Short = "Messi look + DRI XP" },
-	Star_Bellingham = { Id = 0, Price = 99, Name = "Bellingham", Line = "Wear Bellingham's look. +10% Passing XP.", Short = "Bellingham look + PAS XP" },
-	Star_Neymar = { Id = 0, Price = 99, Name = "Neymar Jr", Line = "Wear Neymar's look. +10% Pace XP.", Short = "Neymar look + PAC XP" },
+	Star_Ronaldo = { Id = 0, Price = 99, Name = "Ranaldo", Line = "Wear Ranaldo's look. +10% Shooting XP.", Short = "Ranaldo look + SHO XP" },
+	Star_Messi = { Id = 0, Price = 99, Name = "Massi", Line = "Wear Massi's look. +10% Dribbling XP.", Short = "Massi look + DRI XP" },
+	Star_Bellingham = { Id = 0, Price = 99, Name = "Ballingham", Line = "Wear Ballingham's look. +10% Passing XP.", Short = "Ballingham look + PAS XP" },
+	Star_Neymar = { Id = 0, Price = 99, Name = "Naymar Jr", Line = "Wear Naymar's look. +10% Pace XP.", Short = "Naymar look + PAC XP" },
 }
 Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "SpeedBoots", "Cosmetics" }
 
@@ -2627,7 +2628,7 @@ local function petSim(part)
 		part[face] = Enum.SurfaceType.Smooth
 	end
 	local h, sat, v = part.Color:ToHSV()
-	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.12 + 0.03), math.min(1, v * 1.07 + 0.02))
+	part.Color = Color3.fromHSV(h, math.min(1, sat * 1.22 + 0.05), math.min(1, v * 1.06 + 0.02))
 end
 
 function StudTexture.Apply(part)
@@ -2862,7 +2863,217 @@ end)
 DataService.Blank = blank
 DataService.Reconcile = reconcile
 return DataService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL10"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- The three boards in the lobby: Highest OVR, Most Seasons and the Fastest
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL10"><Properties><string name="Name">Decor</string><ProtectedString name="Source">-- Low-poly props in the Pet Simulator style: trees and pines made of tilted
+-- blocks, faceted rocks, grass tufts, gold coins, little trophies, plank
+-- benches, flat hexagon stones, raised garden beds with a stone rim, and
+-- string lights with glowing bulbs. All plain parts, a few each.
+
+local MapKit = require(script.Parent:WaitForChild("MapKit"))
+
+local part, ball, cylinder = MapKit.part, MapKit.ball, MapKit.cylinder
+local rgb = MapKit.rgb
+local V = Vector3.new
+local rad = math.rad
+
+local Decor = {}
+
+Decor.Colors = {
+	Paving = rgb(216, 216, 242),
+	PavingDark = rgb(178, 180, 222),
+	Stone = rgb(150, 154, 196),
+	Rock = rgb(128, 132, 172),
+	Grass = rgb(84, 222, 96),
+	GrassDark = rgb(58, 190, 84),
+	Leaves = { rgb(76, 214, 92), rgb(96, 228, 104), rgb(62, 196, 88) },
+	Pine = { rgb(58, 196, 104), rgb(74, 212, 112), rgb(92, 226, 120) },
+	Trunk = rgb(186, 92, 82),
+	Wood = rgb(236, 128, 70),
+	WoodDark = rgb(196, 96, 52),
+	Gold = rgb(255, 208, 40),
+	GoldDark = rgb(236, 160, 20),
+	Bulb = rgb(255, 238, 196),
+	Rope = rgb(222, 120, 60),
+}
+local C = Decor.Colors
+
+local SMOOTH = Enum.Material.SmoothPlastic
+
+-- a random tilt of up to `deg` degrees
+local function tilt(rnd, deg)
+	return CFrame.Angles(rad((rnd() - 0.5) * 2 * deg), rad(rnd() * 360), rad((rnd() - 0.5) * 2 * deg))
+end
+
+-- A round tree: a leaning trunk and a crown of three tilted blocks.
+function Decor.tree(parent, at, size, rnd)
+	local m = Instance.new("Model")
+	m.Name = "Tree"
+	m.Parent = parent
+	local lean = CFrame.Angles(rad((rnd() - 0.5) * 10), rad(rnd() * 360), rad((rnd() - 0.5) * 10))
+	local trunkH = 7 * size
+	local base = CFrame.new(at) * lean
+	part(m, "Trunk", V(1.8, trunkH, 1.8) * V(size, 1, size), base * CFrame.new(0, trunkH / 2, 0), C.Trunk, SMOOTH)
+	local top = base * CFrame.new(0, trunkH, 0)
+	local g = C.Leaves[math.floor(rnd() * #C.Leaves) + 1]
+	part(m, "Leaves", V(9, 7, 9) * size, CFrame.new((top * CFrame.new(0, 2 * size, 0)).Position) * tilt(rnd, 18), g, SMOOTH)
+	part(m, "Leaves", V(6.5, 5.5, 6.5) * size, CFrame.new((top * CFrame.new(1.6 * size, 5.6 * size, 0.8 * size)).Position) * tilt(rnd, 22),
+		g:Lerp(rgb(255, 255, 255), 0.1), SMOOTH)
+	part(m, "Leaves", V(5, 4.5, 5) * size, CFrame.new((top * CFrame.new(-2.6 * size, 3.4 * size, -1.4 * size)).Position) * tilt(rnd, 25),
+		g:Lerp(rgb(0, 60, 30), 0.12), SMOOTH)
+	return m
+end
+
+-- A tall pine: blocks stacked up, each smaller and turned a little.
+function Decor.pine(parent, at, size, rnd)
+	local m = Instance.new("Model")
+	m.Name = "Tree"
+	m.Parent = parent
+	part(m, "Trunk", V(1.6, 4, 1.6) * size, CFrame.new(at + V(0, 2 * size, 0)), C.Trunk, SMOOTH)
+	local y = 3.2 * size
+	for i = 1, 4 do
+		local w = (8.4 - i * 1.5) * size
+		local h = 4 * size
+		local jitter = V((rnd() - 0.5) * 0.8, 0, (rnd() - 0.5) * 0.8) * size
+		part(m, "Needles", V(w, h, w), CFrame.new(at + jitter + V(0, y + h / 2, 0)) * tilt(rnd, 9), C.Pine[(i - 1) % #C.Pine + 1], SMOOTH)
+		y += h * 0.78
+	end
+	return m
+end
+
+-- A faceted rock: two or three tilted blocks.
+function Decor.rock(parent, at, size, rnd)
+	local m = Instance.new("Model")
+	m.Name = "Rock"
+	m.Parent = parent
+	local n = rnd() &lt; 0.5 and 2 or 3
+	for i = 1, n do
+		local s = (i == 1 and 1 or 0.65) * size
+		local off = i == 1 and V(0, 0, 0) or V((rnd() - 0.5) * 3, 0, (rnd() - 0.5) * 3) * size
+		part(m, "Rock", V(3.4, 2.8, 3) * s, CFrame.new(at + off + V(0, 1 * s, 0)) * tilt(rnd, 20),
+			C.Rock:Lerp(C.Stone, rnd() * 0.6), SMOOTH)
+	end
+	return m
+end
+
+-- A grass tuft: three blades leaning out.
+function Decor.tuft(parent, at, size, rnd)
+	local yaw = rnd() * 360
+	for i = 0, 2 do
+		local a = rad(yaw + i * 120)
+		local blade = Instance.new("WedgePart")
+		blade.Name = "Tuft"
+		blade.Anchored = true
+		blade.CanCollide = false
+		blade.CanTouch = false
+		blade.CanQuery = false
+		blade.CastShadow = false
+		blade.Material = SMOOTH
+		blade.Color = C.GrassDark:Lerp(C.Grass, rnd())
+		blade.Size = V(0.3, 2.2, 1) * size
+		blade.CFrame = CFrame.new(at) * CFrame.Angles(0, a, 0) * CFrame.new(0, 1 * size, 0.4 * size) * CFrame.Angles(rad(18), 0, 0)
+		blade.Parent = parent
+	end
+end
+
+-- A little pile of gold coins.
+function Decor.coins(parent, at, rnd)
+	for i = 1, 3 do
+		local off = V((rnd() - 0.5) * 2.4, 0, (rnd() - 0.5) * 2.4)
+		local coin = cylinder(parent, "Coin", 0.35, 1.9, at + off + V(0, 0.15 + i * 0.05, 0), C.Gold, SMOOTH,
+			{ CanCollide = false, CastShadow = false, Reflectance = 0.1 })
+		coin.CFrame = CFrame.new(coin.Position) * CFrame.Angles(rad((rnd() - 0.5) * 30), rad(rnd() * 360), rad(90 + (rnd() - 0.5) * 30))
+	end
+	-- one standing up
+	local up = cylinder(parent, "Coin", 0.35, 1.9, at + V(0, 0.95, 0), C.Gold, SMOOTH, { CanCollide = false, CastShadow = false, Reflectance = 0.1 })
+	up.CFrame = CFrame.new(up.Position) * CFrame.Angles(0, rad(rnd() * 360), 0)
+	cylinder(parent, "CoinFace", 0.4, 1.2, at + V(0, 0.95, 0), C.GoldDark, SMOOTH, { CanCollide = false, CastShadow = false }).CFrame = up.CFrame
+end
+
+-- A small gold trophy on a dark base.
+function Decor.trophy(parent, at, size, rnd)
+	local m = Instance.new("Model")
+	m.Name = "Trophy"
+	m.Parent = parent
+	local yaw = CFrame.Angles(0, rad(rnd() * 360), 0)
+	local base = CFrame.new(at) * yaw
+	part(m, "Base", V(1.6, 0.7, 1.6) * size, base * CFrame.new(0, 0.35 * size, 0), rgb(40, 44, 80), SMOOTH)
+	part(m, "Stem", V(0.5, 1.1, 0.5) * size, base * CFrame.new(0, 1.2 * size, 0), C.Gold, SMOOTH)
+	local cup = cylinder(m, "Cup", 1.6 * size, 1.8 * size, at + V(0, 1.7 * size, 0), C.Gold, SMOOTH, { Reflectance = 0.15 })
+	cup.CFrame = cup.CFrame * CFrame.new(0, 0, 0)
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "Handle", V(0.3, 0.9, 0.3) * size, base * CFrame.new(sx * 1.05 * size, 2.5 * size, 0), C.GoldDark, SMOOTH)
+	end
+	return m
+end
+
+-- A flat hexagon stone (three thin boards turned 60 degrees apart).
+function Decor.hexStone(parent, at, width, yaw, color, height)
+	height = height or 0.2
+	local len = width / math.sqrt(3)
+	for i = 0, 2 do
+		part(parent, "Stone", V(width, height, len), CFrame.new(at + V(0, height / 2, 0)) * CFrame.Angles(0, rad(yaw + i * 60), 0),
+			color or C.PavingDark, SMOOTH, { CastShadow = false, CanCollide = false })
+	end
+end
+
+-- A plank bench (three seat planks, two back planks, dark legs).
+function Decor.bench(parent, cf)
+	local m = Instance.new("Model")
+	m.Name = "Bench"
+	m.Parent = parent
+	for i = -1, 1 do
+		part(m, "Plank", V(5.6, 0.35, 0.5), cf * CFrame.new(0, 1.45, i * 0.55), i == 0 and C.WoodDark or C.Wood, SMOOTH)
+	end
+	for i = 0, 1 do
+		part(m, "BackPlank", V(5.6, 0.45, 0.3), cf * CFrame.new(0, 2.1 + i * 0.6, 0.95) * CFrame.Angles(rad(-12), 0, 0), C.Wood, SMOOTH)
+	end
+	for _, sx in ipairs({ -1, 1 }) do
+		part(m, "Leg", V(0.45, 1.3, 1.8), cf * CFrame.new(sx * 2.3, 0.65, 0.1), C.WoodDark, SMOOTH)
+		part(m, "BackLeg", V(0.4, 1.8, 0.3), cf * CFrame.new(sx * 2.3, 2.2, 1.05), C.WoodDark, SMOOTH)
+	end
+	return m
+end
+
+-- A raised garden bed: an octagon of grass on a wider octagon of stone.
+-- cf: the middle of the bed on the ground.
+local function octagon(parent, name, cf, w, d, bevel, height, color, material)
+	part(parent, name, V(w, height, d - bevel * 2), cf * CFrame.new(0, height / 2, 0), color, material)
+	part(parent, name, V(w - bevel * 2, height, d), cf * CFrame.new(0, height / 2, 0), color, material)
+	local side = bevel * math.sqrt(2)
+	for _, c in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+		part(parent, name, V(side, height, side),
+			cf * CFrame.new(c[1] * (w / 2 - bevel), height / 2, c[2] * (d / 2 - bevel)) * CFrame.Angles(0, rad(45), 0), color, material)
+	end
+end
+function Decor.bed(parent, cf, w, d, bevel, height)
+	local m = Instance.new("Model")
+	m.Name = "GardenBed"
+	m.Parent = parent
+	height = height or 1
+	octagon(m, "BedRim", cf, w, d, bevel, height, C.Stone, SMOOTH)
+	octagon(m, "BedGrass", cf, w - 1.6, d - 1.6, bevel * 0.8, height + 0.12, C.Grass, SMOOTH)
+	return m, height + 0.12
+end
+
+-- String lights from `a` to `b` (hanging `sag` studs in the middle), with a
+-- glowing bulb every few studs.
+function Decor.stringLights(parent, a, b, sag, bulbs)
+	local m = Instance.new("Model")
+	m.Name = "StringLights"
+	m.Parent = parent
+	local segments = bulbs + 1
+	local function at(t) return a:Lerp(b, t) - V(0, sag * 4 * t * (1 - t), 0) end
+	for i = 0, segments - 1 do
+		local p0, p1 = at(i / segments), at((i + 1) / segments)
+		MapKit.rod(m, "Rope", p0, p1, 0.18, C.Rope, SMOOTH, { CanCollide = false, CastShadow = false, CanQuery = false })
+		if i &gt; 0 then
+			ball(m, "Bulb", 0.9, p0 - V(0, 0.45, 0), C.Bulb, Enum.Material.Neon, { CanCollide = false, CastShadow = false, CanQuery = false })
+		end
+	end
+	return m
+end
+
+return Decor
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL11"><Properties><string name="Name">LeaderboardService</string><ProtectedString name="Source">-- The three boards in the lobby: Highest OVR, Most Seasons and the Fastest
 -- Speed Course. Scores go into OrderedDataStores when players save and the
 -- boards refresh every minute.
 
@@ -2989,7 +3200,7 @@ end
 
 LeaderboardService.Display = display
 return LeaderboardService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="Script" referent="FOOTBALL11"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Football Stars: starts everything on the server.
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="Script" referent="FOOTBALL12"><Properties><string name="Name">Main</string><ProtectedString name="Source">-- Football Stars: starts everything on the server.
 --
 --   1. the remotes the client talks through
 --   2. the map (MapBuilder) with every station
@@ -3224,7 +3435,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastRequest[player] = nil
 end)
 
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL12"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source">-- Builds the whole map from code on the empty baseplate:
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL13"><Properties><string name="Name">MapBuilder</string><ProtectedString name="Source">-- Builds the whole map from code on the empty baseplate:
 --
 --   the lobby     a small stadium plaza (spawn on the centre spot, stands,
 --                 floodlights, leaderboards, the Position Board) with exits
@@ -3240,6 +3451,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("FootballConfig"))
 local MapKit = require(script.Parent:WaitForChild("MapKit"))
 local StationBuilder = require(script.Parent:WaitForChild("StationBuilder"))
+local Decor = require(script.Parent:WaitForChild("Decor"))
 
 local part, patch, line, cylinder, ring, disc, ball = MapKit.part, MapKit.patch, MapKit.line, MapKit.cylinder, MapKit.ring, MapKit.disc, MapKit.ball
 local COL = MapKit.Colors
@@ -3256,6 +3468,14 @@ local ACADEMY_SCALE = 0.8
 
 local STAT_COLOR = {}
 for stat, def in pairs(Config.Stats) do STAT_COLOR[stat] = def.Color end
+
+-- a repeatable random number generator (the same map every time)
+local function seeded(seed)
+	return function()
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return seed / 2147483648
+	end
+end
 
 local function dir(deg)
 	local a = math.rad(deg)
@@ -3384,18 +3604,19 @@ local function buildPlaza(parent)
 	local plaza = Instance.new("Folder")
 	plaza.Name = "Plaza"
 	plaza.Parent = parent
-	-- the plaza is a pitch: a white rim, grass, and mown stripes across it
+	-- the plaza: pale paving round a small round pitch in the middle
 	local floorR = PLAZA_RADIUS + 3
-	disc(plaza, "Rim", V(0, 0, 0), floorR * 2 + 3, COL.Line, 0.26, Enum.Material.SmoothPlastic)
-	disc(plaza, "Floor", V(0, 0, 0), floorR * 2, COL.GrassDark, 0.3, Enum.Material.Grass)
-	for x = -floorR + 4, floorR - 4, 16 do
-		local len = 2 * math.sqrt(math.max(0, floorR * floorR - (math.abs(x) + 4) ^ 2)) - 2
-		if len &gt; 4 then patch(plaza, "Stripe", 8, len, CFrame.new(V(x, 0, 0)), COL.GrassLight, Enum.Material.Grass, 0.32) end
-	end
+	disc(plaza, "Rim", V(0, 0, 0), floorR * 2 + 3, Decor.Colors.PavingDark, 0.26, Enum.Material.SmoothPlastic)
+	disc(plaza, "Floor", V(0, 0, 0), floorR * 2, Decor.Colors.Paving, 0.3, Enum.Material.SmoothPlastic)
 	-- the centre circle of a pitch in the middle
 	-- white rims under green discs (a few parts instead of rings of 50)
 	disc(plaza, "Edge", V(0, 0, 0), 47.8, COL.Line, 0.34, Enum.Material.SmoothPlastic)
 	disc(plaza, "CentreGrass", V(0, 0, 0), 46, COL.Grass, 0.38, Enum.Material.Grass)
+	-- mown stripes on the pitch (under the centre circle)
+	for x = -20, 20, 8 do
+		local len = 2 * math.sqrt(math.max(0, 22.6 ^ 2 - (math.abs(x) + 2) ^ 2))
+		if len &gt; 4 then patch(plaza, "Stripe", 4, len, CFrame.new(V(x, 0, 0)), COL.GrassLight, Enum.Material.Grass, 0.4) end
+	end
 	disc(plaza, "CentreLine", V(0, 0, 0), 31.4, COL.Line, 0.42, Enum.Material.SmoothPlastic)
 	disc(plaza, "CentreGrass", V(0, 0, 0), 30, COL.Grass, 0.46, Enum.Material.Grass)
 	disc(plaza, "CentreSpot", V(0, 0, 0), 2.2, COL.Line, 0.52, Enum.Material.SmoothPlastic)
@@ -3448,14 +3669,14 @@ local function buildPlaza(parent)
 	fountain.Name = "Fountain"
 	fountain.Parent = plaza
 	local gold, goldDark = rgb(255, 204, 50), rgb(226, 150, 30)
-	local water = rgb(90, 190, 255)
+	local water = rgb(110, 214, 255)
 	disc(fountain, "BasinFoot", V(0, 0, 0), 25, goldDark, 0.8, Enum.Material.SmoothPlastic)
 	disc(fountain, "Basin", V(0, 0, 0), 23, gold, 2.2, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
-	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Neon, { Transparency = 0.3, CanCollide = false, CastShadow = false })
 	cylinder(fountain, "Column", 5, 4, V(0, 2, 0), gold, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
 	disc(fountain, "Bowl", V(0, 6.6, 0), 10, gold, 1, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
 	disc(fountain, "BowlRim", V(0, 6.2, 0), 10.8, goldDark, 0.5, Enum.Material.SmoothPlastic)
-	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Glass, { Transparency = 0.35, CanCollide = false, CastShadow = false })
+	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Neon, { Transparency = 0.3, CanCollide = false, CastShadow = false })
 	local spout = cylinder(fountain, "Spout", 1.6, 1.6, V(0, 7.6, 0), gold, Enum.Material.SmoothPlastic)
 	-- water: one emitter up from the spout, one splash round the basin
 	local jet = Instance.new("ParticleEmitter")
@@ -3515,17 +3736,31 @@ local function buildPlaza(parent)
 		local a = 45 + (i - 1) * 90
 		local at = dir(a) * 34
 		local toCentre = CFrame.lookAt(at, V(0, 0, 0))
-		disc(plaza, "KitStandRim", at, 7.4, gold, 0.9, Enum.Material.SmoothPlastic)
-		disc(plaza, "KitStand", at, 6.4, COL.NavyDark, 1.3, Enum.Material.SmoothPlastic)
-		disc(plaza, "KitStandTop", at, 5.6, gold, 1.36, Enum.Material.SmoothPlastic)
+		-- a raised garden bed round the stand, with a tree, a rock, grass,
+		-- gold coins and a trophy on it
+		local _, bedTop = Decor.bed(plaza, toCentre, 13, 13, 3.2, 0.9)
+		local function onBed(x, z) return (toCentre * CFrame.new(x, bedTop, z)).Position end
+		local rnd = seeded(i * 7)
+		Decor.tree(plaza, onBed(4.3, 4.3), 0.62, rnd)
+		Decor.rock(plaza, onBed(-4.4, 4), 0.55, rnd)
+		Decor.coins(plaza, onBed(-4.6, -3.2), rnd)
+		Decor.trophy(plaza, onBed(4.6, -3.4), 0.8, rnd)
+		Decor.tuft(plaza, onBed(-5.2, 0.6), 0.8, rnd)
+		Decor.tuft(plaza, onBed(5.3, 0.2), 0.7, rnd)
+		Decor.tuft(plaza, onBed(0.8, 5.4), 0.7, rnd)
+		local stand = at + V(0, bedTop, 0)
+		disc(plaza, "KitStandRim", stand, 7.4, gold, 0.5, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStand", stand, 6.4, COL.NavyDark, 0.9, Enum.Material.SmoothPlastic)
+		disc(plaza, "KitStandTop", stand, 5.6, gold, 0.96, Enum.Material.SmoothPlastic)
+		disc(plaza, "StarGlowRing", stand, 6.9, rgb(255, 226, 120), 0.62, Enum.Material.Neon, { CastShadow = false, CanCollide = false })
 		-- the name plaque on the stand's front, and its number in gold
-		local plaque = part(plaza, "StarPlaque", V(5.4, 1.5, 0.4), toCentre * CFrame.new(0, 0.9, -3.95) * CFrame.Angles(math.rad(-12), 0, 0),
+		local plaque = part(plaza, "StarPlaque", V(5.4, 1.5, 0.4), toCentre * CFrame.new(0, 1.8, -4.3) * CFrame.Angles(math.rad(-12), 0, 0),
 			COL.NavyDark, Enum.Material.SmoothPlastic)
 		local pg = MapKit.surface(plaque, Enum.NormalId.Front, 40, COL.NavyDark, 90)
 		MapKit.uiText(pg, star.Name, 4, COL.White, { Size = UDim2.fromScale(0.94, 0.58), Position = UDim2.fromScale(0.03, 0.04) })
 		MapKit.uiText(pg, ("+10%% %s XP"):format(Config.Stats[star.Stat].Name:upper()), 2, STAT_COLOR[star.Stat],
 			{ Size = UDim2.fromScale(0.94, 0.34), Position = UDim2.fromScale(0.03, 0.62) })
-		part(plaza, "StarPlaqueTrim", V(5.9, 2, 0.3), toCentre * CFrame.new(0, 0.9, -3.75) * CFrame.Angles(math.rad(-12), 0, 0),
+		part(plaza, "StarPlaqueTrim", V(5.9, 2, 0.3), toCentre * CFrame.new(0, 1.8, -4.1) * CFrame.Angles(math.rad(-12), 0, 0),
 			gold, Enum.Material.SmoothPlastic)
 		-- the prompt: "Buy" or "Wear" (each player's screen sets the words)
 		local prompt = MapKit.prompt(plaza, "StarPrompt", at + V(0, 3, 0) + (V(0, 0, 0) - at).Unit * 2, "Buy", star.Name, 9)
@@ -3562,7 +3797,7 @@ local function buildPlaza(parent)
 			rig.PrimaryPart = root
 			-- a bit bigger than life, like statues
 			pcall(function() rig:ScaleTo(1.4) end)
-			local feet = at + V(0, 1.36, 0)
+			local feet = stand + V(0, 0.96, 0)
 			local rootAt = feet + V(0, humanoid.HipHeight + root.Size.Y / 2, 0)
 			rig:PivotTo(CFrame.lookAt(rootAt, V(0, rootAt.Y, 0)))
 			-- stand exactly on the stand, whatever the scale did to the hips
@@ -3590,8 +3825,8 @@ local function buildPlaza(parent)
 			local glow = Instance.new("PointLight")
 			glow.Name = "StarGlow"
 			glow.Color = rgb(255, 214, 120)
-			glow.Brightness = 1.6
-			glow.Range = 11
+			glow.Brightness = 2.4
+			glow.Range = 13
 			glow.Shadows = false
 			glow.Parent = root
 			local aura = Instance.new("ParticleEmitter")
@@ -3609,6 +3844,16 @@ local function buildPlaza(parent)
 			aura.Shape = Enum.ParticleEmitterShape.Cylinder
 			aura.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
 			aura.Parent = root
+			-- a soft gold outline that glows round the whole body
+			local outline = Instance.new("Highlight")
+			outline.Name = "StarOutline"
+			outline.FillColor = rgb(255, 214, 90)
+			outline.FillTransparency = 0.88
+			outline.OutlineColor = rgb(255, 226, 120)
+			outline.OutlineTransparency = 0.25
+			outline.DepthMode = Enum.HighlightDepthMode.Occluded
+			outline.Adornee = rig
+			outline.Parent = rig
 			rig.Parent = plaza
 			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
 			local anim = Instance.new("Animation")
@@ -3633,22 +3878,38 @@ local function buildPlaza(parent)
 			(i % 2 == 0) and COL.Gold or COL.Red, Enum.Material.SmoothPlastic, { CanCollide = false })
 	end
 
-	-- lamp posts and benches round the pitch, between the exits
-	for _, a in ipairs({ -75, -45, -15, 15, 60, 120, 165, 195, 240 }) do
+	-- lamp posts with glowing orbs, plank benches, and string lights with
+	-- glowing bulbs hanging from lamp to lamp round the plaza
+	local lampAngles = { -75, -45, -15, 15, 60, 120, 165, 195, 240 }
+	local orbs = {}
+	for _, a in ipairs(lampAngles) do
 		local at = dir(a) * 45
 		local cf = CFrame.lookAt(at, V(0, 0, 0))
-		part(plaza, "LampBase", V(1.6, 1, 1.6), cf * CFrame.new(0, 0.8, 0), COL.NavyDark)
-		part(plaza, "LampPost", V(0.7, 9, 0.7), cf * CFrame.new(0, 5.5, 0), COL.NavyDark)
-		part(plaza, "LampArm", V(0.5, 0.5, 2.4), cf * CFrame.new(0, 9.6, -0.9), COL.NavyDark)
-		part(plaza, "Lantern", V(1.3, 1.3, 1.3), cf * CFrame.new(0, 9.1, -1.9), rgb(255, 236, 170), Enum.Material.Neon,
-			{ CastShadow = false })
-		part(plaza, "LanternCap", V(1.8, 0.4, 1.8), cf * CFrame.new(0, 9.9, -1.9), gold)
-		-- a bench beside it, facing the fountain
-		local bench = CFrame.lookAt(dir(a + 6) * 45, V(0, 0, 0))
-		part(plaza, "BenchSeat", V(5, 0.4, 1.6), bench * CFrame.new(0, 1.4, 0), rgb(176, 112, 60), Enum.Material.Wood)
-		part(plaza, "BenchBack", V(5, 1.4, 0.35), bench * CFrame.new(0, 2.3, 0.7), rgb(176, 112, 60), Enum.Material.Wood)
-		for _, sx in ipairs({ -1, 1 }) do
-			part(plaza, "BenchLeg", V(0.4, 1.2, 1.4), bench * CFrame.new(sx * 2.1, 0.6, 0), COL.NavyDark)
+		part(plaza, "LampBase", V(1.8, 1, 1.8), cf * CFrame.new(0, 0.8, 0), rgb(60, 64, 120))
+		part(plaza, "LampPost", V(0.7, 9, 0.7), cf * CFrame.new(0, 5.5, 0), rgb(60, 64, 120))
+		part(plaza, "LanternCap", V(1.4, 0.5, 1.4), cf * CFrame.new(0, 10.2, 0), gold)
+		ball(plaza, "Lantern", 2.2, (cf * CFrame.new(0, 11.4, 0)).Position, Decor.Colors.Bulb, Enum.Material.Neon, { CastShadow = false })
+		table.insert(orbs, (cf * CFrame.new(0, 10.4, 0)).Position)
+		Decor.bench(plaza, CFrame.lookAt(dir(a + 6) * 45, V(0, 0, 0)))
+	end
+	for i, from in ipairs(orbs) do
+		local to = orbs[i % #orbs + 1]
+		local span = (to - from).Magnitude
+		Decor.stringLights(plaza, from, to, math.min(3.2, span * 0.08), math.max(3, math.floor(span / 4)))
+	end
+	-- flat hexagon stones set in the paving
+	local rnd = seeded(5)
+	for _ = 1, 60 do
+		local a = rnd() * 360
+		local r = 27 + rnd() * 25
+		local at = dir(a) * r
+		local clear = true
+		for k = 0, 3 do
+			if (at - dir(45 + k * 90) * 34).Magnitude &lt; 10.5 then clear = false end
+		end
+		if clear then
+			Decor.hexStone(plaza, at + V(0, 0.3, 0), 2.2 + rnd() * 1.4, rnd() * 60,
+				rnd() &lt; 0.5 and Decor.Colors.PavingDark or Decor.Colors.Paving:Lerp(COL.White, 0.4), 0.1)
 		end
 	end
 
@@ -3677,8 +3938,8 @@ local function path(parent, a, b, width)
 	local cf = CFrame.lookAt(V(mid.X, 0.12, mid.Z), V(b.X, 0.12, b.Z))
 	-- a darker edge showing either side (under the path, so where two paths
 	-- cross the edge hides under the other path)
-	part(parent, "PathEdge", V(width + 2, 0.18, length + 2), cf * CFrame.new(0, -0.03, 0), COL.ConcreteDark, Enum.Material.Concrete)
-	return part(parent, "Path", V(width, 0.24, length), cf, COL.Path, Enum.Material.Concrete)
+	part(parent, "PathEdge", V(width + 2, 0.18, length + 2), cf * CFrame.new(0, -0.03, 0), Decor.Colors.PavingDark, Enum.Material.SmoothPlastic)
+	return part(parent, "Path", V(width, 0.24, length), cf, Decor.Colors.Paving, Enum.Material.SmoothPlastic)
 end
 
 --------------------------------------------------------------------------------
@@ -4031,47 +4292,6 @@ end
 -- Scenery
 --------------------------------------------------------------------------------
 
--- Blocky trees (all blocks, so they wear the studs like everything else).
-local function blockyTree(parent, at, size, rnd)
-	local m = Instance.new("Model")
-	m.Name = "Tree"
-	m.Parent = parent
-	local bark = rgb(120, 80, 48)
-	local greens = { rgb(60, 170, 70), rgb(80, 190, 80), rgb(50, 150, 64), rgb(100, 205, 90) }
-	local g = greens[math.floor(rnd() * #greens) + 1]
-	local trunkH = 7 * size
-	part(m, "Trunk", V(2.4 * size, trunkH, 2.4 * size), CFrame.new(at + V(0, trunkH / 2, 0)), bark, Enum.Material.Wood)
-	local yaw = CFrame.Angles(0, math.rad(math.floor(rnd() * 4) * 22.5), 0)
-	local top = at + V(0, trunkH, 0)
-	part(m, "Leaves", V(10, 6, 10) * size, CFrame.new(top + V(0, 2 * size, 0)) * yaw, g, Enum.Material.Grass)
-	part(m, "Leaves", V(7, 4, 7) * size, CFrame.new(top + V(0, 6.5 * size, 0)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
-	-- clumps sticking out of the crown, a shade darker
-	for i = 0, 2 do
-		local side = CFrame.new(top) * yaw * CFrame.Angles(0, math.rad(i * 120 + rnd() * 30), 0)
-		part(m, "Leaves", V(4.4, 4, 4.4) * size, side * CFrame.new(0, (1 + rnd() * 2) * size, -5 * size), g:Lerp(COL.NavyDark, 0.1), Enum.Material.Grass)
-	end
-	-- roots
-	part(m, "Root", V(4, 1, 1.4) * size, CFrame.new(at + V(0, 0.5 * size, 0)) * yaw, bark, Enum.Material.Wood)
-	return m
-end
-
-local function blockyPine(parent, at, size)
-	local m = Instance.new("Model")
-	m.Name = "Tree"
-	m.Parent = parent
-	part(m, "Trunk", V(2 * size, 4 * size, 2 * size), CFrame.new(at + V(0, 2 * size, 0)), rgb(110, 72, 44), Enum.Material.Wood)
-	local greens = { rgb(34, 120, 66), rgb(42, 138, 74), rgb(54, 156, 84) }
-	local y = 3.5 * size
-	for i = 1, 3 do
-		local w = (11 - i * 3) * size
-		local h = 3.4 * size
-		part(m, "Needles", V(w, h, w), CFrame.new(at + V(0, y + h / 2, 0)), greens[i], Enum.Material.Grass)
-		y += h * 0.8
-	end
-	part(m, "Needles", V(2.4, 2.4, 2.4) * size, CFrame.new(at + V(0, y + 1.2 * size, 0)), greens[3], Enum.Material.Grass)
-	return m
-end
-
 -- Blocky mountains round the edge of the map: stacked blocks, grass at the
 -- foot, rock above, snow on the high ones.
 local function mountain(parent, at, width, height, rnd)
@@ -4167,8 +4387,40 @@ local function scatterTrees(parent)
 	}
 	local planted = {}
 	local count = 0
+	-- raised garden beds out in the grass, each with a tree, rocks and grass
+	local beds = 0
 	for _ = 1, 1500 do
-		if count &gt;= 55 then break end
+		if beds &gt;= 12 then break end
+		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
+		local w, d = 12 + rnd() * 8, 10 + rnd() * 6
+		local ok = clearOf(boxes, pos, 13)
+		for _, zone in ipairs(keepClear) do
+			if (pos - zone[1]).Magnitude &lt; zone[2] then
+				ok = false
+				break
+			end
+		end
+		for _, other in ipairs(planted) do
+			if (other - pos).Magnitude &lt; 30 then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			local cf = CFrame.new(pos) * CFrame.Angles(0, math.rad(math.floor(rnd() * 4) * 45), 0)
+			local _, top = Decor.bed(folder, cf, w, d, 3, 0.9)
+			local function onBed(x, z) return (cf * CFrame.new(x * (w / 2 - 3), top, z * (d / 2 - 3))).Position end
+			if rnd() &lt; 0.5 then Decor.tree(folder, onBed(0.4, 0.2), 0.8, rnd) else Decor.pine(folder, onBed(0.4, 0.2), 0.8, rnd) end
+			Decor.rock(folder, onBed(-0.6, 0.4), 0.7, rnd)
+			Decor.tuft(folder, onBed(-0.3, -0.6), 0.9, rnd)
+			Decor.tuft(folder, onBed(0.8, -0.5), 0.8, rnd)
+			if beds % 3 == 0 then Decor.coins(folder, onBed(-0.7, -0.4), rnd) end
+			table.insert(planted, pos)
+			beds += 1
+		end
+	end
+	for _ = 1, 1500 do
+		if count &gt;= 70 then break end
 		local pos = V(MAP_MIN.X + rnd() * (MAP_MAX.X - MAP_MIN.X), 0, MAP_MIN.Z + rnd() * (MAP_MAX.Z - MAP_MIN.Z))
 		local size = 0.8 + rnd() * 0.5
 		local pine = rnd() &lt; 0.4
@@ -4188,7 +4440,7 @@ local function scatterTrees(parent)
 			end
 		end
 		if ok then
-			if pine then blockyPine(folder, pos, size) else blockyTree(folder, pos, size, rnd) end
+			if pine then Decor.pine(folder, pos, size, rnd) else Decor.tree(folder, pos, size, rnd) end
 			table.insert(planted, pos)
 			count += 1
 		end
@@ -4211,17 +4463,17 @@ local function scatterTrees(parent)
 		if ok then
 			local yaw = CFrame.Angles(0, rnd() * math.pi, 0)
 			if extras % 3 == 0 then
-				-- a bush: two blocks
-				local g = rgb(64, 168, 70):Lerp(rgb(96, 196, 84), rnd())
-				part(folder, "Bush", V(4.4, 2.6, 3.6), CFrame.new(pos + V(0, 1.3, 0)) * yaw, g, Enum.Material.Grass)
-				part(folder, "Bush", V(2.8, 1.6, 2.6), CFrame.new(pos + V(0.6, 3, 0.2)) * yaw, g:Lerp(COL.White, 0.12), Enum.Material.Grass)
-			else
+				Decor.rock(folder, pos, 0.8 + rnd() * 0.6, rnd)
+			elseif extras % 3 == 1 then
 				-- a flower patch: three little flowers of one colour
 				local c = petals[math.floor(rnd() * #petals) + 1]
 				for k = 0, 2 do
 					local off = CFrame.new(pos) * yaw * CFrame.new((k - 1) * 1.3, 0, (k % 2) * 0.9)
 					part(folder, "Flower", V(1, 0.9, 1), off * CFrame.new(0, 0.45, 0), c, Enum.Material.SmoothPlastic, { CastShadow = false, CanCollide = false })
 				end
+			else
+				Decor.tuft(folder, pos, 1, rnd)
+				Decor.tuft(folder, pos + V(1.8, 0, 0.8), 0.8, rnd)
 			end
 			table.insert(planted, pos)
 			extras += 1
@@ -4343,7 +4595,7 @@ function MapBuilder.Build()
 end
 
 return MapBuilder
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL13"><Properties><string name="Name">MapKit</string><ProtectedString name="Source">-- Helpers for building the map out of parts: blocks, cylinders, rings,
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL14"><Properties><string name="Name">MapKit</string><ProtectedString name="Source">-- Helpers for building the map out of parts: blocks, cylinders, rings,
 -- painted lines, signs with text, glowing gates.
 
 local MapKit = {}
@@ -4585,7 +4837,7 @@ function MapKit.startPad(parent, at, color, text)
 end
 
 return MapKit
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL14"><Properties><string name="Name">MatchService</string><ProtectedString name="Source">-- The Stadium Match (from 75 OVR): a quick 5-a-side against a team about as
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL15"><Properties><string name="Name">MatchService</string><ProtectedString name="Source">-- The Stadium Match (from 75 OVR): a quick 5-a-side against a team about as
 -- good as you. The match is played as big moments where your stats matter:
 --
 --   ATTACK   one shot at goal past their keeper (SHO)
@@ -4847,7 +5099,7 @@ end
 
 MatchService.ScoreText = scoreText
 return MatchService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL15"><Properties><string name="Name">RewardService</string><ProtectedString name="Source">-- Daily login rewards, quests and card cosmetics.
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL16"><Properties><string name="Name">RewardService</string><ProtectedString name="Source">-- Daily login rewards, quests and card cosmetics.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -5028,7 +5280,7 @@ function RewardService.Init(remotes)
 end
 
 return RewardService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL16"><Properties><string name="Name">RigService</string><ProtectedString name="Source">-- Makes the real Roblox characters the drills use (see PlayerFigure) and
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL17"><Properties><string name="Name">RigService</string><ProtectedString name="Source">-- Makes the real Roblox characters the drills use (see PlayerFigure) and
 -- keeps them in ReplicatedStorage.FigureRigs, where every client can copy
 -- them:
 --
@@ -5171,7 +5423,7 @@ function RigService.WaitReady(timeout)
 end
 
 return RigService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL17"><Properties><string name="Name">ShopService</string><ProtectedString name="Source">-- Gamepasses and developer products. Fair by design: nothing here gives a
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL18"><Properties><string name="Name">ShopService</string><ProtectedString name="Source">-- Gamepasses and developer products. Fair by design: nothing here gives a
 -- LEGEND card or a season; the stat point stops at 84.
 --
 -- Ids of 0 mean "coming soon" in a live game. In Studio they are free so
@@ -5343,8 +5595,8 @@ function ShopService.Init(remotes)
 end
 
 return ShopService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL18"><Properties><string name="Name">StarService</string><ProtectedString name="Source">-- The star players round the lobby fountain (Config.Stars): Ronaldo, Messi,
--- Bellingham and Neymar Jr.
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL19"><Properties><string name="Name">StarService</string><ProtectedString name="Source">-- The star players round the lobby fountain (Config.Stars): Ranaldo, Massi,
+-- Ballingham and Naymar Jr (look-alikes with made-up names).
 --
 --   buy     walk up to one and press E: it is a gamepass (free in Studio)
 --   wear    once you own it, press E again to wear the look (their kit,
@@ -5473,7 +5725,7 @@ function StarService.Init(remotes, prompts)
 end
 
 return StarService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL19"><Properties><string name="Name">StatService</string><ProtectedString name="Source">-- The +1 loop, all on the server: XP goes into one stat, a full bar gives
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL20"><Properties><string name="Name">StatService</string><ProtectedString name="Source">-- The +1 loop, all on the server: XP goes into one stat, a full bar gives
 -- the stat +1, OVR is worked out from the stats for your position, and a
 -- higher OVR tells the player's screen to play the upgrade moment.
 --
@@ -5865,7 +6117,7 @@ function StatService.CharacterAdded(player)
 end
 
 return StatService
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL20"><Properties><string name="Name">StationBuilder</string><ProtectedString name="Source">-- Builds one training station of each kind at a given spot, and returns a
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL21"><Properties><string name="Name">StationBuilder</string><ProtectedString name="Source">-- Builds one training station of each kind at a given spot, and returns a
 -- record the TrainingService uses: where to stand, where the goal and the
 -- targets are, the course checkpoints, and the START prompt.
 --
@@ -6297,7 +6549,7 @@ function StationBuilder.Gym(parent, cf, opts)
 end
 
 return StationBuilder
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL21"><Properties><string name="Name">TrainingService</string><ProtectedString name="Source">-- The six drills, run on the server. The client draws them and sends what
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL22"><Properties><string name="Name">TrainingService</string><ProtectedString name="Source">-- The six drills, run on the server. The client draws them and sends what
 -- the player did (a shot's aim and power, a pass, a tackle, a press); the
 -- server decides what happened and hands out the XP. Runs are timed from the
 -- server's own view of the character, with checks that the time is possible.
@@ -7191,7 +7443,7 @@ return TrainingService
 </ProtectedString><bool name="Disabled">false</bool></Properties></Item></Item>
 	<Item class="StarterPlayer" referent="BASE6">
 		<Properties><string name="Name">StarterPlayer</string></Properties>
-		<Item class="StarterPlayerScripts" referent="BASE7"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="ModuleScript" referent="FOOTBALL22"><Properties><string name="Name">CardUI</string><ProtectedString name="Source">-- Your card, small and clean in the bottom-right corner, with your avatar in
+		<Item class="StarterPlayerScripts" referent="BASE7"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="ModuleScript" referent="FOOTBALL23"><Properties><string name="Name">CardUI</string><ProtectedString name="Source">-- Your card, small and clean in the bottom-right corner, with your avatar in
 -- it. It shows the six stats, pops a stat when it goes +1, and opens the big
 -- "My Card" window when you tap it.
 
@@ -7322,7 +7574,7 @@ function CardUI.Init(c)
 end
 
 return CardUI
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="LocalScript" referent="FOOTBALL23"><Properties><string name="Name">ClientMain</string><ProtectedString name="Source">-- Football Stars on the player's screen. Starts the parts and wires them to
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="LocalScript" referent="FOOTBALL24"><Properties><string name="Name">ClientMain</string><ProtectedString name="Source">-- Football Stars on the player's screen. Starts the parts and wires them to
 -- the server:
 --
 --   CardUI          your card in the bottom right (and its +1 pops)
@@ -7677,7 +7929,7 @@ do
 		end
 	end)
 end
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL24"><Properties><string name="Name">MenusUI</string><ProtectedString name="Source">-- The menus: big buttons on the left (My Card, Daily, Quests, Positions,
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL25"><Properties><string name="Name">MenusUI</string><ProtectedString name="Source">-- The menus: big buttons on the left (My Card, Daily, Quests, Positions,
 -- Season, Style, Shop) with badges, one window at a time in the middle of
 -- the screen, and chips at the top left for the 2x XP boost, the training
 -- streak and your XP multiplier.
@@ -8771,7 +9023,7 @@ function MenusUI.Init(c)
 end
 
 return MenusUI
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL25"><Properties><string name="Name">TrainingClient</string><ProtectedString name="Source">-- Everything you see and press while training. The server decides what
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL26"><Properties><string name="Name">TrainingClient</string><ProtectedString name="Source">-- Everything you see and press while training. The server decides what
 -- happens; this draws it: the targets and the ball, the aim and the power
 -- bar, the lit passing targets, the countdown and timer on the courses, the
 -- attackers in the Tackle Zone, the gym's timing bar, and the stadium match.
@@ -10087,7 +10339,7 @@ function TrainingClient.Init(c)
 end
 
 return TrainingClient
-</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL26"><Properties><string name="Name">UpgradeFX</string><ProtectedString name="Source">-- The upgrade moment, the best feeling in the game. When OVR goes up:
+</ProtectedString><bool name="Disabled">false</bool></Properties></Item><Item class="ModuleScript" referent="FOOTBALL27"><Properties><string name="Name">UpgradeFX</string><ProtectedString name="Source">-- The upgrade moment, the best feeling in the game. When OVR goes up:
 --
 --   1. the screen dims a little
 --   2. your card flies from the corner to the middle

@@ -94,7 +94,7 @@ challenge. All of it is decided on the server; the client only draws it.
 | +3 Stat Points (three lowest stats, up to 84) | product | 39 |
 | Training Pack (a level of XP for every stat, up to 90) | product | 49 |
 | Mega Pack (three levels of XP for every stat, up to 90) | product | 149 |
-| Ronaldo, Messi, Bellingham, Neymar Jr (the star players by the fountain: wear the look, +10% XP in one stat) | gamepass each | 99 |
+| Ranaldo, Massi, Ballingham, Naymar Jr (the star players by the fountain: wear the look, +10% XP in one stat) | gamepass each | 99 |
 
 LEGEND cards and seasons can never be bought.
 
@@ -152,7 +152,8 @@ without Studio, so flat colours and emoji as words) are in `images/`.
 - **Lobby**: the plaza is a striped pitch with a giant football over a golden
   fountain, two small goals on the centre circle, corner flags, lamp posts
   and benches, and ad boards in front of the stands.
-- **Star players**: Ronaldo, Messi, Bellingham and Neymar Jr stand round the
+- **Star players**: Ranaldo, Massi, Ballingham and Naymar Jr (made-up names)
+  stand round the
   fountain in real catalogue kits, hair and beard (`Config.Stars`), with a
   soft golden glow and sparkles drifting up. Their prompt is a rainbow
   button (tap it on a phone). Each is a

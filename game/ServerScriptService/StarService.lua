@@ -1,5 +1,5 @@
--- The star players round the lobby fountain (Config.Stars): Ronaldo, Messi,
--- Bellingham and Neymar Jr.
+-- The star players round the lobby fountain (Config.Stars): Ranaldo, Massi,
+-- Ballingham and Naymar Jr (look-alikes with made-up names).
 --
 --   buy     walk up to one and press E: it is a gamepass (free in Studio)
 --   wear    once you own it, press E again to wear the look (their kit,

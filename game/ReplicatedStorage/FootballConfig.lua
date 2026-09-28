@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v21"
+Config.Version = "v22"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -218,28 +218,29 @@ Config.Texture = {
 	SkipNames = { Fan = true, Figure = true, Dummy = true, Keeper = true, Football = true, KitDummy = true, StarPlayer = true },
 }
 
--- The four star players round the lobby fountain, dressed in real kits,
+-- The four star players round the lobby fountain (look-alikes with made-up
+-- names: Ranaldo, Massi, Ballingham, Naymar Jr), dressed in real kits,
 -- hair and beards from the Roblox catalogue. Each is a gamepass (Stars.Pass
 -- in Config.Gamepasses): walk up and buy it, then wear the look whenever
 -- you like, and get more XP in that player's best stat for good.
 Config.Stars = {
 	Ronaldo = {
-		Name = "RONALDO", Number = 7, Stat = "SHO", Bonus = 0.1, Pass = "Star_Ronaldo",
+		Name = "RANALDO", Number = 7, Stat = "SHO", Bonus = 0.1, Pass = "Star_Ronaldo",
 		Shirt = 12671727804, Pants = 13957328362,    -- red and green, #7
 		Hair = { 135555885443323 }, Skin = Color3.fromRGB(214, 160, 118),
 	},
 	Messi = {
-		Name = "MESSI", Number = 10, Stat = "DRI", Bonus = 0.1, Pass = "Star_Messi",
+		Name = "MASSI", Number = 10, Stat = "DRI", Bonus = 0.1, Pass = "Star_Messi",
 		Shirt = 13037685109, Pants = 15864727387,    -- sky blue and white stripes, #10
 		Hair = { 103592509359330 }, Face = { 119423740610031 }, Skin = Color3.fromRGB(234, 190, 152),
 	},
 	Bellingham = {
-		Name = "BELLINGHAM", Number = 10, Stat = "PAS", Bonus = 0.1, Pass = "Star_Bellingham",
+		Name = "BALLINGHAM", Number = 10, Stat = "PAS", Bonus = 0.1, Pass = "Star_Bellingham",
 		Shirt = 122350971207999, Pants = 17126960776, -- white and navy, #10
 		Hair = { 126200440326529 }, Skin = Color3.fromRGB(124, 82, 56),
 	},
 	Neymar = {
-		Name = "NEYMAR JR", Number = 10, Stat = "PAC", Bonus = 0.1, Pass = "Star_Neymar",
+		Name = "NAYMAR JR", Number = 10, Stat = "PAC", Bonus = 0.1, Pass = "Star_Neymar",
 		Shirt = 91285212995098, Pants = 14483484956,  -- yellow and blue, #10
 		Hair = { 111937344447115 }, Skin = Color3.fromRGB(196, 140, 98),
 	},
@@ -493,10 +494,10 @@ Config.Gamepasses = {
 	Cosmetics = { Id = 0, Price = 99, Name = "Card Style Pack", Line = "Fire, Ice and Galaxy borders, 2 backgrounds, 2 celebrations.", Short = "New borders & effects" },
 	SpeedBoots = { Id = 0, Price = 79, Name = "Speed Boots", Line = "Run 20% faster round the map (not in drills).", Short = "Run 20% faster", WalkBonus = 0.2 },
 	-- the star players by the fountain (Config.Stars)
-	Star_Ronaldo = { Id = 0, Price = 99, Name = "Ronaldo", Line = "Wear Ronaldo's look. +10% Shooting XP.", Short = "Ronaldo look + SHO XP" },
-	Star_Messi = { Id = 0, Price = 99, Name = "Messi", Line = "Wear Messi's look. +10% Dribbling XP.", Short = "Messi look + DRI XP" },
-	Star_Bellingham = { Id = 0, Price = 99, Name = "Bellingham", Line = "Wear Bellingham's look. +10% Passing XP.", Short = "Bellingham look + PAS XP" },
-	Star_Neymar = { Id = 0, Price = 99, Name = "Neymar Jr", Line = "Wear Neymar's look. +10% Pace XP.", Short = "Neymar look + PAC XP" },
+	Star_Ronaldo = { Id = 0, Price = 99, Name = "Ranaldo", Line = "Wear Ranaldo's look. +10% Shooting XP.", Short = "Ranaldo look + SHO XP" },
+	Star_Messi = { Id = 0, Price = 99, Name = "Massi", Line = "Wear Massi's look. +10% Dribbling XP.", Short = "Massi look + DRI XP" },
+	Star_Bellingham = { Id = 0, Price = 99, Name = "Ballingham", Line = "Wear Ballingham's look. +10% Passing XP.", Short = "Ballingham look + PAS XP" },
+	Star_Neymar = { Id = 0, Price = 99, Name = "Naymar Jr", Line = "Wear Naymar's look. +10% Pace XP.", Short = "Naymar look + PAC XP" },
 }
 Config.PassOrder = { "DoubleXP", "VIP", "AutoTrain", "SpeedBoots", "Cosmetics" }
 

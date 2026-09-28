@@ -315,6 +315,7 @@ local function buildPlaza(parent)
 		disc(plaza, "KitStandRim", stand, 7.4, gold, 0.5, Enum.Material.SmoothPlastic)
 		disc(plaza, "KitStand", stand, 6.4, COL.NavyDark, 0.9, Enum.Material.SmoothPlastic)
 		disc(plaza, "KitStandTop", stand, 5.6, gold, 0.96, Enum.Material.SmoothPlastic)
+		disc(plaza, "StarGlowRing", stand, 6.9, rgb(255, 226, 120), 0.62, Enum.Material.Neon, { CastShadow = false, CanCollide = false })
 		-- the name plaque on the stand's front, and its number in gold
 		local plaque = part(plaza, "StarPlaque", V(5.4, 1.5, 0.4), toCentre * CFrame.new(0, 1.8, -4.3) * CFrame.Angles(math.rad(-12), 0, 0),
 			COL.NavyDark, Enum.Material.SmoothPlastic)
@@ -387,8 +388,8 @@ local function buildPlaza(parent)
 			local glow = Instance.new("PointLight")
 			glow.Name = "StarGlow"
 			glow.Color = rgb(255, 214, 120)
-			glow.Brightness = 1.6
-			glow.Range = 11
+			glow.Brightness = 2.4
+			glow.Range = 13
 			glow.Shadows = false
 			glow.Parent = root
 			local aura = Instance.new("ParticleEmitter")
@@ -406,6 +407,16 @@ local function buildPlaza(parent)
 			aura.Shape = Enum.ParticleEmitterShape.Cylinder
 			aura.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
 			aura.Parent = root
+			-- a soft gold outline that glows round the whole body
+			local outline = Instance.new("Highlight")
+			outline.Name = "StarOutline"
+			outline.FillColor = rgb(255, 214, 90)
+			outline.FillTransparency = 0.88
+			outline.OutlineColor = rgb(255, 226, 120)
+			outline.OutlineTransparency = 0.25
+			outline.DepthMode = Enum.HighlightDepthMode.Occluded
+			outline.Adornee = rig
+			outline.Parent = rig
 			rig.Parent = plaza
 			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
 			local anim = Instance.new("Animation")
