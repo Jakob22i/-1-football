@@ -9,7 +9,7 @@ local Config = {}
 
 Config.GameName = "FOOTBALL STARS"
 Config.Tagline = "TRAIN TO 99"
-Config.Version = "v22"
+Config.Version = "v23"
 
 --------------------------------------------------------------------------------
 -- Stats
@@ -269,6 +269,14 @@ function Config.WalkSpeed(pace)
 	return Config.Speed.Base + Config.Speed.PerPace * math.max(0, pace - Config.StartLevel)
 end
 
+-- On the Speed Course you run by yourself, and much faster the more Pace
+-- you have (60 -> 20, 80 -> 29, 99 -> about 37.5).
+Config.Speed.Track = 20
+Config.Speed.TrackPerPace = 0.45
+function Config.TrackSpeed(pace)
+	return Config.Speed.Track + Config.Speed.TrackPerPace * math.max(0, pace - Config.StartLevel)
+end
+
 function Config.DribbleSpeed(dribbling)
 	return Config.Speed.Dribble + Config.Speed.PerDribble * math.max(0, dribbling - Config.StartLevel)
 end
@@ -283,7 +291,8 @@ Config.Drills = {
 	Speed = {
 		Stat = "PAC",
 		Title = "SPEED COURSE",
-		Line = "Sprint through every gate. Beat your best time!",
+		Line = "You run it by yourself: more Pace, faster laps!",
+		Auto = true,        -- the course runs itself, lap after lap (AFK friendly)
 		BaseXP = 80,        -- for a run at par time
 		MaxFactor = 1.7,    -- the most a very fast run multiplies it by
 		Countdown = 3,

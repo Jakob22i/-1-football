@@ -35,6 +35,12 @@ empty baseplate.
 
 ## How to play
 
+- **Speed Course runs itself**: start it once and you run lap after lap on
+  your own (AFK friendly). The more Pace you have, the faster you run on it
+  (20 studs/s at 60 Pace, about 37 at 99; `Config.TrackSpeed`).
+- **Gym**: your character really lifts: squats under the bar, presses on the
+  bench, and leans into the sled; the bar and the sled move with your hands.
+
 Walk to a station and press **E** (or tap the prompt) to start a drill.
 Everything shows its controls on screen. On a phone, tap to aim and use the
 big round button.

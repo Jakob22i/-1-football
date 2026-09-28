@@ -416,7 +416,7 @@ end
 
 local function courseSpeed(player, session)
 	if session.Kind == "Dribbling" then return Config.DribbleSpeed(statLevel(player, "DRI")) end
-	return Config.WalkSpeed(statLevel(player, "PAC"))
+	return Config.TrackSpeed(statLevel(player, "PAC"))
 end
 
 local function startCourse(player, session)
@@ -435,6 +435,7 @@ local function startCourse(player, session)
 	send(player, "start", {
 		Kind = session.Kind, Station = rec.Id, Start = rec.Start, Checks = rec.Checks, Cones = rec.Cones, Length = rec.Length,
 		Stat = session.Stat, Area = rec.Area, Lobby = rec.Id == "Lobby_Speed",
+		Auto = session.Kind == "Speed" and Config.Drills.Speed.Auto or nil,
 	})
 	beginRun(player, session)
 end
@@ -702,10 +703,46 @@ local function newRep(session, delay)
 	return session.RepData
 end
 
+-- Where the body goes on each machine (everyone sees it; the lifting itself
+-- is drawn on the player's own screen, TrainingClient):
+--   Squat  standing under the bar, facing out
+--   Bench  lying on the bench, head under the bar
+--   Sled   behind the sled, facing it
+local function gymPose(player, rec)
+	local root, humanoid = rootOf(player)
+	if not (root and humanoid) then return rec.Facing + Vector3.new(0, 3, 0) end
+	-- the machine's own frame (StationBuilder.Gym): the spot is 3.5 in front
+	-- of it, and its front (where the camera is) is +Z
+	local mcf = CFrame.lookAt(rec.Spot, rec.Spot - rec.Facing.LookVector) * CFrame.new(0, 0, -3.5)
+	local stand = humanoid.HipHeight + root.Size.Y / 2 + 0.25
+	if rec.Machine == "Bench" then
+		local pos = (mcf * CFrame.new(0, 1.6 + root.Size.Z / 2 + 0.05, 0.1)).Position
+		local up = -mcf.LookVector            -- head toward the bar
+		local back = Vector3.new(0, -1, 0)    -- lying on the back, face up
+		local right = up:Cross(back)
+		return CFrame.fromMatrix(pos, right, up)
+	elseif rec.Machine == "Sled" then
+		local pos = (mcf * CFrame.new(0, stand, 0.9)).Position
+		return CFrame.lookAt(pos, pos + mcf.LookVector)
+	end
+	local pos = (mcf * CFrame.new(0, stand, 0.9)).Position
+	return CFrame.lookAt(pos, pos - mcf.LookVector)
+end
+
 starters.Gym = function(player, session)
 	local rec = session.Station
 	freeze(player, true)
-	placeAt(player, rec.Facing + Vector3.new(0, 3, 0))
+	local root = rootOf(player)
+	placeAt(player, gymPose(player, rec))
+	if root then
+		root.Anchored = true
+		session.Cleanup = function()
+			if root.Parent then
+				root.Anchored = false
+				placeAt(player, rec.Facing + Vector3.new(0, 3, 0))
+			end
+		end
+	end
 	session.Rep = 1
 	session.Set, session.GoodInSet = 1, 0
 	session.Good, session.Perfects = 0, 0

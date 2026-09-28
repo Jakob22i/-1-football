@@ -54,6 +54,15 @@ end
 -- Local 3D things (only this player sees them)
 --------------------------------------------------------------------------------
 
+-- The player's own movement keys (off while a drill moves you by itself).
+local function setControls(on)
+	pcall(function()
+		local module = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
+		local controls = module:GetControls()
+		if on then controls:Enable() else controls:Disable() end
+	end)
+end
+
 local function localFolder()
 	local f = workspace:FindFirstChild("LocalDrill")
 	if not f then
@@ -713,6 +722,8 @@ local function markNext(s)
 end
 
 local function courseStart(s, data)
+	s.Auto = data.Auto
+	if s.Auto then setControls(false) end
 	s.Checks = data.Checks
 	s.Cones = data.Cones
 	s.Next = 1
@@ -761,8 +772,17 @@ local function courseUpdate(s)
 				s.RunStart = s.GoAt
 			end
 			if s.Running then
-				hud.Info.Text = ("TIME <font color=\"#FFD84A\">%.1fs</font>%s"):format(now - s.RunStart,
+				hud.Info.Text = ("%sTIME <font color=\"#FFD84A\">%.1fs</font>%s"):format(s.Auto and "AUTO RUN  " or "", now - s.RunStart,
 					s.Penalty > 0 and ("  <font color=\"#FF6A6A\">+%ds</font>"):format(s.Penalty) or "")
+				-- auto: run to just past the next gate (again every few
+				-- seconds, as a walk order runs out after a while)
+				local check = s.Auto and s.Checks[s.Next]
+				local character = player.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if check and humanoid and (s.MoveIndex ~= s.Next or os.clock() - (s.MoveAt or 0) > 2.5) then
+					s.MoveIndex, s.MoveAt = s.Next, os.clock()
+					humanoid:MoveTo(check.Pos + check.Dir * 5)
+				end
 			end
 		end
 	end
@@ -828,7 +848,17 @@ local function courseEvent(s, kind, data)
 	end
 end
 
-controllers.Speed = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent }
+local function courseStop(s)
+	if s.Auto then
+		setControls(true)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = rootOf()
+		if humanoid and root then humanoid:MoveTo(root.Position) end
+	end
+end
+
+controllers.Speed = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent, Stop = courseStop }
 controllers.Dribbling = { Action = nil, Start = courseStart, Update = courseUpdate, Event = courseEvent }
 
 --------------------------------------------------------------------------------
@@ -963,7 +993,140 @@ local function showRep(s, rep)
 	hud.TimingPerfect.Size = UDim2.fromScale(rep.Perfect, 1)
 end
 
+-- The body lifting: the joints of your own character bend with `p`
+-- (0 = the top of the lift, 1 = the bottom), and the bar or sled moves with
+-- your hands. p sinks slowly while you wait and snaps back up when you lift.
+local JOINTS = {
+	Root = "LowerTorso", Waist = "UpperTorso",
+	RightShoulder = "RightUpperArm", LeftShoulder = "LeftUpperArm",
+	RightElbow = "RightLowerArm", LeftElbow = "LeftLowerArm",
+	RightHip = "RightUpperLeg", LeftHip = "LeftUpperLeg",
+	RightKnee = "RightLowerLeg", LeftKnee = "LeftLowerLeg",
+}
+local r = math.rad
+local POSES = {
+	-- hands up by the shoulders holding the bar, then sit down into a squat
+	Squat = function(p)
+		return {
+			Root = CFrame.new(0, -1.25 * p, 0),
+			Waist = CFrame.Angles(r(-18 * p), 0, 0), -- lean forward
+			RightShoulder = CFrame.Angles(r(160), 0, r(18)), LeftShoulder = CFrame.Angles(r(160), 0, r(-18)),
+			RightElbow = CFrame.Angles(r(115), 0, 0), LeftElbow = CFrame.Angles(r(115), 0, 0),
+			RightHip = CFrame.Angles(r(85 * p), 0, 0), LeftHip = CFrame.Angles(r(85 * p), 0, 0),
+			RightKnee = CFrame.Angles(r(-105 * p), 0, 0), LeftKnee = CFrame.Angles(r(-105 * p), 0, 0),
+		}
+	end,
+	-- lying on the bench: arms straight up at the top, bent at the bottom
+	Bench = function(p)
+		return {
+			RightShoulder = CFrame.Angles(r(90 - 100 * p), 0, r(8 + 30 * p)), LeftShoulder = CFrame.Angles(r(90 - 100 * p), 0, r(-8 - 30 * p)),
+			RightElbow = CFrame.Angles(r(105 * p), 0, 0), LeftElbow = CFrame.Angles(r(105 * p), 0, 0),
+			RightHip = CFrame.Angles(r(-10), 0, 0), LeftHip = CFrame.Angles(r(-10), 0, 0),
+			RightKnee = CFrame.Angles(r(-25), 0, 0), LeftKnee = CFrame.Angles(r(-25), 0, 0),
+		}
+	end,
+	-- leaning into the sled: arms on the handles, legs driving
+	Sled = function(p, t)
+		local stride = math.sin(t * 9) * 32 * (1 - p)
+		return {
+			Root = CFrame.Angles(r(-28), 0, 0) * CFrame.new(0, -0.3, 0),
+			Waist = CFrame.Angles(r(-8), 0, 0),
+			RightShoulder = CFrame.Angles(r(95), 0, 0), LeftShoulder = CFrame.Angles(r(95), 0, 0),
+			RightElbow = CFrame.Angles(r(35), 0, 0), LeftElbow = CFrame.Angles(r(35), 0, 0),
+			RightHip = CFrame.Angles(r(30 + stride), 0, 0), LeftHip = CFrame.Angles(r(30 - stride), 0, 0),
+			RightKnee = CFrame.Angles(r(-40), 0, 0), LeftKnee = CFrame.Angles(r(-40), 0, 0),
+		}
+	end,
+}
+
+local function liftStart(s)
+	local character = player.Character
+	if not character then return end
+	s.Joints = {}
+	for name, partName in pairs(JOINTS) do
+		local holder = character:FindFirstChild(partName)
+		local motor = holder and holder:FindFirstChild(name)
+		if motor and motor:IsA("Motor6D") then s.Joints[name] = { Motor = motor, C0 = motor.C0 } end
+	end
+	-- the machine's moving parts, kept relative to the bar
+	s.Moving = {}
+	local bar = s.Bar
+	if bar and bar.Parent then
+		s.BarHome = bar.CFrame
+		for _, d in ipairs(bar.Parent:GetChildren()) do
+			if d:IsA("BasePart") and (d.Name == "Bar" or d.Name == "Plate" or (s.Machine == "Sled" and (d.Name == "Sled" or d.Name == "Handles"))) then
+				table.insert(s.Moving, { Part = d, Home = d.CFrame, Rel = bar.CFrame:ToObjectSpace(d.CFrame) })
+			end
+		end
+	end
+	local root = rootOf()
+	s.RootHome = root and root.CFrame
+	s.P = 0
+	s.PGoal = 0
+end
+
+local function liftUpdate(s, dt)
+	if not s.Joints then return end
+	-- sink toward the bottom while waiting for the lift
+	local rep = s.Rep
+	if s.Snap then
+		s.P = math.max(0, s.P - dt / 0.18)
+		if s.P <= 0 then s.Snap = nil end
+	elseif rep and ctx.Now() >= rep.Start then
+		s.P = math.min(1, s.P + dt / math.max(0.6, rep.Period * 1.6))
+	end
+	local pose = POSES[s.Machine] or POSES.Squat
+	local offsets = pose(s.P, os.clock())
+	for name, j in pairs(s.Joints) do
+		if j.Motor.Parent then j.Motor.C0 = j.C0 * (offsets[name] or CFrame.identity) end
+	end
+	local character = player.Character
+	local rh = character and character:FindFirstChild("RightHand")
+	local lh = character and character:FindFirstChild("LeftHand")
+	if s.BarHome and #s.Moving > 0 then
+		local target
+		if s.Machine == "Sled" then
+			-- the sled slides forward as you drive, back as you reset
+			local root = rootOf()
+			local fwd = root and DrillMath.Flat(root.CFrame.LookVector) or Vector3.zero
+			if fwd.Magnitude > 0 then fwd = fwd.Unit end
+			target = s.BarHome + fwd * 1.8 * (1 - s.P)
+			if root and s.RootHome then root.CFrame = s.RootHome + fwd * 1.8 * (1 - s.P) end
+		elseif rh and lh then
+			-- the bar sits in your hands
+			local mid = (rh.Position + lh.Position) / 2
+			local rot = s.BarHome - s.BarHome.Position
+			target = CFrame.new(mid) * rot
+		end
+		if target then
+			local delta = target
+			for _, m in ipairs(s.Moving) do
+				if m.Part.Parent then m.Part.CFrame = delta * m.Rel end
+			end
+		end
+	end
+end
+
+local function liftStop(s)
+	for _, j in pairs(s.Joints or {}) do
+		if j.Motor.Parent then j.Motor.C0 = j.C0 end
+	end
+	for _, m in ipairs(s.Moving or {}) do
+		if m.Part.Parent then m.Part.CFrame = m.Home end
+	end
+	s.Joints, s.Moving = nil, nil
+end
+
 local function liftBar(s, good)
+	if s.Joints then
+		-- up! (a miss only gets halfway)
+		if good then
+			s.Snap = true
+		else
+			s.P = math.max(0.5, s.P)
+		end
+		return
+	end
 	local bar = s.Bar
 	if not (bar and bar.Parent) then return end
 	s.BarHome = s.BarHome or bar.CFrame
@@ -985,11 +1148,16 @@ controllers.Gym = {
 		hud.Timing.Visible = true
 		showRep(s, data.Rep)
 		if data.Camera then setCamera(CFrame.lookAt(data.Camera.Position, data.Spot + Vector3.new(0, 3, 0)), 55) end
+		-- the server has put you on the machine: start moving with it
+		task.delay(0.2, function()
+			if S == s then pcall(liftStart, s) end
+		end)
 		hud.Info.Text = touchOnly() and "Press LIFT when the marker is in the green!" or "Press (Space / click / LIFT) when the marker is in the green!"
 	end,
-	Update = function(s)
+	Update = function(s, dt)
 		local rep = s.Rep
 		if not rep then return end
+		liftUpdate(s, dt or 1 / 60)
 		local now = ctx.Now()
 		local m = DrillMath.Marker(rep, now)
 		hud.TimingMarker.Position = UDim2.fromScale(m, 0.5)
@@ -1029,10 +1197,12 @@ controllers.Gym = {
 			s.Set = data.Set + 1
 		elseif kind == "repMissed" then
 			shout("TOO SLOW!", C.Red, 46, 0.6)
+			s.Snap = true
 		end
 	end,
 	Stop = function(s)
 		hud.Timing.Visible = false
+		liftStop(s)
 		if s.Bar and s.BarHome then s.Bar.CFrame = s.BarHome end
 	end,
 }
