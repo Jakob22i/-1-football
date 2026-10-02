@@ -147,11 +147,27 @@ MapKit.uiText = uiText
 -- Text on a part's face. With `bg` the text sits on a plain background, so
 -- the studs of the part never show through the letters (that is what made
 -- signs look noisy and weird from far away).
+MapKit.MAX_PIXELS = 60000 -- the most pixels one sign's text may use
+
 function MapKit.surface(target, face, pps, bg, maxDistance)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face or Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = pps or 30
+	-- Roblox has one texture budget for every sign's text together: when the
+	-- signs ask for more than it holds, it shrinks them all and the text goes
+	-- blocky far away. So no sign gets more than MAX_PIXELS, however big.
+	local size = target.Size
+	face = face or Enum.NormalId.Front
+	local w, h
+	if face == Enum.NormalId.Front or face == Enum.NormalId.Back then
+		w, h = size.X, size.Y
+	elseif face == Enum.NormalId.Top or face == Enum.NormalId.Bottom then
+		w, h = size.X, size.Z
+	else
+		w, h = size.Z, size.Y
+	end
+	pps = math.min(pps or 30, math.sqrt(MapKit.MAX_PIXELS / math.max(w * h, 1)))
+	gui.PixelsPerStud = math.floor(pps * 10 + 0.5) / 10
 	gui.LightInfluence = 0
 	gui.MaxDistance = maxDistance or 400
 	gui.Adornee = target

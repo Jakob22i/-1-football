@@ -232,20 +232,20 @@ local function buildPlaza(parent)
 	fountain.Name = "Fountain"
 	fountain.Parent = plaza
 	local gold, goldDark = rgb(255, 204, 50), rgb(226, 150, 30)
-	local water = rgb(110, 214, 255)
+	local water = rgb(70, 170, 240)
 	disc(fountain, "BasinFoot", V(0, 0, 0), 25, goldDark, 0.8, Enum.Material.SmoothPlastic)
 	disc(fountain, "Basin", V(0, 0, 0), 23, gold, 2.2, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
-	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Neon, { Transparency = 0.3, CanCollide = false, CastShadow = false })
+	disc(fountain, "Water", V(0, 1.9, 0), 20.4, water, 0.5, Enum.Material.Glass, { Transparency = 0.25, CanCollide = false, CastShadow = false })
 	cylinder(fountain, "Column", 5, 4, V(0, 2, 0), gold, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
 	disc(fountain, "Bowl", V(0, 6.6, 0), 10, gold, 1, Enum.Material.SmoothPlastic, { Reflectance = 0.15 })
 	disc(fountain, "BowlRim", V(0, 6.2, 0), 10.8, goldDark, 0.5, Enum.Material.SmoothPlastic)
-	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Neon, { Transparency = 0.3, CanCollide = false, CastShadow = false })
+	disc(fountain, "BowlWater", V(0, 7.5, 0), 8.6, water, 0.2, Enum.Material.Glass, { Transparency = 0.25, CanCollide = false, CastShadow = false })
 	local spout = cylinder(fountain, "Spout", 1.6, 1.6, V(0, 7.6, 0), gold, Enum.Material.SmoothPlastic)
 	-- water: one emitter up from the spout, one splash round the basin
 	local jet = Instance.new("ParticleEmitter")
 	jet.Name = "Water"
 	jet.Color = ColorSequence.new(rgb(200, 240, 255), water)
-	jet.LightEmission = 0.4
+	jet.LightEmission = 0.1
 	jet.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0.15) })
 	jet.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
 	jet.Lifetime = NumberRange.new(0.9, 1.2)
@@ -276,8 +276,8 @@ local function buildPlaza(parent)
 	football:SetAttribute("Spin", true)
 	local glow = Instance.new("PointLight")
 	glow.Color = rgb(255, 220, 120)
-	glow.Brightness = 1.5
-	glow.Range = 16
+	glow.Brightness = 0.5
+	glow.Range = 10
 	glow.Shadows = false
 	glow.Parent = core
 	local sparkle = Instance.new("ParticleEmitter")
@@ -388,8 +388,8 @@ local function buildPlaza(parent)
 			local glow = Instance.new("PointLight")
 			glow.Name = "StarGlow"
 			glow.Color = rgb(255, 214, 120)
-			glow.Brightness = 2.4
-			glow.Range = 13
+			glow.Brightness = 0.7
+			glow.Range = 8
 			glow.Shadows = false
 			glow.Parent = root
 			local aura = Instance.new("ParticleEmitter")
@@ -411,7 +411,7 @@ local function buildPlaza(parent)
 			local outline = Instance.new("Highlight")
 			outline.Name = "StarOutline"
 			outline.FillColor = rgb(255, 214, 90)
-			outline.FillTransparency = 0.88
+			outline.FillTransparency = 0.96
 			outline.OutlineColor = rgb(255, 226, 120)
 			outline.OutlineTransparency = 0.25
 			outline.DepthMode = Enum.HighlightDepthMode.Occluded
