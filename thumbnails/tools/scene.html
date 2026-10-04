@@ -1,0 +1,96 @@
+<!doctype html><html><body style="margin:0;background:#000"><canvas id=c></canvas>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
+import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+const q=new URLSearchParams(location.search);
+const W=+q.get('w')||1920,H=+q.get('h')||1080;
+const cfg=JSON.parse(decodeURIComponent(q.get('cfg')||'{}'));
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(W,H,false);renderer.setPixelRatio(1);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=cfg.exposure??1.0;
+const scene=new THREE.Scene();scene.background=new THREE.Color(cfg.bg??0x020202);
+if(cfg.fog)scene.fog=new THREE.FogExp2(cfg.fog[0],cfg.fog[1]);
+const parts=await (await fetch('parts.json')).json();
+const mats={};
+function mat(p){
+  const k=[p.color,p.mat,p.ref,p.tr].join();
+  if(mats[k])return mats[k];
+  const c=new THREE.Color(p.color[0]/255,p.color[1]/255,p.color[2]/255);
+  const o={color:c,roughness:.85,metalness:0};
+  if(p.mat==1088||p.mat==1040||p.mat==1056){o.metalness=.8;o.roughness=.45}
+  if(p.mat==272){o.roughness=.55}
+  if(p.mat==1312){o.roughness=1}
+  if(p.mat==512){o.roughness=.8}
+  if(p.mat==1568){o.roughness=.1;o.transparent=true;o.opacity=.35}
+  let m;
+  if(p.mat==288){m=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:2.5})}
+  else m=new THREE.MeshStandardMaterial(o);
+  if(p.tr>0){m.transparent=true;m.opacity=1-p.tr}
+  return mats[k]=m;
+}
+const gBox=new THREE.BoxGeometry(1,1,1),gSph=new THREE.SphereGeometry(.5,40,28);
+const gCyl=new THREE.CylinderGeometry(.5,.5,1,40);gCyl.rotateZ(Math.PI/2);
+const filter=cfg.include||[''];const excl=cfg.exclude||[];
+const root=new THREE.Group();scene.add(root);
+const mon=cfg.mon||{pos:[0,0,0],yaw:0,pitch:0,pivot:[0,5.4,0],scale:1};
+const monG=new THREE.Group(),monP=new THREE.Group();
+monG.position.set(...mon.pos);monG.rotation.y=mon.yaw||0;monG.scale.setScalar(mon.scale||1);
+monP.position.set(...(mon.pivot||[0,5.4,0]));monP.rotation.x=mon.pitch||0;
+monG.add(monP);
+const NECK=[0,9.78,-1.66],PV=(mon.pivot||[0,5.4,0]);
+const headG=new THREE.Group();headG.position.set(NECK[0]-PV[0],NECK[1]-PV[1],NECK[2]-PV[2]);
+headG.rotation.set(mon.headPitch||0,mon.headYaw||0,mon.headRoll||0,'YXZ');monP.add(headG);
+const neckInv=new THREE.Matrix4().makeTranslation(-NECK[0],-NECK[1],-NECK[2]);scene.add(monG);const monInv=new THREE.Matrix4().makeTranslation(-(mon.pivot||[0,5.4,0])[0],-(mon.pivot||[0,5.4,0])[1],-(mon.pivot||[0,5.4,0])[2]);
+const lights=[];
+for(const p of parts){
+  const isMon=p.path.startsWith('ServerStorage/Monster/');
+  if(isMon&&!cfg.showMon)continue;
+  if(!isMon&&!filter.some(f=>p.path.startsWith(f)))continue;
+  if(excl.some(f=>p.path.includes(f)))continue;
+  if(isMon&&(p.path.includes('/Rig/')||p.path.includes('/Joints/')||p.path.includes('/Root')&&p.path.split('/').length==3))continue;
+  if(p.tr>=0.99 && !p.lights.length)continue;
+  if(cfg.maxY!==undefined && p.cf[1]>cfg.maxY)continue;
+  if(!isMon&&cfg.box){const b=cfg.box;if(p.cf[0]<b[0]||p.cf[0]>b[1]||p.cf[2]<b[2]||p.cf[2]>b[3])continue;}
+  const g=p.mesh==3||p.shape==0?gSph:(p.shape==2?gCyl:gBox);
+  const m=new THREE.Mesh(g,mat(p));
+  const c=p.cf;
+  const M=new THREE.Matrix4().set(c[3],c[4],c[5],c[0],c[6],c[7],c[8],c[1],c[9],c[10],c[11],c[2],0,0,0,1);
+  m.applyMatrix4(M);m.scale.set(...p.size);
+  m.matrixAutoUpdate=true;
+  // applyMatrix4 decomposed; scale after
+  m.castShadow=p.tr<0.5;m.receiveShadow=true;
+  if(isMon){if(p.path.startsWith('ServerStorage/Monster/Head')){m.applyMatrix4(neckInv);headG.add(m);}else{m.applyMatrix4(monInv);monP.add(m);}}else{root.add(m);
+  for(const l of p.lights){const b=cfg.lightBox;if(!b||(c[0]>=b[0]&&c[0]<=b[1]&&c[2]>=b[2]&&c[2]<=b[3]))lights.push([c.slice(0,3),l]);}}
+}
+if(cfg.lights){for(const [pos,l] of lights){
+  const pl=new THREE.PointLight(new THREE.Color(...l.c),l.b*(cfg.lightGain||40),l.rng*1.5,2);
+  pl.position.set(...pos);root.add(pl);}}
+if(cfg.sceneJS)eval(cfg.sceneJS);
+for(const L of (cfg.lightsList||[])){
+  let l;
+  if(L.t=='spot'){l=new THREE.SpotLight(L.c,L.i,L.d||0,L.a||.5,L.p||.5,1.2);l.target.position.set(...L.tg);scene.add(l.target);l.castShadow=true;l.shadow.mapSize.set(2048,2048);l.shadow.bias=-.0003}
+  else if(L.t=='point'){l=new THREE.PointLight(L.c,L.i,L.d||0,1.5);l.castShadow=!!L.s;if(L.s)l.shadow.mapSize.set(1024,1024)}
+  else if(L.t=='dir'){l=new THREE.DirectionalLight(L.c,L.i)}
+  else l=new THREE.AmbientLight(L.c,L.i);
+  if(L.pos)l.position.set(...L.pos);scene.add(l);
+}
+for(const mk of (cfg.markers||[])){const b=new THREE.Mesh(new THREE.BoxGeometry(2,40,2),new THREE.MeshBasicMaterial({color:mk[3]}));b.position.set(mk[0],mk[1],mk[2]);scene.add(b);}
+const cam=new THREE.PerspectiveCamera(cfg.fov||40,W/H,.05,3000);
+cam.position.set(...cfg.cam);cam.lookAt(...cfg.look);if(cfg.roll)cam.rotateZ(cfg.roll);
+const comp=new EffectComposer(renderer);comp.setSize(W,H);
+comp.addPass(new RenderPass(scene,cam));
+comp.addPass(new UnrealBloomPass(new THREE.Vector2(W,H),cfg.bloom??.35,.6,.85));
+comp.addPass(new OutputPass());
+const vig=new ShaderPass({uniforms:{tDiffuse:{value:null},v:{value:cfg.vig??.9},g:{value:cfg.grain??.05},t:{value:1.7},ca:{value:cfg.ca??0.0025}},
+vertexShader:'varying vec2 u;void main(){u=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+fragmentShader:'uniform sampler2D tDiffuse;uniform float v,g,t,ca;varying vec2 u;float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233))+t)*43758.5453);}void main(){vec2 d=u-.5;vec4 c;c.r=texture2D(tDiffuse,u+d*ca).r;c.g=texture2D(tDiffuse,u).g;c.b=texture2D(tDiffuse,u-d*ca).b;c.a=1.;float r=length(d*vec2(1.,.8));c.rgb*=1.-v*smoothstep(.25,.85,r);c.rgb+=(h(u*1234.)-.5)*g;gl_FragColor=c;}'});
+comp.addPass(vig);
+comp.render();
+window.__done=true;
+</script></body></html>
